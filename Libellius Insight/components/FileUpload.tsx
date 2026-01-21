@@ -67,8 +67,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
         {isAnalyzing ? (
           <div className="flex flex-col items-center">
             <Loader2 className="w-16 h-16 md:w-24 h-24 text-brand animate-spin mb-6 md:mb-8" />
-            <h3 className="text-2xl md:text-4xl font-black text-black px-4 uppercase tracking-tighter">Analyzujem dáta...</h3>
-            <p className="text-black/50 mt-2 md:mt-4 font-medium text-sm md:text-xl">Libellius AI práve pripravuje váš report.</p>
+            <h3 className="text-2xl md:text-4xl font-black text-black px-4 uppercase tracking-tighter">Analyzujem Vase dáta...</h3>
+            <p className="text-black/50 mt-2 md:mt-4 font-medium text-sm md:text-xl">Uz, len chvilocku, Libellius AI práve pripravuje Váš report.</p>
           </div>
         ) : (
           <>
@@ -80,7 +80,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
               {labels.description}
             </p>
             <div className="px-8 py-4 md:px-12 md:py-5 bg-black text-white rounded-full transition-all duration-300 font-black text-xs md:text-xl uppercase tracking-widest hover:bg-brand shadow-xl shadow-black/30 transform hover:-translate-y-1">
-              Vybrať súbor z disku
+              Nahrajte svoj report
             </div>
           </>
         )}
