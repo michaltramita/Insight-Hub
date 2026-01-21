@@ -1,4 +1,3 @@
-
 export interface CompetencyData {
   name: string;
   selfScore: number;
@@ -29,8 +28,8 @@ export interface EmployeeProfile {
 
 export interface EngagementTeam {
   name: string;
-  count: number; // Received/Filled count
-  sentCount: number; // Sent count
+  count: number; 
+  sentCount: number; 
 }
 
 export interface SatisfactionMetric {
@@ -43,16 +42,21 @@ export interface TeamWorkSituation {
   metrics: SatisfactionMetric[];
 }
 
+// --- NOVÝ INTERFACE PRE DYNAMICKÉ KATEGÓRIE ---
+export interface SatisfactionCategory {
+  categoryName: string; // Tu bude napr. "Pracovná situácia", "Benefity" atď.
+  teams: TeamWorkSituation[];
+}
+
+// --- UPRAVENÝ INTERFACE PRE SPOKOJNOSŤ ---
 export interface EmployeeSatisfactionData {
   clientName: string;
   totalSent: number;
   totalReceived: number;
   successRate: string;
   teamEngagement: EngagementTeam[];
-  workSituationByTeam: TeamWorkSituation[];
-  supervisorByTeam: TeamWorkSituation[];
-  workTeamByTeam: TeamWorkSituation[];
-  companySituationByTeam: TeamWorkSituation[];
+  // Odstránili sme fixné polia a nahradili ich týmto:
+  categories: SatisfactionCategory[]; 
 }
 
 export type AnalysisMode = '360_FEEDBACK' | 'ZAMESTNANECKA_SPOKOJNOST';
