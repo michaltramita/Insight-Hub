@@ -2,57 +2,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// --- 1. POMOCNÁ FUNKCIA NA KONVERZIU EXCELU ---
-export const parseExcelFile = async (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        let combinedText = "";
-
-        workbook.SheetNames.forEach(name => {
-          const sheet = workbook.Sheets[name];
-          const csv = XLSX.utils.sheet_to_csv(sheet);
-          combinedText += `\n### SEKCOA/HAROK: ${name} ###\n${csv}\n`;
-        });
-
-        // Prevod slovenských čiarok (4,56) na bodky (4.56) pre AI
-        const normalizedText = combinedText.replace(/(\d+),(\d+)/g, '$1.$2');
-        resolve(normalizedText);
-      } catch (err) {
-        reject(new Error("Chyba pri čítaní Excelu."));
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsBinaryString(file);
-  });
-};
-
-// --- 2. POMOCNÁ FUNKCIA NA KONVERZIU PDF ---
-export const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-  });
-};
-
-// --- 3. DEFINÍCIA SCHÉMY PRE GEMINI ---
+// --- 1. SCHÉMA ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
-  const is360 = mode === '360_FEEDBACK';
-
-  if (is360) {
+  if (mode === '360_FEEDBACK') {
     return {
       type: schemaType.OBJECT,
       properties: {
         mode: { type: schemaType.STRING },
         reportMetadata: {
           type: schemaType.OBJECT,
-          properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
+          properties: {
+            date: { type: schemaType.STRING },
+            scaleMax: { type: schemaType.NUMBER }
+          },
           required: ["date", "scaleMax"]
         },
         employees: {
@@ -66,8 +29,38 @@ const getSchema = (mode: AnalysisMode) => {
                 type: schemaType.ARRAY,
                 items: {
                   type: schemaType.OBJECT,
-                  properties: { name: { type: schemaType.STRING }, selfScore: { type: schemaType.NUMBER }, othersScore: { type: schemaType.NUMBER } },
+                  properties: {
+                    name: { type: schemaType.STRING },
+                    selfScore: { type: schemaType.NUMBER },
+                    othersScore: { type: schemaType.NUMBER }
+                  },
                   required: ["name", "selfScore", "othersScore"]
+                }
+              },
+              topStrengths: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              topWeaknesses: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              gaps: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: {
+                    statement: { type: schemaType.STRING },
+                    selfScore: { type: schemaType.NUMBER },
+                    othersScore: { type: schemaType.NUMBER },
+                    diff: { type: schemaType.NUMBER }
+                  }
                 }
               },
               recommendations: { type: schemaType.STRING }
@@ -78,106 +71,187 @@ const getSchema = (mode: AnalysisMode) => {
       },
       required: ["mode", "reportMetadata", "employees"]
     };
-  }
-
-  return {
-    type: schemaType.OBJECT,
-    properties: {
-      mode: { type: schemaType.STRING },
-      reportMetadata: {
-        type: schemaType.OBJECT,
-        properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
-        required: ["date", "scaleMax"]
-      },
-      satisfaction: {
-        type: schemaType.OBJECT,
-        properties: {
-          clientName: { type: schemaType.STRING },
-          totalSent: { type: schemaType.NUMBER },
-          totalReceived: { type: schemaType.NUMBER },
-          successRate: { type: schemaType.STRING },
-          teamEngagement: {
-            type: schemaType.ARRAY,
-            items: {
-              type: schemaType.OBJECT,
-              properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER } },
-              required: ["name", "count"]
-            }
-          },
-          workSituationByTeam: {
-            type: schemaType.ARRAY,
-            items: {
-              type: schemaType.OBJECT,
-              properties: {
-                teamName: { type: schemaType.STRING },
-                metrics: {
-                  type: schemaType.ARRAY,
-                  items: {
-                    type: schemaType.OBJECT,
-                    properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                    required: ["category", "score"]
-                  }
-                }
-              },
-              required: ["teamName", "metrics"]
-            }
-          },
-          supervisorByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } },
-          workTeamByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } },
-          companySituationByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } }
+  } else {
+    return {
+      type: schemaType.OBJECT,
+      properties: {
+        mode: { type: schemaType.STRING },
+        reportMetadata: {
+          type: schemaType.OBJECT,
+          properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
+          required: ["date", "scaleMax"]
         },
-        required: ["clientName", "teamEngagement", "workSituationByTeam"]
-      }
-    },
-    required: ["mode", "reportMetadata", "satisfaction"]
-  };
+        satisfaction: {
+          type: schemaType.OBJECT,
+          properties: {
+            clientName: { type: schemaType.STRING },
+            totalSent: { type: schemaType.NUMBER },
+            totalReceived: { type: schemaType.NUMBER },
+            successRate: { type: schemaType.STRING },
+            teamEngagement: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER }, sentCount: { type: schemaType.NUMBER } },
+                required: ["name", "count", "sentCount"]
+              }
+            },
+            workSituationByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            supervisorByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            workTeamByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            companySituationByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            }
+          },
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
+        }
+      },
+      required: ["mode", "reportMetadata", "satisfaction"]
+    };
+  }
 };
 
-// --- 4. ANALÝZA ---
+// --- 2. PARSOVANIE EXCELU ---
+export const parseExcelFile = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const csvData = XLSX.utils.sheet_to_csv(worksheet);
+        resolve(csvData);
+      } catch (err) {
+        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsBinaryString(file);
+  });
+};
+
+// --- 3. HLAVNÁ ANALÝZA ---
 export const analyzeDocument = async (
   inputData: string, 
   mode: AnalysisMode,
   isExcel: boolean = false
 ): Promise<FeedbackAnalysisResult> => {
   
-  // UNIVERZÁLNE ZÍSKANIE KĽÚČA (Lokálne aj Vercel)
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
-  if (!apiKey) {
-    // Ak kľúč chýba, vypíšeme to do konzoly pre ľahší debugging na Verceli
-    console.error("VITE_GEMINI_API_KEY is missing in env variables!");
-    throw new Error("API kľúč nebol nájdený. Skontrolujte nastavenia prostredia.");
-  }
-
-  const genAI = new GoogleGenAI(apiKey);
-  
-  const prompt = mode === '360_FEEDBACK' 
-    ? "Analyzuj 360 feedback." 
-    : `Si HR analytik. Analyzuj CSV dáta z prieskumu spokojnosti FCC. 
-       Hlavičky tímov sú v prvom riadku každej sekcie. 
-       Extrahuj priemerné skóre pre každý tím. 
-       Vráť JSON podľa schémy.`;
+  const prompt360 = `Analyzuj priložené dáta z 360-stupňovej spätnej väzby a vráť výsledok v JSON podľa schémy.`;
+  const promptSatisfaction = `Analyzuj dáta z prieskumu spokojnosti (CSV tabuľku) a vráť výsledok v JSON podľa schémy.`;
 
   try {
-    const model = genAI.getGenerativeModel({ 
+    const basePrompt = mode === '360_FEEDBACK' ? prompt360 : promptSatisfaction;
+    const parts = [];
+
+    if (isExcel) {
+      // PRE EXCEL: Posielame CSV ako text
+      parts.push({ text: `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` });
+    } else {
+      // PRE PDF: Posielame PDF inline data
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
+      parts.push({ text: basePrompt });
+    }
+
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-pro", 
-      generationConfig: { 
-        responseMimeType: "application/json", 
-        responseSchema: getSchema(mode), 
-        temperature: 0.1 
+      contents: {
+        role: "user",
+        parts: parts
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: getSchema(mode),
+        temperature: 0.1
       }
     });
 
-    const contents = isExcel 
-      ? [{ role: "user", parts: [{ text: `${prompt}\n\nDÁTA:\n${inputData}` }] }]
-      : [{ role: "user", parts: [{ inlineData: { data: inputData, mimeType: "application/pdf" } }, { text: prompt }] }];
-
-    const result = await model.generateContent({ contents });
-    const response = await result.response;
-    return JSON.parse(response.text()) as FeedbackAnalysisResult;
+    const text = response.text || "";
+    // Odstránenie markdown formátovania, ak by ho model náhodou pridal
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
 
   } catch (error: any) {
-    console.error("Gemini Error:", error);
-    throw new Error("Chyba pri analýze dokumentu: " + (error.message || "Unknown error"));
+    console.error("Gemini Analysis Error:", error);
+    throw new Error(error.message || "Chyba pri analýze dokumentu.");
   }
+};
+
+export const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+  });
 };
