@@ -67,8 +67,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
         {isAnalyzing ? (
           <div className="flex flex-col items-center">
             <Loader2 className="w-16 h-16 md:w-24 h-24 text-brand animate-spin mb-6 md:mb-8" />
-            <h3 className="text-2xl md:text-4xl font-black text-black px-4 uppercase tracking-tighter">Analyzujem Vase dáta...</h3>
-            <p className="text-black/50 mt-2 md:mt-4 font-medium text-sm md:text-xl">Už, len chvíľočku, Libellius AI práve pripravuje Váš report.</p>
+            <h3 className="text-2xl md:text-4xl font-black text-black px-4 uppercase tracking-tighter">Analyzujem Vaše dáta...</h3>
+            <p className="text-black/50 mt-2 md:mt-4 font-medium text-sm md:text-xl">Už len chvíľočku, Libellius AI práve pripravuje Váš report.</p>
           </div>
         ) : (
           <>
