@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+mport { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
@@ -37,6 +37,32 @@ const getSchema = (mode: AnalysisMode) => {
                   required: ["name", "selfScore", "othersScore"]
                 }
               },
+              topStrengths: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              topWeaknesses: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              gaps: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: {
+                    statement: { type: schemaType.STRING },
+                    selfScore: { type: schemaType.NUMBER },
+                    othersScore: { type: schemaType.NUMBER },
+                    diff: { type: schemaType.NUMBER }
+                  }
+                }
+              },
               recommendations: { type: schemaType.STRING }
             },
             required: ["id", "name", "competencies", "recommendations"]
@@ -46,7 +72,6 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
-    // UNIVERZÁLNA DYNAMICKÁ SCHÉMA PRE SPOKOJNOSŤ
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -67,48 +92,84 @@ const getSchema = (mode: AnalysisMode) => {
               type: schemaType.ARRAY,
               items: {
                 type: schemaType.OBJECT,
-                properties: { 
-                  name: { type: schemaType.STRING }, 
-                  count: { type: schemaType.NUMBER }, 
-                  sentCount: { type: schemaType.NUMBER } 
-                },
+                properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER }, sentCount: { type: schemaType.NUMBER } },
                 required: ["name", "count", "sentCount"]
               }
             },
-            // Dynamické kategórie podľa hárkov v Exceli
-            categories: {
+            workSituationByTeam: {
               type: schemaType.ARRAY,
               items: {
                 type: schemaType.OBJECT,
                 properties: {
-                  categoryName: { type: schemaType.STRING },
-                  teams: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
                     type: schemaType.ARRAY,
                     items: {
                       type: schemaType.OBJECT,
-                      properties: {
-                        teamName: { type: schemaType.STRING },
-                        metrics: {
-                          type: schemaType.ARRAY,
-                          items: {
-                            type: schemaType.OBJECT,
-                            properties: { 
-                              category: { type: schemaType.STRING }, 
-                              score: { type: schemaType.NUMBER } 
-                            },
-                            required: ["category", "score"]
-                          }
-                        }
-                      },
-                      required: ["teamName", "metrics"]
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
                     }
                   }
                 },
-                required: ["categoryName", "teams"]
+                required: ["teamName", "metrics"]
+              }
+            },
+            supervisorByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            workTeamByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            companySituationByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
               }
             }
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "categories"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -124,18 +185,10 @@ export const parseExcelFile = async (file: File): Promise<string> => {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        let combinedData = "";
-
-        // Prechádzame všetky hárky
-        workbook.SheetNames.forEach(sheetName => {
-          const worksheet = workbook.Sheets[sheetName];
-          const csvData = XLSX.utils.sheet_to_csv(worksheet);
-          combinedData += `\n--- SEKCOA: ${sheetName} ---\n${csvData}\n`;
-        });
-
-        // Oprava čiarky na bodku (dôležité pre desatinné čísla)
-        const normalizedText = combinedData.replace(/(\d+),(\d+)/g, '$1.$2');
-        resolve(normalizedText);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const csvData = XLSX.utils.sheet_to_csv(worksheet);
+        resolve(csvData);
       } catch (err) {
         reject(new Error("Nepodarilo sa prečítať Excel súbor."));
       }
@@ -154,20 +207,22 @@ export const analyzeDocument = async (
   
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
-  const promptSatisfaction = `Si HR analytik. Analyzuj dáta z prieskumu spokojnosti. Každú sekciu (hárok) spracuj ako objekt v poli 'categories'. Pre každý tím extrahuj priemerné skóre.`;
+  const prompt360 = `Analyzuj priložené dáta z 360-stupňovej spätnej väzby a vráť výsledok v JSON podľa schémy.`;
+  const promptSatisfaction = `Analyzuj dáta z prieskumu spokojnosti (CSV tabuľku) a vráť výsledok v JSON podľa schémy.`;
 
   try {
-    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360 feedback." : promptSatisfaction;
+    const basePrompt = mode === '360_FEEDBACK' ? prompt360 : promptSatisfaction;
     const parts = [];
 
     if (isExcel) {
+      // PRE EXCEL: Posielame CSV ako text
       parts.push({ text: `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` });
     } else {
+      // PRE PDF: Posielame PDF inline data
       parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
       parts.push({ text: basePrompt });
     }
 
-    // Nastavený správny model: gemini-2.5-pro
     const response = await ai.models.generateContent({
       model: "gemini-2.5-pro", 
       contents: {
@@ -182,6 +237,7 @@ export const analyzeDocument = async (
     });
 
     const text = response.text || "";
+    // Odstránenie markdown formátovania, ak by ho model náhodou pridal
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanJson) as FeedbackAnalysisResult;
 
