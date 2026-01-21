@@ -12,7 +12,6 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         const workbook = XLSX.read(data, { type: 'binary' });
         let combinedText = "";
 
-        // Prejdeme všetky hárky (Situácia vo firme, Pracovný tím, atď.)
         workbook.SheetNames.forEach(name => {
           const sheet = workbook.Sheets[name];
           const csv = XLSX.utils.sheet_to_csv(sheet);
@@ -21,7 +20,6 @@ export const parseExcelFile = async (file: File): Promise<string> => {
 
         // Prevod slovenských čiarok (4,56) na bodky (4.56) pre AI
         const normalizedText = combinedText.replace(/(\d+),(\d+)/g, '$1.$2');
-        
         resolve(normalizedText);
       } catch (err) {
         reject(new Error("Chyba pri čítaní Excelu."));
@@ -102,7 +100,7 @@ const getSchema = (mode: AnalysisMode) => {
             type: schemaType.ARRAY,
             items: {
               type: schemaType.OBJECT,
-              properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER }, sentCount: { type: schemaType.NUMBER } },
+              properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER } },
               required: ["name", "count"]
             }
           },
@@ -116,18 +114,22 @@ const getSchema = (mode: AnalysisMode) => {
                   type: schemaType.ARRAY,
                   items: {
                     type: schemaType.OBJECT,
-                    properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                    properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                    required: ["category", "score"]
                   }
                 }
-              }
+              },
+              required: ["teamName", "metrics"]
             }
           },
           supervisorByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } },
           workTeamByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } },
           companySituationByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } } } }
-        }
+        },
+        required: ["clientName", "teamEngagement", "workSituationByTeam"]
       }
-    }
+    },
+    required: ["mode", "reportMetadata", "satisfaction"]
   };
 };
 
@@ -138,25 +140,27 @@ export const analyzeDocument = async (
   isExcel: boolean = false
 ): Promise<FeedbackAnalysisResult> => {
   
-  // Získanie kľúča z premenných prostredia
+  // UNIVERZÁLNE ZÍSKANIE KĽÚČA (Lokálne aj Vercel)
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {
-    throw new Error("API kľúč chýba. Skontrolujte súbor .env a premennú VITE_GEMINI_API_KEY.");
+    // Ak kľúč chýba, vypíšeme to do konzoly pre ľahší debugging na Verceli
+    console.error("VITE_GEMINI_API_KEY is missing in env variables!");
+    throw new Error("API kľúč nebol nájdený. Skontrolujte nastavenia prostredia.");
   }
 
   const genAI = new GoogleGenAI(apiKey);
   
   const prompt = mode === '360_FEEDBACK' 
     ? "Analyzuj 360 feedback." 
-    : `Si HR analytik. Analyzuj CSV dáta z prieskumu spokojnosti. 
+    : `Si HR analytik. Analyzuj CSV dáta z prieskumu spokojnosti FCC. 
        Hlavičky tímov sú v prvom riadku každej sekcie. 
        Extrahuj priemerné skóre pre každý tím. 
        Vráť JSON podľa schémy.`;
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro", // Ponechané podľa požiadavky
+      model: "gemini-2.5-pro", 
       generationConfig: { 
         responseMimeType: "application/json", 
         responseSchema: getSchema(mode), 
@@ -169,10 +173,11 @@ export const analyzeDocument = async (
       : [{ role: "user", parts: [{ inlineData: { data: inputData, mimeType: "application/pdf" } }, { text: prompt }] }];
 
     const result = await model.generateContent({ contents });
-    return JSON.parse(result.response.text()) as FeedbackAnalysisResult;
+    const response = await result.response;
+    return JSON.parse(response.text()) as FeedbackAnalysisResult;
 
   } catch (error: any) {
     console.error("Gemini Error:", error);
-    throw new Error("Chyba pri analýze dokumentu.");
+    throw new Error("Chyba pri analýze dokumentu: " + (error.message || "Unknown error"));
   }
 };
