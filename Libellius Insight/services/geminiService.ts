@@ -254,7 +254,7 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-05-20",
+      model: "gemini-2.5-flash-preview-05-2025",
       contents: {
         role: "user",
         parts: [
