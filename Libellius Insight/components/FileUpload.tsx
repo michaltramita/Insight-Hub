@@ -1,4 +1,3 @@
-
 import React, { useCallback } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { AnalysisMode } from '../types';
@@ -10,16 +9,27 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
+  // Funkcia na kontrolu, či je súbor podporovaný
+  const isSupportedFile = (file: File) => {
+    const supportedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel' // .xls
+    ];
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    return supportedTypes.includes(file.type) || extension === 'xlsx' || extension === 'xls' || extension === 'pdf';
+  };
+
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (isAnalyzing) return;
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type === 'application/pdf') {
+      if (isSupportedFile(file)) {
         onFileSelect(file);
       } else {
-        alert("Prosím nahrajte iba PDF súbory.");
+        alert("Prosím nahrajte iba PDF alebo Excel súbory (.xlsx, .xls).");
       }
     }
   }, [onFileSelect, isAnalyzing]);
@@ -34,13 +44,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   const getLabels = () => {
     if (mode === 'ZAMESTNANECKA_SPOKOJNOST') {
       return {
-        title: 'Nahrajte výsledky spokojnosti zamestnancov',
-        description: 'My sa postaráme o prehľadnú vizualizáciu.'
+        title: 'Nahrajte výsledky spokojnosti (PDF alebo Excel)',
+        description: 'Podporujeme PDF exporty aj Excel tabuľky.'
       };
     }
     return {
       title: 'Nahrajte výsledky z 360° Spätnej väzby',
-      description: 'My sa postaráme o prehľadnú vizualizáciu.'
+      description: 'Podporujeme PDF aj Excel formáty.'
     };
   };
 
@@ -56,7 +66,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
     >
       <input 
         type="file" 
-        accept="application/pdf" 
+        // Tu sme pridali podporu pre Excel do výberového okna
+        accept=".pdf,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
         className="hidden" 
         id="file-upload"
         onChange={handleChange}
@@ -80,7 +91,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
               {labels.description}
             </p>
             <div className="px-8 py-4 md:px-12 md:py-5 bg-black text-white rounded-full transition-all duration-300 font-black text-xs md:text-xl uppercase tracking-widest hover:bg-brand shadow-xl shadow-black/30 transform hover:-translate-y-1">
-              Nahrajte svoj report
+              Vybrať súbor
             </div>
           </>
         )}
@@ -89,4 +100,4 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   );
 };
 
-export default FileUpload;
+export default FileUpload; FileUpload;
