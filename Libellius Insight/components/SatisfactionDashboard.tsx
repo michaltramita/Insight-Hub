@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { FeedbackAnalysisResult, EngagementTeam, TeamWorkSituation } from '../types';
+import { FeedbackAnalysisResult, EngagementTeam, TeamWorkSituation, RawCell, MissingCellRecord, TeamMetadata } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import { 
   RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
   Check, BarChart4, ClipboardCheck, MapPin, UserCheck,
-  AlertCircle, Building2, Filter, Star, Target, SearchX, ArrowUpDown
+  AlertCircle, Building2, Filter, Star, Target, SearchX, ArrowUpDown,
+  AlertTriangle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -22,13 +23,67 @@ type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'weight' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
+// Validation helper to check data completeness
+const validateDataCompleteness = (
+  teams: TeamMetadata[] | undefined,
+  cells: RawCell[] | undefined,
+  missingCells: MissingCellRecord[] | undefined
+): { isValid: boolean; message: string | null; details: string | null } => {
+  if (!teams || !cells) {
+    return { isValid: true, message: null, details: null };
+  }
+
+  // Count unique questions per section
+  const sections = ['Pracovná situácia', 'Priamy nadriadený', 'Pracovný tím', 'Situácia vo firme'];
+  const questionsPerSection: Record<string, Set<string>> = {};
+  
+  for (const cell of cells) {
+    if (!questionsPerSection[cell.sectionName]) {
+      questionsPerSection[cell.sectionName] = new Set();
+    }
+    questionsPerSection[cell.sectionName].add(cell.questionText);
+  }
+
+  // Add questions from missing cells
+  if (missingCells) {
+    for (const missing of missingCells) {
+      if (!questionsPerSection[missing.sectionName]) {
+        questionsPerSection[missing.sectionName] = new Set();
+      }
+      questionsPerSection[missing.sectionName].add(missing.questionText);
+    }
+  }
+
+  // Calculate expected vs actual
+  let totalExpected = 0;
+  let totalActual = cells.length + (missingCells?.length || 0);
+  
+  for (const section of sections) {
+    const questionCount = questionsPerSection[section]?.size || 0;
+    totalExpected += questionCount * teams.length;
+  }
+
+  if (totalExpected > 0 && totalActual !== totalExpected) {
+    const difference = totalExpected - totalActual;
+    return {
+      isValid: false,
+      message: `Upozornenie: Dáta môžu byť neúplné`,
+      details: `Očakávaných buniek: ${totalExpected}, nájdených: ${totalActual} (rozdiel: ${Math.abs(difference)})`
+    };
+  }
+
+  return { isValid: true, message: null, details: null };
+};
+
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction;
+  const genericData = result.genericData;
   const scaleMax = result.reportMetadata?.scaleMax || 6;
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showValidationWarning, setShowValidationWarning] = useState(true);
 
   const [selectedWorkTeam, setSelectedWorkTeam] = useState<string>('');
   const [selectedSupervisorTeam, setSelectedSupervisorTeam] = useState<string>('');
@@ -44,6 +99,25 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  // Validate data completeness
+  const dataValidation = useMemo(() => {
+    return validateDataCompleteness(
+      genericData?.teams,
+      genericData?.cells,
+      genericData?.missingCells
+    );
+  }, [genericData]);
+
+  // Log validation warning if data is incomplete
+  useEffect(() => {
+    if (!dataValidation.isValid && dataValidation.message) {
+      console.warn('[SatisfactionDashboard] Data validation warning:', dataValidation.message, dataValidation.details);
+    }
+    if (genericData?.missingCells && genericData.missingCells.length > 0) {
+      console.warn('[SatisfactionDashboard] Missing cells detected:', genericData.missingCells);
+    }
+  }, [dataValidation, genericData?.missingCells]);
 
   const masterTeams = useMemo(() => {
     if (!data?.teamEngagement) return [];
@@ -293,6 +367,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-24">
+      {/* Data Validation Warning */}
+      {!dataValidation.isValid && showValidationWarning && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-4">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800">{dataValidation.message}</p>
+            <p className="text-xs text-amber-600 mt-1">{dataValidation.details}</p>
+            {genericData?.missingCells && genericData.missingCells.length > 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                Chýbajúce bunky: {genericData.missingCells.length}
+              </p>
+            )}
+          </div>
+          <button 
+            onClick={() => setShowValidationWarning(false)}
+            className="text-amber-500 hover:text-amber-700 text-xs font-bold uppercase tracking-wider"
+          >
+            Zavrieť
+          </button>
+        </div>
+      )}
+
       {/* Report Header */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl shadow-black/5 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">

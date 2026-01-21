@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { FeedbackAnalysisResult, AnalysisMode } from "../types";
+import { FeedbackAnalysisResult, AnalysisMode, GenericAnalysisResult, RawCell, MissingCellRecord, TeamMetadata, SatisfactionData, TeamWorkSituation } from "../types";
 
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
@@ -70,16 +70,20 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
+    // New cell-first (generic) schema for satisfaction mode
     return {
       type: schemaType.OBJECT,
       properties: {
         mode: { type: schemaType.STRING },
         reportMetadata: {
           type: schemaType.OBJECT,
-          properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
+          properties: { 
+            date: { type: schemaType.STRING }, 
+            scaleMax: { type: schemaType.NUMBER } 
+          },
           required: ["date", "scaleMax"]
         },
-        satisfaction: {
+        metadata: {
           type: schemaType.OBJECT,
           properties: {
             clientName: { type: schemaType.STRING },
@@ -97,98 +101,109 @@ const getSchema = (mode: AnalysisMode) => {
                 },
                 required: ["name", "count", "sentCount"]
               }
-            },
-            workSituationByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            supervisorByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            workTeamByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            companySituationByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
             }
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement"]
+        },
+        teams: {
+          type: schemaType.ARRAY,
+          items: {
+            type: schemaType.OBJECT,
+            properties: {
+              id: { type: schemaType.STRING },
+              name: { type: schemaType.STRING }
+            },
+            required: ["id", "name"]
+          }
+        },
+        cells: {
+          type: schemaType.ARRAY,
+          items: {
+            type: schemaType.OBJECT,
+            properties: {
+              sectionName: { type: schemaType.STRING },
+              teamName: { type: schemaType.STRING },
+              questionText: { type: schemaType.STRING },
+              score: { type: schemaType.NUMBER, nullable: true }
+            },
+            required: ["sectionName", "teamName", "questionText", "score"]
+          }
+        },
+        missingCells: {
+          type: schemaType.ARRAY,
+          items: {
+            type: schemaType.OBJECT,
+            properties: {
+              sectionName: { type: schemaType.STRING },
+              teamName: { type: schemaType.STRING },
+              questionText: { type: schemaType.STRING },
+              reason: { type: schemaType.STRING }
+            },
+            required: ["sectionName", "teamName", "questionText", "reason"]
+          }
         }
       },
-      required: ["mode", "reportMetadata", "satisfaction"]
+      required: ["mode", "reportMetadata", "metadata", "teams", "cells", "missingCells"]
     };
   }
+};
+
+// Transform flat cells array to nested TeamWorkSituation format
+const transformCellsToNestedFormat = (
+  cells: RawCell[],
+  teams: TeamMetadata[]
+): {
+  workSituationByTeam: TeamWorkSituation[];
+  supervisorByTeam: TeamWorkSituation[];
+  workTeamByTeam: TeamWorkSituation[];
+  companySituationByTeam: TeamWorkSituation[];
+} => {
+  const sectionMapping: Record<string, keyof ReturnType<typeof transformCellsToNestedFormat>> = {
+    'Pracovná situácia': 'workSituationByTeam',
+    'Priamy nadriadený': 'supervisorByTeam',
+    'Pracovný tím': 'workTeamByTeam',
+    'Situácia vo firme': 'companySituationByTeam'
+  };
+
+  const result: ReturnType<typeof transformCellsToNestedFormat> = {
+    workSituationByTeam: [],
+    supervisorByTeam: [],
+    workTeamByTeam: [],
+    companySituationByTeam: []
+  };
+
+  // Initialize teams for each section
+  for (const team of teams) {
+    for (const sectionKey of Object.values(sectionMapping)) {
+      result[sectionKey].push({
+        teamName: team.name,
+        metrics: []
+      });
+    }
+  }
+
+  // Group cells by section and team
+  for (const cell of cells) {
+    if (cell.score === null) continue;
+    
+    const sectionKey = sectionMapping[cell.sectionName];
+    if (!sectionKey) continue;
+
+    const teamData = result[sectionKey].find(t => t.teamName === cell.teamName);
+    if (teamData) {
+      teamData.metrics.push({
+        category: cell.questionText,
+        score: cell.score
+      });
+    }
+  }
+
+  // Remove teams with no metrics
+  for (const sectionKey of Object.values(sectionMapping)) {
+    result[sectionKey] = result[sectionKey].filter(t => t.metrics.length > 0);
+  }
+
+  return result;
 };
 
 export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Promise<FeedbackAnalysisResult> => {
@@ -197,29 +212,49 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
   const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
   const promptUniversal = `
-    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 3-6):
-    V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
+    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK - DVOJFÁZOVÝ PRÍSTUP:
     
-    TVOJA ÚLOHA KROK ZA KROKOM:
-    1. NAJPRV identifikuj VŠETKY názvy tímov v hlavičkách tabuliek na všetkých stranách (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála", atď.). Nepreskoč ani jeden stĺpec!
-    2. PRE KAŽDÝ JEDEN tím, ktorý si našiel, musíš vytvoriť samostatný objekt v poliach nižšie.
-    3. EXTRAKCIA HODNÔT: Prejdi tabuľky vertikálne (zhora nadol) pre každý jeden stĺpec tímu a extrahuj presné číselné skóre.
-    4. MAPOVANIE PODĽA SEKCIÍ:
-       - Sekcia "Pracovná situácia" (strana 3) -> mapuj do 'workSituationByTeam'
-       - Sekcia "Priamy nadriadený" (strana 4) -> mapuj do 'supervisorByTeam'
-       - Sekcia "Pracovný tím" (strana 5) -> mapuj do 'workTeamByTeam'
-       - Sekcia "Situácia vo firme" (strana 6) -> mapuj do 'companySituationByTeam'
+    === FÁZA 1: IDENTIFIKÁCIA TÍMOV ===
+    NAJPRV identifikuj VŠETKY unikátne názvy tímov z hlavičiek tabuliek na stranách 3-6.
+    - Prechádzaj každú tabuľku a zaznamenaj názvy zo stĺpcových hlavičiek
+    - Príklady: "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála", atď.
+    - Nepreskoč ani jeden stĺpec!
+    - Každý unikátny tím zapíš do poľa "teams" s unikátnym "id" a "name"
 
-    DÔLEŽITÉ: 
-    - Musíš spracovať VŠETKY stĺpce (tímy). Ak tím nemá v niektorom riadku hodnotu, uveď 0.
-    - Nikdy nesmieš zlúčiť dva tímy do jedného.
-    
+    === FÁZA 2: EXTRAKCIA BUNIEK ===
+    PRE KAŽDÝ riadok (otázku) v tabuľke:
+    1. Prečítaj text otázky z prvého stĺpca
+    2. Pre každý tím (stĺpec) extrahuj číselné skóre
+    3. Mapuj hodnoty na tímy podľa ich pozície (index stĺpca)
+    4. Vytvor záznam do poľa "cells" s: sectionName, teamName, questionText, score
+
+    === MAPOVANIE SEKCIÍ ===
+    - Strana 3 "Pracovná situácia" -> sectionName = "Pracovná situácia"
+    - Strana 4 "Priamy nadriadený" -> sectionName = "Priamy nadriadený"  
+    - Strana 5 "Pracovný tím" -> sectionName = "Pracovný tím"
+    - Strana 6 "Situácia vo firme" -> sectionName = "Situácia vo firme"
+
+    === PRÍSNE PRAVIDLO PRE CHÝBAJÚCE HODNOTY ===
+    NIKDY nepoužívaj 0 pre chýbajúce dáta!
+    Ak hodnota nie je nájdená alebo je nečitateľná:
+    - NEVKLADAJ ju do poľa "cells"
+    - NAMIESTO TOHO pridaj záznam do "missingCells" s polami: sectionName, teamName, questionText, reason
+    - V "reason" vysvetli prečo hodnota chýba (napr. "bunka prázdna", "nečitateľné", "stĺpec neexistuje")
+
+    === METADATA ===
+    Extrahuj tiež:
+    - clientName: názov klienta/organizácie
+    - totalSent: počet odoslaných dotazníkov
+    - totalReceived: počet prijatých odpovedí
+    - successRate: percentuálna úspešnosť
+    - teamEngagement: zapojenie jednotlivých tímov (name, count, sentCount)
+
     Jazyk: Slovenčina. Výstup: Čistý VALIDNÝ JSON podľa schémy.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash-preview-05-20",
       contents: {
         role: "user",
         parts: [
@@ -240,8 +275,36 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     // Odstránenie markdown obalu pre istotu
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
-    const parsed = JSON.parse(cleanJson) as FeedbackAnalysisResult;
-    return parsed;
+    const parsed = JSON.parse(cleanJson);
+
+    // Transform generic result to legacy format for satisfaction mode
+    if (mode === 'ZAMESTNANECKA_SPOKOJNOST') {
+      const genericResult = parsed as GenericAnalysisResult;
+      const nestedData = transformCellsToNestedFormat(genericResult.cells, genericResult.teams);
+      
+      const satisfactionData: SatisfactionData = {
+        clientName: genericResult.metadata.clientName,
+        totalSent: genericResult.metadata.totalSent,
+        totalReceived: genericResult.metadata.totalReceived,
+        successRate: genericResult.metadata.successRate,
+        teamEngagement: genericResult.metadata.teamEngagement,
+        ...nestedData
+      };
+
+      return {
+        mode: genericResult.mode,
+        reportMetadata: genericResult.reportMetadata,
+        satisfaction: satisfactionData,
+        genericData: {
+          metadata: genericResult.metadata,
+          teams: genericResult.teams,
+          cells: genericResult.cells,
+          missingCells: genericResult.missingCells
+        }
+      } as FeedbackAnalysisResult;
+    }
+
+    return parsed as FeedbackAnalysisResult;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
     throw new Error(error.message || "Chyba pri analýze dokumentu.");
@@ -255,4 +318,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};;;
+};
