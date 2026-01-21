@@ -16,10 +16,10 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         workbook.SheetNames.forEach(name => {
           const sheet = workbook.Sheets[name];
           const csv = XLSX.utils.sheet_to_csv(sheet);
-          combinedText += `\n### SEKCOA: ${name} ###\n${csv}\n`;
+          combinedText += `\n### SEKCOA/HAROK: ${name} ###\n${csv}\n`;
         });
 
-        // DÔLEŽITÉ: Prevod slovenských čiarok (4,56) na bodky (4.56)
+        // Prevod slovenských čiarok (4,56) na bodky (4.56) pre AI
         const normalizedText = combinedText.replace(/(\d+),(\d+)/g, '$1.$2');
         
         resolve(normalizedText);
@@ -82,7 +82,6 @@ const getSchema = (mode: AnalysisMode) => {
     };
   }
 
-  // Schéma pre PRIESKUM SPOKOJNOSTI (tvoj prípad s tímami)
   return {
     type: schemaType.OBJECT,
     properties: {
@@ -139,19 +138,30 @@ export const analyzeDocument = async (
   isExcel: boolean = false
 ): Promise<FeedbackAnalysisResult> => {
   
-  const genAI = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+  // Získanie kľúča z premenných prostredia
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("API kľúč chýba. Skontrolujte súbor .env a premennú VITE_GEMINI_API_KEY.");
+  }
+
+  const genAI = new GoogleGenAI(apiKey);
   
   const prompt = mode === '360_FEEDBACK' 
     ? "Analyzuj 360 feedback." 
     : `Si HR analytik. Analyzuj CSV dáta z prieskumu spokojnosti. 
-       Tímy sú v stĺpcoch (Obchod, Bratislava, Vedúci...). 
-       Extrahuj priemerné skóre (0-6) pre každú kategóriu na každom hárku. 
-       Vráť čistý JSON podľa schémy.`;
+       Hlavičky tímov sú v prvom riadku každej sekcie. 
+       Extrahuj priemerné skóre pre každý tím. 
+       Vráť JSON podľa schémy.`;
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro",
-      generationConfig: { responseMimeType: "application/json", responseSchema: getSchema(mode), temperature: 0.1 }
+      model: "gemini-2.5-pro", // Ponechané podľa požiadavky
+      generationConfig: { 
+        responseMimeType: "application/json", 
+        responseSchema: getSchema(mode), 
+        temperature: 0.1 
+      }
     });
 
     const contents = isExcel 
@@ -163,6 +173,6 @@ export const analyzeDocument = async (
 
   } catch (error: any) {
     console.error("Gemini Error:", error);
-    throw new Error("Nepodarilo sa vykonať analýzu.");
+    throw new Error("Chyba pri analýze dokumentu.");
   }
 };
