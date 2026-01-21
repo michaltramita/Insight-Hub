@@ -1,6 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import * as XLSX from "xlsx"; // Uisti sa, že máš nainštalované: npm install xlsx
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
+// --- 1. SCHÉMA (Nezmenená, aby sedela s tvojím Dashboardom) ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
@@ -70,6 +72,7 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
+    // Schéma pre ZAMESTNANECKA_SPOKOJNOST
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -108,10 +111,7 @@ const getSchema = (mode: AnalysisMode) => {
                     type: schemaType.ARRAY,
                     items: {
                       type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
                       required: ["category", "score"]
                     }
                   }
@@ -129,10 +129,7 @@ const getSchema = (mode: AnalysisMode) => {
                     type: schemaType.ARRAY,
                     items: {
                       type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
                       required: ["category", "score"]
                     }
                   }
@@ -150,10 +147,7 @@ const getSchema = (mode: AnalysisMode) => {
                     type: schemaType.ARRAY,
                     items: {
                       type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
                       required: ["category", "score"]
                     }
                   }
@@ -171,10 +165,7 @@ const getSchema = (mode: AnalysisMode) => {
                     type: schemaType.ARRAY,
                     items: {
                       type: schemaType.OBJECT,
-                      properties: {
-                        category: { type: schemaType.STRING },
-                        score: { type: schemaType.NUMBER }
-                      },
+                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
                       required: ["category", "score"]
                     }
                   }
@@ -191,41 +182,96 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Promise<FeedbackAnalysisResult> => {
+// --- 2. PARSOVANIE EXCELU NA CSV ---
+export const parseExcelFile = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        // Prevod na CSV string (efektívnejšie pre tokeny ako celý JSON objekt)
+        const csvData = XLSX.utils.sheet_to_csv(worksheet);
+        resolve(csvData);
+      } catch (err) {
+        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsBinaryString(file);
+  });
+};
+
+// --- 3. HLAVNÁ ANALÝZA (PDF alebo EXCEL) ---
+export const analyzeDocument = async (
+  inputData: string, // Base64 (pre PDF) alebo CSV String (pre Excel)
+  mode: AnalysisMode,
+  isExcel: boolean = false // Nový parameter na rozlíšenie vstupu
+): Promise<FeedbackAnalysisResult> => {
+  
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
   
-  const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
+  const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
-  const promptUniversal = `
-    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 3-6):
-    V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
-    
-    TVOJA ÚLOHA KROK ZA KROKOM:
-    1. NAJPRV identifikuj VŠETKY názvy tímov v hlavičkách tabuliek na všetkých stranách (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála", atď.). Nepreskoč ani jeden stĺpec!
-    2. PRE KAŽDÝ JEDEN tím, ktorý si našiel, musíš vytvoriť samostatný objekt v poliach nižšie.
-    3. EXTRAKCIA HODNÔT: Prejdi tabuľky vertikálne (zhora nadol) pre každý jeden stĺpec tímu a extrahuj presné číselné skóre.
-    4. MAPOVANIE PODĽA SEKCIÍ:
-       - Sekcia "Pracovná situácia" (strana 3) -> mapuj do 'workSituationByTeam'
-       - Sekcia "Priamy nadriadený" (strana 4) -> mapuj do 'supervisorByTeam'
-       - Sekcia "Pracovný tím" (strana 5) -> mapuj do 'workTeamByTeam'
-       - Sekcia "Situácia vo firme" (strana 6) -> mapuj do 'companySituationByTeam'
+  // Dynamický prompt podľa toho, či ide o Excel alebo PDF
+  let promptUniversal = "";
+  
+  if (isExcel) {
+    promptUniversal = `
+      INŠTRUKCIA PRE EXCEL DÁTA:
+      Toto sú dáta z prieskumu spokojnosti vo formáte CSV (hodnoty oddelené čiarkou).
+      
+      Tvojou úlohou je:
+      1. Identifikovať tímy (stĺpce v prvom riadku).
+      2. Priradiť odpovede ku kategóriám (riadkom).
+      3. Spracovať čísla presne tak, ako sú v CSV.
+      
+      Rozdeľ otázky do sekcií podľa ich významu:
+      - "Pracovná situácia" -> workSituationByTeam
+      - "Priamy nadriadený" -> supervisorByTeam
+      - "Pracovný tím" -> workTeamByTeam
+      - "Situácia vo firme" -> companySituationByTeam
 
-    DÔLEŽITÉ: 
-    - Musíš spracovať VŠETKY stĺpce (tímy). Ak tím nemá v niektorom riadku hodnotu, uveď 0.
-    - Nikdy nesmieš zlúčiť dva tímy do jedného.
-    
-    Jazyk: Slovenčina. Výstup: Čistý VALIDNÝ JSON podľa schémy.
-  `;
+      Výstup: Validný JSON podľa schémy.
+      
+      DÁTA:
+      ${inputData}
+    `;
+  } else {
+    // Pôvodný prompt pre PDF
+    promptUniversal = `
+      PRÍSNA INŠTRUKCIA PRE ANALÝZU PDF TABULIEK:
+      V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
+      
+      1. NAJPRV identifikuj VŠETKY názvy tímov v hlavičkách tabuliek.
+      2. PRE KAŽDÝ tím vytvor samostatný objekt v poliach nižšie.
+      3. EXTRAHUJ presné číselné skóre.
+      4. MAPUJ sekcie: "Pracovná situácia", "Priamy nadriadený", "Pracovný tím", "Situácia vo firme".
+      
+      Ak hodnota chýba, doplň 0.
+      Jazyk: Slovenčina. Výstup: Validný JSON.
+    `;
+  }
 
   try {
+    const parts = [];
+    
+    if (isExcel) {
+      // Pre Excel posielame iba text (prompt + CSV data)
+      parts.push({ text: mode === '360_FEEDBACK' ? prompt360 : promptUniversal });
+    } else {
+      // Pre PDF posielame Base64 + prompt
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
+      parts.push({ text: mode === '360_FEEDBACK' ? prompt360 : promptUniversal });
+    }
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-pro", // Ponechaný model podľa tvojej požiadavky
       contents: {
         role: "user",
-        parts: [
-          { inlineData: { data: base64Pdf, mimeType: "application/pdf" } },
-          { text: mode === '360_FEEDBACK' ? prompt360 : promptUniversal }
-        ]
+        parts: parts
       },
       config: {
         responseMimeType: "application/json",
@@ -237,17 +283,20 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     const text = response.text || "";
     if (!text) throw new Error("Model nevrátil žiadne dáta.");
     
-    // Odstránenie markdown obalu pre istotu
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    const parsed = JSON.parse(cleanJson) as FeedbackAnalysisResult;
-    return parsed;
+    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
+    // Malá poistka pre debugovanie, ak by model neexistoval
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+       throw new Error(`Model gemini-2.5-pro nebol nájdený. Skontroluj API kľúč alebo dostupnosť modelu.`);
+    }
     throw new Error(error.message || "Chyba pri analýze dokumentu.");
   }
 };
 
+// --- 4. POMOCNÁ FUNKCIA (len pre PDF) ---
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -255,4 +304,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};;;
+};
