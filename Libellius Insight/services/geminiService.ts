@@ -1,4 +1,4 @@
-mport { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
