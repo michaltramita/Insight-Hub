@@ -2,9 +2,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// --- 1. SCHÉMA ---
+// --- 1. DEFINÍCIA SCHÉMY PRE AI (JSON SCHEMA) ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
+  
   if (mode === '360_FEEDBACK') {
     return {
       type: schemaType.OBJECT,
@@ -51,18 +52,6 @@ const getSchema = (mode: AnalysisMode) => {
                   properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
                 }
               },
-              gaps: {
-                type: schemaType.ARRAY,
-                items: {
-                  type: schemaType.OBJECT,
-                  properties: {
-                    statement: { type: schemaType.STRING },
-                    selfScore: { type: schemaType.NUMBER },
-                    othersScore: { type: schemaType.NUMBER },
-                    diff: { type: schemaType.NUMBER }
-                  }
-                }
-              },
               recommendations: { type: schemaType.STRING }
             },
             required: ["id", "name", "competencies", "recommendations"]
@@ -72,6 +61,7 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
+    // Schéma pre PRIESKUM SPOKOJNOSTI
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -177,7 +167,7 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU ---
+// --- 2. PARSOVANIE EXCELU (PODPORA VIACERÝCH HÁRKOV A ČIAROK) ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -185,12 +175,20 @@ export const parseExcelFile = async (file: File): Promise<string> => {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const csvData = XLSX.utils.sheet_to_csv(worksheet);
-        resolve(csvData);
+        let combinedData = "";
+
+        // Prejdeme všetky hárky v Exceli
+        workbook.SheetNames.forEach(name => {
+          const sheet = workbook.Sheets[name];
+          const csv = XLSX.utils.sheet_to_csv(sheet);
+          combinedData += `\n--- DATA PRE SEKCIU: ${name} ---\n${csv}\n`;
+        });
+
+        // OPRAVA DESATINNÝCH ČIAROK: Zmení "4,56" na "4.56" pre AI
+        const normalized = combinedData.replace(/(\d+),(\d+)/g, '$1.$2');
+        resolve(normalized);
       } catch (err) {
-        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
+        reject(new Error("Nepodarilo sa spracovať Excel súbor."));
       }
     };
     reader.onerror = reject;
@@ -198,55 +196,7 @@ export const parseExcelFile = async (file: File): Promise<string> => {
   });
 };
 
-// --- 3. HLAVNÁ ANALÝZA ---
-export const analyzeDocument = async (
-  inputData: string, 
-  mode: AnalysisMode,
-  isExcel: boolean = false
-): Promise<FeedbackAnalysisResult> => {
-  
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
-
-  const prompt360 = `Analyzuj priložené dáta z 360-stupňovej spätnej väzby a vráť výsledok v JSON podľa schémy.`;
-  const promptSatisfaction = `Analyzuj dáta z prieskumu spokojnosti (CSV tabuľku) a vráť výsledok v JSON podľa schémy.`;
-
-  try {
-    const basePrompt = mode === '360_FEEDBACK' ? prompt360 : promptSatisfaction;
-    const parts = [];
-
-    if (isExcel) {
-      // PRE EXCEL: Posielame CSV ako text
-      parts.push({ text: `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` });
-    } else {
-      // PRE PDF: Posielame PDF inline data
-      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
-      parts.push({ text: basePrompt });
-    }
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro", 
-      contents: {
-        role: "user",
-        parts: parts
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: getSchema(mode),
-        temperature: 0.1
-      }
-    });
-
-    const text = response.text || "";
-    // Odstránenie markdown formátovania, ak by ho model náhodou pridal
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
-
-  } catch (error: any) {
-    console.error("Gemini Analysis Error:", error);
-    throw new Error(error.message || "Chyba pri analýze dokumentu.");
-  }
-};
-
+// --- 3. PREVOD PDF NA BASE64 ---
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -254,4 +204,53 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
+};
+
+// --- 4. HLAVNÁ ANALÝZA POMOCOU GEMINI 2.5 PRO ---
+export const analyzeDocument = async (
+  inputData: string, 
+  mode: AnalysisMode,
+  isExcel: boolean = false
+): Promise<FeedbackAnalysisResult> => {
+  
+  const genAI = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+  
+  // Špeciálna inštrukcia pre spracovanie tvojho konkrétneho Excelu
+  const basePrompt = mode === '360_FEEDBACK' 
+    ? "Analyzuj dáta z 360 spätnej väzby." 
+    : `Si expertný analytik HR dát. Analyzuj priložené CSV dáta z prieskumu spokojnosti. 
+       Dáta obsahujú viaceré sekcie (Pracovná situácia, Nadriadený, Tím, Firma). 
+       Extrahuj číselné priemery pre každý tím a každú kategóriu. 
+       Dôležité: Tímy sú v stĺpcoch, kategórie sú v riadkoch. Výsledok vráť ako JSON.`;
+
+  try {
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-pro",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: getSchema(mode),
+        temperature: 0.1,
+      }
+    });
+
+    const parts = [];
+    if (isExcel) {
+      // Excel posielame ako text (CSV)
+      parts.push({ text: `${basePrompt}\n\nDÁTA:\n${inputData}` });
+    } else {
+      // PDF posielame ako inlineData
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
+      parts.push({ text: basePrompt });
+    }
+
+    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
+    const response = await result.response;
+    const text = response.text();
+    
+    return JSON.parse(text) as FeedbackAnalysisResult;
+
+  } catch (error: any) {
+    console.error("Gemini Error:", error);
+    throw new Error(error.message || "Chyba pri komunikácii s AI.");
+  }
 };
