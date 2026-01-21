@@ -1,66 +1,66 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
 const getSchema = (mode: AnalysisMode) => {
   if (mode === '360_FEEDBACK') {
     return {
-      type: Type.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        mode: { type: Type.STRING },
+        mode: { type: SchemaType.STRING },
         reportMetadata: {
-          type: Type.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
-            date: { type: Type.STRING },
-            scaleMax: { type: Type.NUMBER }
+            date: { type: SchemaType.STRING },
+            scaleMax: { type: SchemaType.NUMBER }
           },
           required: ["date", "scaleMax"]
         },
         employees: {
-          type: Type.ARRAY,
+          type: SchemaType.ARRAY,
           items: {
-            type: Type.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              id: { type: Type.STRING },
-              name: { type: Type.STRING },
+              id: { type: SchemaType.STRING },
+              name: { type: SchemaType.STRING },
               competencies: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                  type: Type.OBJECT,
+                  type: SchemaType.OBJECT,
                   properties: {
-                    name: { type: Type.STRING },
-                    selfScore: { type: Type.NUMBER },
-                    othersScore: { type: Type.NUMBER }
+                    name: { type: SchemaType.STRING },
+                    selfScore: { type: SchemaType.NUMBER },
+                    othersScore: { type: SchemaType.NUMBER }
                   },
                   required: ["name", "selfScore", "othersScore"]
                 }
               },
               topStrengths: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                  type: Type.OBJECT,
-                  properties: { text: { type: Type.STRING }, score: { type: Type.NUMBER } }
+                  type: SchemaType.OBJECT,
+                  properties: { text: { type: SchemaType.STRING }, score: { type: SchemaType.NUMBER } }
                 }
               },
               topWeaknesses: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                  type: Type.OBJECT,
-                  properties: { text: { type: Type.STRING }, score: { type: Type.NUMBER } }
+                  type: SchemaType.OBJECT,
+                  properties: { text: { type: SchemaType.STRING }, score: { type: SchemaType.NUMBER } }
                 }
               },
               gaps: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                  type: Type.OBJECT,
+                  type: SchemaType.OBJECT,
                   properties: {
-                    statement: { type: Type.STRING },
-                    selfScore: { type: Type.NUMBER },
-                    othersScore: { type: Type.NUMBER },
-                    diff: { type: Type.NUMBER }
+                    statement: { type: SchemaType.STRING },
+                    selfScore: { type: SchemaType.NUMBER },
+                    othersScore: { type: SchemaType.NUMBER },
+                    diff: { type: SchemaType.NUMBER }
                   }
                 }
               },
-              recommendations: { type: Type.STRING }
+              recommendations: { type: SchemaType.STRING }
             },
             required: ["id", "name", "competencies", "recommendations"]
           }
@@ -70,46 +70,46 @@ const getSchema = (mode: AnalysisMode) => {
     };
   } else {
     return {
-      type: Type.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        mode: { type: Type.STRING },
+        mode: { type: SchemaType.STRING },
         reportMetadata: {
-          type: Type.OBJECT,
-          properties: { date: { type: Type.STRING }, scaleMax: { type: Type.NUMBER } },
+          type: SchemaType.OBJECT,
+          properties: { date: { type: SchemaType.STRING }, scaleMax: { type: SchemaType.NUMBER } },
           required: ["date", "scaleMax"]
         },
         satisfaction: {
-          type: Type.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
-            clientName: { type: Type.STRING },
-            totalSent: { type: Type.NUMBER },
-            totalReceived: { type: Type.NUMBER },
-            successRate: { type: Type.STRING },
+            clientName: { type: SchemaType.STRING },
+            totalSent: { type: SchemaType.NUMBER },
+            totalReceived: { type: SchemaType.NUMBER },
+            successRate: { type: SchemaType.STRING },
             teamEngagement: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  name: { type: Type.STRING },
-                  count: { type: Type.NUMBER },
-                  sentCount: { type: Type.NUMBER }
+                  name: { type: SchemaType.STRING },
+                  count: { type: SchemaType.NUMBER },
+                  sentCount: { type: SchemaType.NUMBER }
                 },
                 required: ["name", "count", "sentCount"]
               }
             },
             workSituationByTeam: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  teamName: { type: Type.STRING },
+                  teamName: { type: SchemaType.STRING },
                   metrics: {
-                    type: Type.ARRAY,
+                    type: SchemaType.ARRAY,
                     items: {
-                      type: Type.OBJECT,
+                      type: SchemaType.OBJECT,
                       properties: {
-                        category: { type: Type.STRING },
-                        score: { type: Type.NUMBER }
+                        category: { type: SchemaType.STRING },
+                        score: { type: SchemaType.NUMBER }
                       },
                       required: ["category", "score"]
                     }
@@ -119,18 +119,18 @@ const getSchema = (mode: AnalysisMode) => {
               }
             },
             supervisorByTeam: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  teamName: { type: Type.STRING },
+                  teamName: { type: SchemaType.STRING },
                   metrics: {
-                    type: Type.ARRAY,
+                    type: SchemaType.ARRAY,
                     items: {
-                      type: Type.OBJECT,
+                      type: SchemaType.OBJECT,
                       properties: {
-                        category: { type: Type.STRING },
-                        score: { type: Type.NUMBER }
+                        category: { type: SchemaType.STRING },
+                        score: { type: SchemaType.NUMBER }
                       },
                       required: ["category", "score"]
                     }
@@ -140,18 +140,18 @@ const getSchema = (mode: AnalysisMode) => {
               }
             },
             workTeamByTeam: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  teamName: { type: Type.STRING },
+                  teamName: { type: SchemaType.STRING },
                   metrics: {
-                    type: Type.ARRAY,
+                    type: SchemaType.ARRAY,
                     items: {
-                      type: Type.OBJECT,
+                      type: SchemaType.OBJECT,
                       properties: {
-                        category: { type: Type.STRING },
-                        score: { type: Type.NUMBER }
+                        category: { type: SchemaType.STRING },
+                        score: { type: SchemaType.NUMBER }
                       },
                       required: ["category", "score"]
                     }
@@ -161,18 +161,18 @@ const getSchema = (mode: AnalysisMode) => {
               }
             },
             companySituationByTeam: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  teamName: { type: Type.STRING },
+                  teamName: { type: SchemaType.STRING },
                   metrics: {
-                    type: Type.ARRAY,
+                    type: SchemaType.ARRAY,
                     items: {
-                      type: Type.OBJECT,
+                      type: SchemaType.OBJECT,
                       properties: {
-                        category: { type: Type.STRING },
-                        score: { type: Type.NUMBER }
+                        category: { type: SchemaType.STRING },
+                        score: { type: SchemaType.NUMBER }
                       },
                       required: ["category", "score"]
                     }
@@ -191,7 +191,12 @@ const getSchema = (mode: AnalysisMode) => {
 };
 
 export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Promise<FeedbackAnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+  
+  // Ponechaný váš pôvodný model
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-2.5-flash-lite-preview-09-2025" 
+  });
   
   const prompt360 = `
     Analyze this 360-degree feedback PDF. 
@@ -210,35 +215,35 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     For all matrix tables (Work Situation, Supervisor, Work Team, Company Situation):
     - Extract Literal question categories.
     - Map scores for EVERY team column identified in Step 1.
-    - Use code execution to ensure columns are aligned with the correct teams.
 
     Language: Slovak. Mode: 'ZAMESTNANECKA_SPOKOJNOST'.
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite-preview-09-2025",
-      contents: {
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
         parts: [
           { inlineData: { data: base64Pdf, mimeType: "application/pdf" } },
           { text: mode === '360_FEEDBACK' ? prompt360 : promptUniversal }
         ]
-      },
-      config: {
-        tools: [{ codeExecution: {} }],
+      }],
+      generationConfig: {
+        // Tu sme odstránili tools: [{ codeExecution: {} }], ktorý spôsoboval chybu
         responseMimeType: "application/json",
-        responseSchema: getSchema(mode),
+        responseSchema: getSchema(mode) as any,
       }
     });
 
-    let text = response.text || "";
+    const response = await result.response;
+    const text = response.text();
+    
     if (!text) throw new Error("Model nevrátil žiadne dáta.");
     
     const parsed = JSON.parse(text.trim()) as FeedbackAnalysisResult;
     return parsed;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    if (error.message?.includes("AUTH_ERROR")) throw error;
     throw new Error(error.message || "Chyba pri komunikácii s AI modelom.");
   }
 };
