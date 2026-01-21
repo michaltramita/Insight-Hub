@@ -10,7 +10,10 @@ const getSchema = (mode: AnalysisMode) => {
         mode: { type: schemaType.STRING },
         reportMetadata: {
           type: schemaType.OBJECT,
-          properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
+          properties: {
+            date: { type: schemaType.STRING },
+            scaleMax: { type: schemaType.NUMBER }
+          },
           required: ["date", "scaleMax"]
         },
         employees: {
@@ -20,17 +23,53 @@ const getSchema = (mode: AnalysisMode) => {
             properties: {
               id: { type: schemaType.STRING },
               name: { type: schemaType.STRING },
-              competencies: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { name: { type: schemaType.STRING }, selfScore: { type: schemaType.NUMBER }, othersScore: { type: schemaType.NUMBER } } } },
+              competencies: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: {
+                    name: { type: schemaType.STRING },
+                    selfScore: { type: schemaType.NUMBER },
+                    othersScore: { type: schemaType.NUMBER }
+                  },
+                  required: ["name", "selfScore", "othersScore"]
+                }
+              },
+              topStrengths: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              topWeaknesses: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
+                }
+              },
+              gaps: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: {
+                    statement: { type: schemaType.STRING },
+                    selfScore: { type: schemaType.NUMBER },
+                    othersScore: { type: schemaType.NUMBER },
+                    diff: { type: schemaType.NUMBER }
+                  }
+                }
+              },
               recommendations: { type: schemaType.STRING }
             },
-            required: ["id", "name"]
+            required: ["id", "name", "competencies", "recommendations"]
           }
         }
       },
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
-    // Schéma pre SPOKOJNOSŤ - zostáva rovnaká
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -51,16 +90,100 @@ const getSchema = (mode: AnalysisMode) => {
               type: schemaType.ARRAY,
               items: {
                 type: schemaType.OBJECT,
-                properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER }, sentCount: { type: schemaType.NUMBER } },
+                properties: {
+                  name: { type: schemaType.STRING },
+                  count: { type: schemaType.NUMBER },
+                  sentCount: { type: schemaType.NUMBER }
+                },
                 required: ["name", "count", "sentCount"]
               }
             },
-            workSituationByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } },
-            supervisorByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } },
-            workTeamByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } },
-            companySituationByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } }
+            workSituationByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: {
+                        category: { type: schemaType.STRING },
+                        score: { type: schemaType.NUMBER }
+                      },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            supervisorByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: {
+                        category: { type: schemaType.STRING },
+                        score: { type: schemaType.NUMBER }
+                      },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            workTeamByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: {
+                        category: { type: schemaType.STRING },
+                        score: { type: schemaType.NUMBER }
+                      },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            },
+            companySituationByTeam: {
+              type: schemaType.ARRAY,
+              items: {
+                type: schemaType.OBJECT,
+                properties: {
+                  teamName: { type: schemaType.STRING },
+                  metrics: {
+                    type: schemaType.ARRAY,
+                    items: {
+                      type: schemaType.OBJECT,
+                      properties: {
+                        category: { type: schemaType.STRING },
+                        score: { type: schemaType.NUMBER }
+                      },
+                      required: ["category", "score"]
+                    }
+                  }
+                },
+                required: ["teamName", "metrics"]
+              }
+            }
           },
-          required: ["clientName", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -70,34 +193,28 @@ const getSchema = (mode: AnalysisMode) => {
 
 export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Promise<FeedbackAnalysisResult> => {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
+  
+  const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
   const promptUniversal = `
-    DÔLEŽITÁ TECHNICKÁ ANALÝZA TABULIEK (Strany 4-13):
-    Analyzujeme tabuľky, kde STĹPCE predstavujú tímy a RIADKY predstavujú otázky.
-    Cieľ: Extrahovať presné desatinné čísla (napr. 3.45, 4.20) pre každý tím.
+    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 4-13):
+    V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
+    
+    TVOJA ÚLOHA KROK ZA KROKOM:
+    1. NAJPRV identifikuj VŠETKY názvy tímov v hlavičkách tabuliek na všetkých stranách (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála", atď.). Nepreskoč ani jeden stĺpec!
+    2. PRE KAŽDÝ JEDEN tím, ktorý si našiel, musíš vytvoriť samostatný objekt v poliach nižšie.
+    3. EXTRAKCIA HODNÔT: Prejdi tabuľky vertikálne (zhora nadol) pre každý jeden stĺpec tímu a extrahuj presné číselné skóre.
+    4. MAPOVANIE PODĽA SEKCIÍ:
+       - Sekcia "Pracovná situácia" (strany 4-6) -> mapuj do 'workSituationByTeam'
+       - Sekcia "Priamy nadriadený" (strany 7-9) -> mapuj do 'supervisorByTeam'
+       - Sekcia "Pracovný tím" (strany 10-11) -> mapuj do 'workTeamByTeam'
+       - Sekcia "Situácia vo firme" (strany 12-13) -> mapuj do 'companySituationByTeam'
 
-    ALGORITMUS PRE ČÍTANIE (Dodržuj presne):
-    1. Krok: Nájdi hlavičku tabuľky a urob si zoznam tímov v poradí zľava doprava.
-       (Príklad: Index 1 = Bratislava, Index 2 = Vedúci, Index 3 = Obchod...)
+    DÔLEŽITÉ: 
+    - Musíš spracovať VŠETKY stĺpce (tímy). Ak tím nemá v niektorom riadku hodnotu, uveď 0.
+    - Nikdy nesmieš zlúčiť dva tímy do jedného.
     
-    2. Krok: Prejdi každý riadok s otázkou. V riadku uvidíš sériu čísel.
-    
-    3. Krok: MAPOVANIE PODĽA POZÍCIE:
-       - Prvé nájdené číslo v riadku patrí tímu na Indexe 1.
-       - Druhé nájdené číslo patrí tímu na Indexe 2.
-       - Tretie číslo patrí tímu na Indexe 3.
-       - A tak ďalej.
-    
-    4. Krok: Zapíš tieto hodnoty do JSONu. 
-       Ak je v PDF číslo, MUSÍ byť aj v JSONe. Nenechávaj 0, ak tam vidíš hodnotu.
-       
-    Spracuj takto všetky 4 sekcie:
-    - Pracovná situácia -> workSituationByTeam
-    - Priamy nadriadený -> supervisorByTeam
-    - Pracovný tím -> workTeamByTeam
-    - Situácia vo firme -> companySituationByTeam
-
-    Výstup: Kompletný VALIDNÝ JSON v slovenčine.
+    Jazyk: Slovenčina. Výstup: Čistý VALIDNÝ JSON podľa schémy.
   `;
 
   try {
@@ -107,24 +224,27 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
         role: "user",
         parts: [
           { inlineData: { data: base64Pdf, mimeType: "application/pdf" } },
-          { text: mode === '360_FEEDBACK' ? "Analyzuj 360 spätnú väzbu." : promptUniversal }
+          { text: mode === '360_FEEDBACK' ? prompt360 : promptUniversal }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.1, // Nízka teplota aby si nevymýšľal
-        maxOutputTokens: 8192 // Dostatok priestoru pre všetky dáta
+        temperature: 0.1
       }
     });
 
     const text = response.text || "";
+    if (!text) throw new Error("Model nevrátil žiadne dáta.");
+    
+    // Odstránenie markdown obalu pre istotu
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
-    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    const parsed = JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    return parsed;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error("Chyba analýzy: " + error.message);
+    throw new Error(error.message || "Chyba pri analýze dokumentu.");
   }
 };
 
@@ -135,4 +255,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};;
+};;;
