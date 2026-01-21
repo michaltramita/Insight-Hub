@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import Dashboard from './components/Dashboard';
 import SatisfactionDashboard from './components/SatisfactionDashboard';
-import { analyzeDocument, fileToBase64 } from './services/geminiService';
+// Pridaný import parseExcelFile
+import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
 
@@ -46,10 +46,22 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const base64 = await fileToBase64(file);
-      const data = await analyzeDocument(base64, selectedMode);
+      // 1. Zistíme, či ide o Excel súbor podľa prípony
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
       
-      // Basic validation to prevent white screen
+      let processedData: string;
+
+      // 2. Spracujeme dáta: Excel na CSV text, PDF na Base64
+      if (isExcel) {
+        processedData = await parseExcelFile(file);
+      } else {
+        processedData = await fileToBase64(file);
+      }
+
+      // 3. Odošleme na analýzu (pridaný parameter isExcel)
+      const data = await analyzeDocument(processedData, selectedMode, isExcel);
+      
+      // Základná validácia dát
       if (!data || (!data.employees && !data.satisfaction)) {
         throw new Error("Nepodarilo sa extrahovať štruktúrované dáta z dokumentu.");
       }
@@ -62,7 +74,7 @@ const App: React.FC = () => {
         setError("Chyba autorizácie. Prosím, skontrolujte svoj API kľúč.");
         setNeedsKey(true);
       } else {
-        setError(err.message || "Nepodarilo sa spracovať dokument. Skontrolujte formát PDF.");
+        setError(err.message || "Nepodarilo sa spracovať dokument. Skontrolujte formát súboru.");
       }
       setStatus(AppStatus.ERROR);
     }
@@ -112,7 +124,6 @@ const App: React.FC = () => {
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-2">
-              {/* Card 360 */}
               <button 
                 onClick={() => selectMode('360_FEEDBACK')}
                 className="group p-6 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-4 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
@@ -132,7 +143,6 @@ const App: React.FC = () => {
                 </div>
               </button>
               
-              {/* Card VOE */}
               <button 
                 onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')}
                 className="group p-6 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-4 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
