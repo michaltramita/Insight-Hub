@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
 const getSchema = (mode: AnalysisMode) => {
-  const schemaType = Type; // Používame Type z vašej knižnice @google/genai
+  const schemaType = Type;
   if (mode === '360_FEEDBACK') {
     return {
       type: schemaType.OBJECT,
@@ -194,12 +194,34 @@ const getSchema = (mode: AnalysisMode) => {
 export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Promise<FeedbackAnalysisResult> => {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
   
-  const prompt360 = `Analyze this 360-degree feedback PDF. Output must be VALID JSON in Slovak.`;
-  const promptUniversal = `Analyze this Employee Satisfaction Survey PDF. Language: Slovak.`;
+  const prompt360 = `
+    Analyzuj tento PDF report 360-stupňovej spätnej väzby.
+    Extrahuj mená zamestnancov, skóre v kompetenciách, silné stránky a oblasti na rozvoj.
+    Výstup musí byť VALIDNÝ JSON v slovenčine.
+  `;
+
+  const promptUniversal = `
+    Analyzuj tento PDF report prieskumu spokojnosti.
+    Zameraj sa na porovnávacie tabuľky (strany 4-13), kde sú tímy v stĺpcoch.
+
+    1. IDENTIFIKÁCIA TÍMOV:
+    Nájdi všetky názvy tímov v hlavičkách tabuliek (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ" atď.).
+
+    2. EXTRAKCIA DÁT:
+    Pre každý jeden tím extrahuj číselné skóre pre všetky kategórie v sekciách:
+    - "Pracovná situácia" -> mapuj na 'workSituationByTeam'
+    - "Priamy nadriadený" -> mapuj na 'supervisorByTeam'
+    - "Pracovný tím" -> mapuj na 'workTeamByTeam'
+    - "Situácia vo firme" -> mapuj na 'companySituationByTeam'
+
+    DÔLEŽITÉ: Prejdi tabuľku stĺpec po stĺpci, aby si správne priradil hodnoty k danému tímu.
+    Jazyk: Slovenčina. Výstup musí byť kompletný JSON podľa schémy.
+  `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite-preview-09-2025",
+      // ZMENA NA PRO MODEL PRE LEPŠIU PRESNOSŤ TABULIEK
+      model: "gemini-1.5-pro",
       contents: {
         role: "user",
         parts: [
@@ -208,7 +230,7 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
         ]
       },
       config: {
-        // TU JE OPRAVA: Odstránili sme tools, ostáva len JSON mode
+        temperature: 0.1, // Nízka teplota pre maximálnu presnosť čísel
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
       }
@@ -231,4 +253,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};;
+};
