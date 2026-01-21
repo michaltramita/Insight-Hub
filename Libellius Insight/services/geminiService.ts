@@ -197,19 +197,24 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
   const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
   const promptUniversal = `
-    DÔLEŽITÉ: Analyzuj tabuľky prieskumu spokojnosti na stranách 4-13.
-    Štruktúra PDF: Riadky sú otázky/kategórie. STĹPCE sú jednotlivé tímy.
+    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 4-13):
+    V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
     
-    POKYNY:
-    1. Identifikuj všetky tímy v hlavičkách stĺpcom (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála" atď.).
-    2. Pre každý tím priraď presné číselné hodnoty z riadkov tabuliek:
-       - Tabuľky "Pracovná situácia" -> mapuj do 'workSituationByTeam'
-       - Tabuľky "Priamy nadriadený" -> mapuj do 'supervisorByTeam'
-       - Tabuľky "Pracovný tím" -> mapuj do 'workTeamByTeam'
-       - Tabuľky "Situácia vo firme" -> mapuj do 'companySituationByTeam'
+    TVOJA ÚLOHA KROK ZA KROKOM:
+    1. NAJPRV identifikuj VŠETKY názvy tímov v hlavičkách tabuliek na všetkých stranách (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála", atď.). Nepreskoč ani jeden stĺpec!
+    2. PRE KAŽDÝ JEDEN tím, ktorý si našiel, musíš vytvoriť samostatný objekt v poliach nižšie.
+    3. EXTRAKCIA HODNÔT: Prejdi tabuľky vertikálne (zhora nadol) pre každý jeden stĺpec tímu a extrahuj presné číselné skóre.
+    4. MAPOVANIE PODĽA SEKCIÍ:
+       - Sekcia "Pracovná situácia" (strany 4-6) -> mapuj do 'workSituationByTeam'
+       - Sekcia "Priamy nadriadený" (strany 7-9) -> mapuj do 'supervisorByTeam'
+       - Sekcia "Pracovný tím" (strany 10-11) -> mapuj do 'workTeamByTeam'
+       - Sekcia "Situácia vo firme" (strany 12-13) -> mapuj do 'companySituationByTeam'
+
+    DÔLEŽITÉ: 
+    - Musíš spracovať VŠETKY stĺpce (tímy). Ak tím nemá v niektorom riadku hodnotu, uveď 0.
+    - Nikdy nesmieš zlúčiť dva tímy do jedného.
     
-    Dbaj na presné priradenie hodnoty zo stĺpca k tímu. 
-    Jazyk: Slovenčina. Formát: Čistý JSON podľa schémy.
+    Jazyk: Slovenčina. Výstup: Čistý VALIDNÝ JSON podľa schémy.
   `;
 
   try {
@@ -232,13 +237,14 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     const text = response.text || "";
     if (!text) throw new Error("Model nevrátil žiadne dáta.");
     
-    // Odstránenie markdown obalu a prázdnych znakov
+    // Odstránenie markdown obalu pre istotu
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
-    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    const parsed = JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    return parsed;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error(error.message || "Chyba pri spracovaní dokumentu.");
+    throw new Error(error.message || "Chyba pri analýze dokumentu.");
   }
 };
 
