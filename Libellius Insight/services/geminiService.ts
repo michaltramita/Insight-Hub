@@ -197,19 +197,19 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
   const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
   const promptUniversal = `
-    DÔLEŽITÉ: Analyzuj tabuľky prieskumu spokojnosti (hlavne strany 4-13).
-    Tieto tabuľky sú horizontálne: RIADKY sú otázky, STĹPCE sú jednotlivé tímy.
+    DÔLEŽITÉ: Analyzuj tabuľky prieskumu spokojnosti na stranách 4-13.
+    Štruktúra PDF: Riadky sú otázky/kategórie. STĹPCE sú jednotlivé tímy.
     
-    TVOJ POSTUP:
-    1. Identifikuj všetky tímy v hlavičkách stĺpcov (napr. "Bratislava Centrála", "Vedúci pracovníci", atď.).
-    2. Pre každý tím extrahuj číselné hodnoty pre kategórie v sekciách:
-       - "Pracovná situácia" (str. 4-6) -> priraď do workSituationByTeam
-       - "Priamy nadriadený" (str. 7-9) -> priraď do supervisorByTeam
-       - "Pracovný tím" (str. 10-11) -> priraď do workTeamByTeam
-       - "Situácia vo firme" (str. 12-13) -> priraď do companySituationByTeam
+    POKYNY:
+    1. Identifikuj všetky tímy v hlavičkách stĺpcom (napr. "Bratislava Centrála", "Vedúci pracovníci", "Obchod Západ", "Trnava Centrála" atď.).
+    2. Pre každý tím priraď presné číselné hodnoty z riadkov tabuliek:
+       - Tabuľky "Pracovná situácia" -> mapuj do 'workSituationByTeam'
+       - Tabuľky "Priamy nadriadený" -> mapuj do 'supervisorByTeam'
+       - Tabuľky "Pracovný tím" -> mapuj do 'workTeamByTeam'
+       - Tabuľky "Situácia vo firme" -> mapuj do 'companySituationByTeam'
     
-    Zabezpeč, aby si správne priradil číslo zo stĺpca k názvu tímu.
-    Výstup: Čistý JSON v slovenčine podľa definovanej schémy.
+    Dbaj na presné priradenie hodnoty zo stĺpca k tímu. 
+    Jazyk: Slovenčina. Formát: Čistý JSON podľa schémy.
   `;
 
   try {
@@ -223,7 +223,6 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
         ]
       },
       config: {
-        // Tu je odstránený codeExecution tools, ponechaný len JSON mode
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
         temperature: 0.1
@@ -233,13 +232,13 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     const text = response.text || "";
     if (!text) throw new Error("Model nevrátil žiadne dáta.");
     
-    // Ošetrenie pre prípad, že by model vrátil markdown obal
+    // Odstránenie markdown obalu a prázdnych znakov
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
     return JSON.parse(cleanJson) as FeedbackAnalysisResult;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error(error.message || "Chyba pri analýze dokumentu.");
+    throw new Error(error.message || "Chyba pri spracovaní dokumentu.");
   }
 };
 
@@ -247,3 +246,7 @@ export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+  });
+};
