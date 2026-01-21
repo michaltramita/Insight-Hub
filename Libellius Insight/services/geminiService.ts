@@ -197,7 +197,7 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
   const prompt360 = `Analyzuj 360-stupňovú spätnú väzbu z PDF. Výstup musí byť VALIDNÝ JSON v slovenčine podľa schémy.`;
 
   const promptUniversal = `
-    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 4-13):
+    PRÍSNA INŠTRUKCIA PRE ANALÝZU TABULIEK (strany 3-6):
     V tomto PDF sú horizontálne tabuľky: RIADKY sú otázky a STĹPCE sú jednotlivé tímy.
     
     TVOJA ÚLOHA KROK ZA KROKOM:
@@ -205,10 +205,10 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
     2. PRE KAŽDÝ JEDEN tím, ktorý si našiel, musíš vytvoriť samostatný objekt v poliach nižšie.
     3. EXTRAKCIA HODNÔT: Prejdi tabuľky vertikálne (zhora nadol) pre každý jeden stĺpec tímu a extrahuj presné číselné skóre.
     4. MAPOVANIE PODĽA SEKCIÍ:
-       - Sekcia "Pracovná situácia" (strany 4-6) -> mapuj do 'workSituationByTeam'
-       - Sekcia "Priamy nadriadený" (strany 7-9) -> mapuj do 'supervisorByTeam'
-       - Sekcia "Pracovný tím" (strany 10-11) -> mapuj do 'workTeamByTeam'
-       - Sekcia "Situácia vo firme" (strany 12-13) -> mapuj do 'companySituationByTeam'
+       - Sekcia "Pracovná situácia" (strana 3) -> mapuj do 'workSituationByTeam'
+       - Sekcia "Priamy nadriadený" (strana 4) -> mapuj do 'supervisorByTeam'
+       - Sekcia "Pracovný tím" (strana 5) -> mapuj do 'workTeamByTeam'
+       - Sekcia "Situácia vo firme" (strana 6) -> mapuj do 'companySituationByTeam'
 
     DÔLEŽITÉ: 
     - Musíš spracovať VŠETKY stĺpce (tímy). Ak tím nemá v niektorom riadku hodnotu, uveď 0.
