@@ -30,7 +30,7 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
-    // Schéma pre spokojnosť
+    // Schéma pre SPOKOJNOSŤ - zostáva rovnaká
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -60,7 +60,7 @@ const getSchema = (mode: AnalysisMode) => {
             workTeamByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } },
             companySituationByTeam: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { teamName: { type: schemaType.STRING }, metrics: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } } } } }, required: ["teamName", "metrics"] } }
           },
-          required: ["clientName", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
+          required: ["clientName", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -72,24 +72,32 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptUniversal = `
-    DÔLEŽITÁ ANALÝZA MATICOVÝCH TABULIEK (Strany 4-13):
-    Tabuľky obsahujú číselné hodnoty (napr. 4.25, 3.80). Riadky sú otázky, stĺpce sú tímy.
+    DÔLEŽITÁ TECHNICKÁ ANALÝZA TABULIEK (Strany 4-13):
+    Analyzujeme tabuľky, kde STĹPCE predstavujú tímy a RIADKY predstavujú otázky.
+    Cieľ: Extrahovať presné desatinné čísla (napr. 3.45, 4.20) pre každý tím.
 
-    POSTUP "INDEXOVANIA STĹPCOV" (Kritické pre správne čísla):
-    1. Najprv si vypíš poradie tímov v hlavičke tabuľky zľava doprava (napr. Index 1: Tím A, Index 2: Tím B...).
-    2. V každom riadku s otázkou nájdeš sériu čísel.
-    3. Prvé číslo patrí tímu s Indexom 1. Druhé číslo patrí tímu s Indexom 2, atď.
-    4. MUSÍŠ extrahovať tieto čísla. Ak vidíš v bunke číslo, priraď ho. Nenechávaj hodnotu 0, ak je v PDF číslo.
+    ALGORITMUS PRE ČÍTANIE (Dodržuj presne):
+    1. Krok: Nájdi hlavičku tabuľky a urob si zoznam tímov v poradí zľava doprava.
+       (Príklad: Index 1 = Bratislava, Index 2 = Vedúci, Index 3 = Obchod...)
+    
+    2. Krok: Prejdi každý riadok s otázkou. V riadku uvidíš sériu čísel.
+    
+    3. Krok: MAPOVANIE PODĽA POZÍCIE:
+       - Prvé nájdené číslo v riadku patrí tímu na Indexe 1.
+       - Druhé nájdené číslo patrí tímu na Indexe 2.
+       - Tretie číslo patrí tímu na Indexe 3.
+       - A tak ďalej.
+    
+    4. Krok: Zapíš tieto hodnoty do JSONu. 
+       Ak je v PDF číslo, MUSÍ byť aj v JSONe. Nenechávaj 0, ak tam vidíš hodnotu.
+       
+    Spracuj takto všetky 4 sekcie:
+    - Pracovná situácia -> workSituationByTeam
+    - Priamy nadriadený -> supervisorByTeam
+    - Pracovný tím -> workTeamByTeam
+    - Situácia vo firme -> companySituationByTeam
 
-    ŠTRUKTÚRA DÁT:
-    Pre KAŽDÝ identifikovaný tím naplň jeho objekt 'metrics' (kategória + skóre) pre sekcie:
-    - Work Situation (Pracovná situácia)
-    - Supervisor (Priamy nadriadený)
-    - Work Team (Pracovný tím)
-    - Company Situation (Situácia vo firme)
-
-    Daj si pozor, aby si nevynechal čísla pre tímy v strede tabuľky. Každý tím musí mať vyplnené 'score'.
-    Výstup: VALIDNÝ JSON.
+    Výstup: Kompletný VALIDNÝ JSON v slovenčine.
   `;
 
   try {
@@ -105,19 +113,18 @@ export const analyzeDocument = async (base64Pdf: string, mode: AnalysisMode): Pr
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.1, // Nízka teplota je kľúčová pre presnosť čísel
-        maxOutputTokens: 8192
+        temperature: 0.1, // Nízka teplota aby si nevymýšľal
+        maxOutputTokens: 8192 // Dostatok priestoru pre všetky dáta
       }
     });
 
     const text = response.text || "";
-    // Odstránenie markdown značiek
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
     return JSON.parse(cleanJson) as FeedbackAnalysisResult;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error("Chyba pri analýze dokumentu: " + error.message);
+    throw new Error("Chyba analýzy: " + error.message);
   }
 };
 
@@ -128,4 +135,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};
+};;
