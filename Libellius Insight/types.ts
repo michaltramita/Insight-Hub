@@ -1,13 +1,106 @@
-// New Cell-First Architecture Interfaces
-
-interface RawCell {
-    // Properties of RawCell
+export interface CompetencyData {
+  name: string;
+  selfScore: number;
+  othersScore: number;
 }
 
-interface GenericAnalysisResult {
-    // Properties of GenericAnalysisResult
+export interface StatementData {
+  text: string;
+  score: number;
 }
 
-interface MissingCellRecord {
-    // Properties of MissingCellRecord
+export interface GapData {
+  statement: string;
+  selfScore: number;
+  othersScore: number;
+  diff: number;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  name: string;
+  competencies: CompetencyData[];
+  topStrengths: StatementData[];
+  topWeaknesses: StatementData[];
+  gaps: GapData[];
+  recommendations: string;
+}
+
+export interface EngagementTeam {
+  name: string;
+  count: number;
+  sentCount: number;
+}
+
+export interface SatisfactionMetric {
+  category: string;
+  score: number;
+}
+
+export interface TeamWorkSituation {
+  teamName: string;
+  metrics: SatisfactionMetric[];
+}
+
+export interface EmployeeSatisfactionData {
+  clientName: string;
+  totalSent: number;
+  totalReceived: number;
+  successRate: string;
+  teamEngagement: EngagementTeam[];
+  workSituationByTeam: TeamWorkSituation[];
+  supervisorByTeam: TeamWorkSituation[];
+  workTeamByTeam: TeamWorkSituation[];
+  companySituationByTeam: TeamWorkSituation[];
+}
+
+// NEW: Cell-first architecture interfaces
+export interface RawCell {
+  sectionName: string;
+  teamName: string;
+  questionText: string;
+  score: number | null;
+}
+
+export interface MissingCellRecord {
+  sectionName: string;
+  teamName: string;
+  questionText: string;
+  reason: string;
+}
+
+export interface GenericAnalysisResult {
+  mode: 'ZAMESTNANECKA_SPOKOJNOST';
+  metadata: {
+    date: string;
+    clientName: string;
+    scaleMax: number;
+  };
+  teams: Array<{
+    id: string;
+    name: string;
+  }>;
+  cells: RawCell[];
+  missingCells: MissingCellRecord[];
+}
+
+export type AnalysisMode = '360_FEEDBACK' | 'ZAMESTNANECKA_SPOKOJNANECKA_SPOKOJNOST';
+
+export interface FeedbackAnalysisResult {
+  mode: AnalysisMode;
+  reportMetadata: {
+    date: string;
+    company?: string;
+    scaleMax: number;
+  };
+  employees?: EmployeeProfile[];
+  satisfaction?: EmployeeSatisfactionData;
+}
+
+export enum AppStatus {
+  HOME = 'HOME',
+  READY_TO_UPLOAD = 'READY_TO_UPLOAD',
+  ANALYZING = 'ANALYZING',
+  SUCCESS = 'SUCCESS',
+  ERROR = 'ERROR'
 }
