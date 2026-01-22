@@ -191,7 +191,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 60, bottom: 20, top: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                     <XAxis type="number" domain={[0, scaleMax]} hide />
-                    <YAxis dataKey="category" type="category" width={300} tick={{ fontSize: 10, fill: '#000', fontWeight: 800 }} interval={0} />
+                    <YAxis dataKey="category" type="category" width={300} tick={{ fontSize: 12, fill: '#000', fontWeight: 800 }} interval={0} />
                     <Tooltip cursor={{ fill: '#00000005' }} />
                     <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
                       {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
