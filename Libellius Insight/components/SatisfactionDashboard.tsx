@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FeedbackAnalysisResult, TeamWorkSituation } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
-// 1. IMPORTY PRE MAGIC LINK
 import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
@@ -25,9 +24,11 @@ type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
-  // --- KĽÚČOVÁ ZMENA: Ak result.satisfaction neexistuje, použije sa priamo result ---
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
+  
+  // --- KONTROLA ZDIEĽANÉHO POHĽADU ---
+  const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
@@ -46,7 +47,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  // --- FUNKCIA NA GENEROVANIE ODKAZU ---
   const generateShareLink = () => {
     try {
       const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
@@ -287,30 +287,35 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* TLAČIDLO ZDIEĽAŤ ODKAZ */}
-          <button 
-            onClick={generateShareLink}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
-              copyStatus 
-                ? 'bg-green-600 text-white scale-105' 
-                : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
-            }`}
-          >
-            {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-            {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
-          </button>
+          {/* TLAČIDLÁ SA ZOBRAZIA LEN AK NIE SME V ZDIEĽANOM ODKAZE */}
+          {!isSharedView && (
+            <>
+              <button 
+                onClick={generateShareLink}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
+                  copyStatus 
+                    ? 'bg-green-600 text-white scale-105' 
+                    : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+                }`}
+              >
+                {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
+              </button>
 
-          <button 
-            onClick={exportToJson}
-            className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
-          >
-            <Download className="w-4 h-4" /> Exportovať JSON
-          </button>
+              <button 
+                onClick={exportToJson}
+                className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
+              >
+                <Download className="w-4 h-4" /> Exportovať JSON
+              </button>
+            </>
+          )}
+
           <button 
             onClick={onReset} 
             className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"
           >
-            <RefreshCw className="w-4 h-4" /> Reset
+            <RefreshCw className="w-4 h-4" /> {isSharedView ? 'Zavrieť report' : 'Reset'}
           </button>
         </div>
       </div>
