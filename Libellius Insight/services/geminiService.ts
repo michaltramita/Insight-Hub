@@ -91,6 +91,15 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
+export const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -100,10 +109,9 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const csvData = XLSX.utils.sheet_to_csv(worksheet);
-        resolve(csvData);
+        resolve(XLSX.utils.sheet_to_csv(worksheet));
       } catch (err) {
-        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
+        reject(new Error("Nepodarilo sa spracovať Excel."));
       }
     };
     reader.onerror = reject;
@@ -113,30 +121,31 @@ export const parseExcelFile = async (file: File): Promise<string> => {
 
 export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isExcel: boolean = false): Promise<FeedbackAnalysisResult> => {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
+  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const promptSatisfaction = `
-    Si HR analytik. Spracuj priložené CSV dáta z prieskumu spokojnosti.
-    1. Identifikuj oblasti v stĺpci 'oblast' a priraď ich postupne do card1 až card4.
-    2. DÔLEŽITÉ: V dátach sa nachádza skupina 'Priemer' (alebo 'Celkový priemer'). Túto skupinu NEIGNORUJ. 
-       Zahrň ju do každého poľa 'teams' na každej karte ako regulárny tím, aby bolo možné porovnanie s priemerom.
-    3. V 'teamEngagement' extrahuj počty z oblasti 'Zapojenie účastníkov' pre všetky tímy VRÁTANE tímu 'Priemer'.
-    4. Údaje o celkovej firme (Celkom) použi pre 'totalSent', 'totalReceived' a 'successRate'.
+    Si HR analytik. Spracuj priložené dáta.
+    1. Rozdeľ oblasti (stĺpec oblast) do card1 až card4.
+    2. DÔLEŽITÉ: Skupinu 'Priemer' alebo 'Celkový priemer' VŽDY zahrň ako regulárny tím do každej karty.
+    3. Extrahuj počty odpovedí pre všetky tímy vrátane 'Priemer'.
+    4. Použi Celkom pre štatistiky návratnosti.
   `;
 
   try {
-    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360 spätnú väzbu." : promptSatisfaction;
-    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA:\n${inputData}` : basePrompt }];
-    if (!isExcel) parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
+    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360 spätnú väzbu z PDF." : promptSatisfaction;
+    const parts: any[] = [{ text: isExcel ? `${basePrompt}\n\nDÁTA:\n${inputData}` : basePrompt }];
+    
+    if (!isExcel) {
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
+    }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
-      contents: { role: "user", parts: parts },
-      config: { responseMimeType: "application/json", responseSchema: getSchema(mode), temperature: 0.1 }
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: getSchema(mode) as any }
     });
 
-    const cleanJson = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    return JSON.parse(result.response.text()) as FeedbackAnalysisResult;
   } catch (error: any) {
-    throw new Error(error.message || "Chyba pri analýze.");
+    throw new Error("Analýza zlyhala: " + error.message);
   }
 };
