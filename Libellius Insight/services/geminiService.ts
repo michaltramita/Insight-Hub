@@ -2,11 +2,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// --- 1. SCHÉMA ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
-    // ... (ponechané pôvodné pre 360 feedback)
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -33,7 +31,6 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
-    // NOVÁ ŠTRUKTÚRA PRE ZAMESTNANECKÚ SPOKOJNOSŤ (CARD 1-4)
     const cardSchema = {
       type: schemaType.OBJECT,
       properties: {
@@ -84,10 +81,7 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
-            card1: cardSchema,
-            card2: cardSchema,
-            card3: cardSchema,
-            card4: cardSchema
+            card1: cardSchema, card2: cardSchema, card3: cardSchema, card4: cardSchema
           },
           required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
         }
@@ -97,7 +91,6 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -118,59 +111,32 @@ export const parseExcelFile = async (file: File): Promise<string> => {
   });
 };
 
-// --- 3. HLAVNÁ ANALÝZA ---
-export const analyzeDocument = async (
-  inputData: string, 
-  mode: AnalysisMode,
-  isExcel: boolean = false
-): Promise<FeedbackAnalysisResult> => {
-  
+export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isExcel: boolean = false): Promise<FeedbackAnalysisResult> => {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
     Si HR analytik. Spracuj priložené CSV dáta z prieskumu spokojnosti.
-    
-    1. Identifikuj unikátne hodnoty v stĺpci 'oblast'.
-    2. Prvú nájdenú oblasť (napr. 'Pracovná náplň') priraď do 'card1', druhú do 'card2', atď.
-    3. Do poľa 'title' v každej karte napíš presný názov tejto oblasti.
-    4. Pre každú kartu zoskup riadky podľa stĺpca 'skupina' (teamName).
-    5. V 'teamEngagement' extrahuj riadky, kde oblast je 'Zapojenie účastníkov' a skupina obsahuje názvy tímov.
-    6. 'totalSent', 'totalReceived' a 'successRate' vytiahni z riadkov v oblasti 'Zapojenie účastníkov', kde skupina je 'Celkom'.
+    1. Identifikuj oblasti v stĺpci 'oblast' a priraď ich postupne do card1 až card4.
+    2. DÔLEŽITÉ: V dátach sa nachádza skupina 'Priemer' (alebo 'Celkový priemer'). Túto skupinu NEIGNORUJ. 
+       Zahrň ju do každého poľa 'teams' na každej karte ako regulárny tím, aby bolo možné porovnanie s priemerom.
+    3. V 'teamEngagement' extrahuj počty z oblasti 'Zapojenie účastníkov' pre všetky tímy VRÁTANE tímu 'Priemer'.
+    4. Údaje o celkovej firme (Celkom) použi pre 'totalSent', 'totalReceived' a 'successRate'.
   `;
 
   try {
-    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
-    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
-
-    if (!isExcel) {
-      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
-    }
+    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360 spätnú väzbu." : promptSatisfaction;
+    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA:\n${inputData}` : basePrompt }];
+    if (!isExcel) parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash", 
       contents: { role: "user", parts: parts },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: getSchema(mode),
-        temperature: 0.1
-      }
+      config: { responseMimeType: "application/json", responseSchema: getSchema(mode), temperature: 0.1 }
     });
 
-    const text = response.text || "";
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const cleanJson = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanJson) as FeedbackAnalysisResult;
-
   } catch (error: any) {
-    console.error("Gemini Analysis Error:", error);
-    throw new Error(error.message || "Chyba pri analýze dokumentu.");
+    throw new Error(error.message || "Chyba pri analýze.");
   }
-};
-
-export const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-  });
 };
