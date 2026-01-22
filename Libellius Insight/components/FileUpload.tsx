@@ -9,15 +9,17 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
-  // Funkcia na kontrolu, či je súbor podporovaný
+  // Funkcia na kontrolu, či je súbor podporovaný (PRIDANÝ JSON)
   const isSupportedFile = (file: File) => {
     const supportedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel' // .xls
+      'application/vnd.ms-excel', // .xls
+      'application/json' // .json
     ];
     const extension = file.name.split('.').pop()?.toLowerCase();
-    return supportedTypes.includes(file.type) || extension === 'xlsx' || extension === 'xls' || extension === 'pdf';
+    return supportedTypes.includes(file.type) || 
+           ['xlsx', 'xls', 'pdf', 'json', 'csv'].includes(extension || '');
   };
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -29,7 +31,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       if (isSupportedFile(file)) {
         onFileSelect(file);
       } else {
-        alert("Prosím nahrajte iba PDF alebo Excel súbory (.xlsx, .xls).");
+        alert("Prosím nahrajte iba podporované súbory (PDF, Excel alebo JSON report).");
       }
     }
   }, [onFileSelect, isAnalyzing]);
@@ -44,13 +46,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   const getLabels = () => {
     if (mode === 'ZAMESTNANECKA_SPOKOJNOST') {
       return {
-        title: 'Nahrajte výsledky spokojnosti (PDF alebo Excel)',
-        description: 'Podporujeme PDF exporty aj Excel tabuľky.'
+        title: 'Nahrajte dáta (Excel/PDF) alebo hotový JSON report',
+        description: 'Pre analýzu vložte Excel. Pre zobrazenie výsledku vložte JSON.'
       };
     }
     return {
       title: 'Nahrajte výsledky z 360° Spätnej väzby',
-      description: 'Podporujeme PDF aj Excel formáty.'
+      description: 'Podporujeme PDF, Excel aj vopred analyzované JSON formáty.'
     };
   };
 
@@ -66,8 +68,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
     >
       <input 
         type="file" 
-        // Tu sme pridali podporu pre Excel do výberového okna
-        accept=".pdf,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
+        // PRIDANÁ PODPORA PRE JSON A CSV DO VÝBEROVÉHO OKNA
+        accept=".pdf,.xlsx,.xls,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
         className="hidden" 
         id="file-upload"
         onChange={handleChange}
@@ -100,4 +102,4 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   );
 };
 
-export default FileUpload; FileUpload;
+export default FileUpload;
