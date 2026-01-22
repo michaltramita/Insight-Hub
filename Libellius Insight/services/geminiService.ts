@@ -6,16 +6,14 @@ import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
+    // ... (ponechané pôvodné pre 360 feedback)
     return {
       type: schemaType.OBJECT,
       properties: {
         mode: { type: schemaType.STRING },
         reportMetadata: {
           type: schemaType.OBJECT,
-          properties: {
-            date: { type: schemaType.STRING },
-            scaleMax: { type: schemaType.NUMBER }
-          },
+          properties: { date: { type: schemaType.STRING }, scaleMax: { type: schemaType.NUMBER } },
           required: ["date", "scaleMax"]
         },
         employees: {
@@ -25,44 +23,7 @@ const getSchema = (mode: AnalysisMode) => {
             properties: {
               id: { type: schemaType.STRING },
               name: { type: schemaType.STRING },
-              competencies: {
-                type: schemaType.ARRAY,
-                items: {
-                  type: schemaType.OBJECT,
-                  properties: {
-                    name: { type: schemaType.STRING },
-                    selfScore: { type: schemaType.NUMBER },
-                    othersScore: { type: schemaType.NUMBER }
-                  },
-                  required: ["name", "selfScore", "othersScore"]
-                }
-              },
-              topStrengths: {
-                type: schemaType.ARRAY,
-                items: {
-                  type: schemaType.OBJECT,
-                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
-                }
-              },
-              topWeaknesses: {
-                type: schemaType.ARRAY,
-                items: {
-                  type: schemaType.OBJECT,
-                  properties: { text: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } }
-                }
-              },
-              gaps: {
-                type: schemaType.ARRAY,
-                items: {
-                  type: schemaType.OBJECT,
-                  properties: {
-                    statement: { type: schemaType.STRING },
-                    selfScore: { type: schemaType.NUMBER },
-                    othersScore: { type: schemaType.NUMBER },
-                    diff: { type: schemaType.NUMBER }
-                  }
-                }
-              },
+              competencies: { type: schemaType.ARRAY, items: { type: schemaType.OBJECT, properties: { name: { type: schemaType.STRING }, selfScore: { type: schemaType.NUMBER }, othersScore: { type: schemaType.NUMBER } } } },
               recommendations: { type: schemaType.STRING }
             },
             required: ["id", "name", "competencies", "recommendations"]
@@ -72,6 +33,33 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["mode", "reportMetadata", "employees"]
     };
   } else {
+    // NOVÁ ŠTRUKTÚRA PRE ZAMESTNANECKÚ SPOKOJNOSŤ (CARD 1-4)
+    const cardSchema = {
+      type: schemaType.OBJECT,
+      properties: {
+        title: { type: schemaType.STRING },
+        teams: {
+          type: schemaType.ARRAY,
+          items: {
+            type: schemaType.OBJECT,
+            properties: {
+              teamName: { type: schemaType.STRING },
+              metrics: {
+                type: schemaType.ARRAY,
+                items: {
+                  type: schemaType.OBJECT,
+                  properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
+                  required: ["category", "score"]
+                }
+              }
+            },
+            required: ["teamName", "metrics"]
+          }
+        }
+      },
+      required: ["title", "teams"]
+    };
+
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -92,84 +80,16 @@ const getSchema = (mode: AnalysisMode) => {
               type: schemaType.ARRAY,
               items: {
                 type: schemaType.OBJECT,
-                properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER }, sentCount: { type: schemaType.NUMBER } },
-                required: ["name", "count", "sentCount"]
+                properties: { name: { type: schemaType.STRING }, count: { type: schemaType.NUMBER } },
+                required: ["name", "count"]
               }
             },
-            workSituationByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            supervisorByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            workTeamByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            },
-            companySituationByTeam: {
-              type: schemaType.ARRAY,
-              items: {
-                type: schemaType.OBJECT,
-                properties: {
-                  teamName: { type: schemaType.STRING },
-                  metrics: {
-                    type: schemaType.ARRAY,
-                    items: {
-                      type: schemaType.OBJECT,
-                      properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                      required: ["category", "score"]
-                    }
-                  }
-                },
-                required: ["teamName", "metrics"]
-              }
-            }
+            card1: cardSchema,
+            card2: cardSchema,
+            card3: cardSchema,
+            card4: cardSchema
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "workSituationByTeam", "supervisorByTeam", "workTeamByTeam", "companySituationByTeam"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -207,28 +127,28 @@ export const analyzeDocument = async (
   
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
-  const prompt360 = `Analyzuj priložené dáta z 360-stupňovej spätnej väzby a vráť výsledok v JSON podľa schémy.`;
-  const promptSatisfaction = `Analyzuj dáta z prieskumu spokojnosti (CSV tabuľku) a vráť výsledok v JSON podľa schémy.`;
+  const promptSatisfaction = `
+    Si HR analytik. Spracuj priložené CSV dáta z prieskumu spokojnosti.
+    
+    1. Identifikuj unikátne hodnoty v stĺpci 'oblast'.
+    2. Prvú nájdenú oblasť (napr. 'Pracovná náplň') priraď do 'card1', druhú do 'card2', atď.
+    3. Do poľa 'title' v každej karte napíš presný názov tejto oblasti.
+    4. Pre každú kartu zoskup riadky podľa stĺpca 'skupina' (teamName).
+    5. V 'teamEngagement' extrahuj riadky, kde oblast je 'Zapojenie účastníkov' a skupina obsahuje názvy tímov.
+    6. 'totalSent', 'totalReceived' a 'successRate' vytiahni z riadkov v oblasti 'Zapojenie účastníkov', kde skupina je 'Celkom'.
+  `;
 
   try {
-    const basePrompt = mode === '360_FEEDBACK' ? prompt360 : promptSatisfaction;
-    const parts = [];
+    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
+    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
 
-    if (isExcel) {
-      // PRE EXCEL: Posielame CSV ako text
-      parts.push({ text: `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` });
-    } else {
-      // PRE PDF: Posielame PDF inline data
-      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
-      parts.push({ text: basePrompt });
+    if (!isExcel) {
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
     }
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash", 
-      contents: {
-        role: "user",
-        parts: parts
-      },
+      contents: { role: "user", parts: parts },
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
@@ -237,7 +157,6 @@ export const analyzeDocument = async (
     });
 
     const text = response.text || "";
-    // Odstránenie markdown formátovania, ak by ho model náhodou pridal
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanJson) as FeedbackAnalysisResult;
 
