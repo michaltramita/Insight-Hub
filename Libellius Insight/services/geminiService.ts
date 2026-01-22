@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
+// --- 1. SCHÉMA ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
@@ -81,7 +82,10 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
-            card1: cardSchema, card2: cardSchema, card3: cardSchema, card4: cardSchema
+            card1: cardSchema,
+            card2: cardSchema,
+            card3: cardSchema,
+            card4: cardSchema
           },
           required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
         }
@@ -91,15 +95,7 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-export const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = (error) => reject(error);
-  });
-};
-
+// --- 2. PARSOVANIE EXCELU ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -109,9 +105,10 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        resolve(XLSX.utils.sheet_to_csv(worksheet));
+        const csvData = XLSX.utils.sheet_to_csv(worksheet);
+        resolve(csvData);
       } catch (err) {
-        reject(new Error("Nepodarilo sa spracovať Excel."));
+        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
       }
     };
     reader.onerror = reject;
@@ -119,33 +116,61 @@ export const parseExcelFile = async (file: File): Promise<string> => {
   });
 };
 
-export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isExcel: boolean = false): Promise<FeedbackAnalysisResult> => {
+// --- 3. HLAVNÁ ANALÝZA ---
+export const analyzeDocument = async (
+  inputData: string, 
+  mode: AnalysisMode,
+  isExcel: boolean = false
+): Promise<FeedbackAnalysisResult> => {
+  
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
-  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const promptSatisfaction = `
-    Si HR analytik. Spracuj priložené dáta.
-    1. Rozdeľ oblasti (stĺpec oblast) do card1 až card4.
-    2. DÔLEŽITÉ: Skupinu 'Priemer' alebo 'Celkový priemer' VŽDY zahrň ako regulárny tím do každej karty.
-    3. Extrahuj počty odpovedí pre všetky tímy vrátane 'Priemer'.
-    4. Použi Celkom pre štatistiky návratnosti.
+    Si HR analytik. Spracuj priložené CSV dáta z prieskumu spokojnosti.
+    
+    1. Identifikuj unikátne hodnoty v stĺpci 'oblast'.
+    2. Prvú nájdenú oblasť priraď do 'card1', druhú do 'card2', atď.
+    3. Do poľa 'title' v každej karte napíš presný názov tejto oblasti.
+    4. Pre každú kartu zoskup riadky podľa stĺpca 'skupina' (teamName). 
+       DÔLEŽITÉ: Zahrň aj riadky, kde skupina je 'Priemer' alebo 'Celkový priemer' ako samostatný tím.
+    5. V 'teamEngagement' extrahuj riadky z oblasti 'Zapojenie účastníkov' pre všetky tímy VRÁTANE tímu 'Priemer'.
+    6. 'totalSent', 'totalReceived' a 'successRate' vytiahni z riadkov v oblasti 'Zapojenie účastníkov', kde skupina je 'Celkom'.
   `;
 
   try {
-    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360 spätnú väzbu z PDF." : promptSatisfaction;
-    const parts: any[] = [{ text: isExcel ? `${basePrompt}\n\nDÁTA:\n${inputData}` : basePrompt }];
-    
+    const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
+    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
+
     if (!isExcel) {
-      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } });
+      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
     }
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: getSchema(mode) as any }
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash", 
+      contents: { role: "user", parts: parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: getSchema(mode),
+        temperature: 0.1
+      }
     });
 
-    return JSON.parse(result.response.text()) as FeedbackAnalysisResult;
+    const text = response.text || "";
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+
   } catch (error: any) {
-    throw new Error("Analýza zlyhala: " + error.message);
+    console.error("Gemini Analysis Error:", error);
+    throw new Error(error.message || "Chyba pri analýze dokumentu.");
   }
+};
+
+// --- 4. EXPORTOVANÉ PRE APP.TSX ---
+export const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+  });
 };
