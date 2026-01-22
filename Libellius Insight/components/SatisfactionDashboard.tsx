@@ -334,22 +334,37 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         ))}
       </div>
 
-      {activeTab === 'ENGAGEMENT' && (
-        <div className="space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-black text-white p-8 rounded-[2.5rem] shadow-xl">
-               <span className="block text-[10px] font-black uppercase opacity-50 mb-1">Rozoslaných</span>
-               <span className="text-5xl font-black tracking-tighter">{data.totalSent || 0}</span>
-            </div>
-            <div className="bg-brand text-white p-8 rounded-[2.5rem] shadow-xl">
-               <span className="block text-[10px] font-black uppercase opacity-60 mb-1">Vyplnených</span>
-               <span className="text-5xl font-black tracking-tighter">{data.totalReceived || 0}</span>
-            </div>
-            <div className="bg-white border border-black/5 p-8 rounded-[2.5rem] shadow-xl">
-               <span className="block text-[10px] font-black uppercase text-black/40 mb-1">Návratnosť</span>
-               <span className="text-5xl font-black text-black tracking-tighter">{data.successRate || '0%'}</span>
-            </div>
-          </div>
+    {activeTab === 'ENGAGEMENT' && (
+  <div className="space-y-10">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      {/* Karta 1: Celkový počet oslovených */}
+      <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl shadow-black/10">
+         <span className="block text-[10px] font-black uppercase opacity-50 mb-2 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
+         <span className="text-6xl font-black tracking-tighter leading-none">
+           {data.totalSent || 0}
+         </span>
+      </div>
+
+      {/* Karta 2: Počet zapojených osôb */}
+      <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl shadow-brand/20">
+         <span className="block text-[10px] font-black uppercase opacity-60 mb-2 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+         <span className="text-6xl font-black tracking-tighter leading-none">
+           {data.totalReceived || 0}
+         </span>
+      </div>
+
+      {/* Karta 3: Celková návratnosť s percentom */}
+      <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl shadow-black/5">
+         <span className="block text-[10px] font-black uppercase text-black/40 mb-2 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+         <div className="flex items-baseline gap-1">
+           <span className="text-6xl font-black text-black tracking-tighter leading-none">
+             {/* Odstránime prípadné % z dát, aby sme ho mohli nastylovať sami */}
+             {String(data.successRate || '0').replace('%', '')}
+           </span>
+           <span className="text-3xl font-black text-black/20 tracking-tighter">%</span>
+         </div>
+      </div>
 
           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
