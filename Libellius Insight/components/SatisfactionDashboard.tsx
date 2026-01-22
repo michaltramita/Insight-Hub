@@ -342,4 +342,55 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
             <div className="bg-white border border-black/5 p-8 rounded-[2.5rem] shadow-xl">
                <span className="block text-[10px] font-black uppercase text-black/40 mb-1">Návratnosť</span>
-               <span className="text-5xl font-black text-black tracking-tighter">{data
+               <span className="text-5xl font-black text-black tracking-tighter">{data.successRate || '0%'}</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-3xl border border-black/5">
+              <table className="w-full text-left">
+                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
+                  <tr>
+                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}>Stredisko</th>
+                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}>Počet</th>
+                    <th className="p-6 text-center">Podiel</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/5 font-black text-xs">
+                  {filteredEngagement.map((team: any, idx: number) => (
+                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
+                      <td className="p-6 group-hover:text-brand">{team.name}</td>
+                      <td className="p-6 text-center">{team.count}</td>
+                      <td className="p-6">
+                        <div className="flex items-center justify-center gap-4">
+                          <div className="w-32 bg-black/5 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                          </div>
+                          <span className="text-brand text-[10px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'card1' && renderSection('card1')}
+      {activeTab === 'card2' && renderSection('card2')}
+      {activeTab === 'card3' && renderSection('card3')}
+      {activeTab === 'card4' && renderSection('card4')}
+    </div>
+  );
+};
+
+export default SatisfactionDashboard;
