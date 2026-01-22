@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FeedbackAnalysisResult, TeamWorkSituation } from '../types';
+import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import LZString from 'lz-string';
 import { 
-  RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
-  BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, SearchX, ArrowUpDown, Download,
-  Link as LinkIcon, Check
+  RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
+  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -27,7 +25,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
   
-  // --- KONTROLA ZDIEĽANÉHO POHĽADU ---
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
@@ -58,8 +55,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       alert("Chyba pri kopírovaní odkazu.");
     }
   };
-
-  if (!data || (!data.card1 && !data.teamEngagement)) return null;
 
   const exportToJson = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
@@ -146,14 +141,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return teams;
   }, [data.teamEngagement, searchTerm, sortKey, sortDirection]);
 
+  if (!data || (!data.card1 && !data.teamEngagement)) return null;
+
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
     const card = data[tab];
     if (!card) return null;
-
     const teamValue = selectedTeams[tab];
     const activeMetrics = getActiveData(tab, teamValue);
-    const top = activeMetrics.slice(0, 3);
-    const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
 
     return (
       <div className="space-y-10 animate-fade-in">
@@ -171,12 +165,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
             {viewMode === 'DETAIL' && (
               <div className="w-full lg:w-96">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-black/30 mb-2 ml-2">Vyberte stredisko:</label>
-                <select 
-                  value={teamValue} 
-                  onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
-                  className="w-full p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer"
-                >
+                <select value={teamValue} onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} className="w-full p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer">
                   {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -188,10 +177,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               selectedTeams={comparisonSelection[tab]} 
               onToggleTeam={(t) => {
                 const current = comparisonSelection[tab];
-                setComparisonSelection({
-                  ...comparisonSelection, 
-                  [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]
-                });
+                setComparisonSelection({...comparisonSelection, [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]});
               }}
               onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
             />
@@ -200,72 +186,19 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
         {viewMode === 'DETAIL' ? (
           <div className={`space-y-14 transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
-              <div className="flex justify-between items-center mb-12">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 bg-brand rounded-2xl shadow-lg shadow-brand/20"><BarChart4 className="w-8 h-8 text-white" /></div>
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none">{teamValue}</h3>
-                    <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mt-2">Kvantitatívny profil oblasti</p>
-                  </div>
-                </div>
-                <div className="px-6 py-3 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">Škála 1-{scaleMax}</div>
-              </div>
-              <div className="h-[600px] w-full">
+            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl h-[650px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, bottom: 20, top: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                     <XAxis type="number" domain={[0, scaleMax]} hide />
-                    <YAxis 
-                      dataKey="category" 
-                      type="category" 
-                      width={380} 
-                      tick={{ fontSize: 14, fill: '#000', fontWeight: 900, width: 370 }} 
-                      interval={0} 
-                    />
-                    <Tooltip 
-                       cursor={{ fill: '#00000005' }}
-                       contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 25px 50px rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 'bold' }}
-                    />
-                    <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
+                    <YAxis dataKey="category" type="category" width={380} tick={{ fontSize: 13, fill: '#000', fontWeight: 900, width: 370 }} interval={0} />
+                    <Tooltip cursor={{ fill: '#00000005' }} />
+                    <Bar dataKey="score" radius={[0, 15, 15, 0]} barSize={32}>
                       {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
-                      <LabelList dataKey="score" position="right" style={{ fill: '#000', fontWeight: 900, fontSize: '14px' }} offset={10} />
+                      <LabelList dataKey="score" position="right" style={{ fill: '#000', fontWeight: 900, fontSize: '15px' }} offset={15} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
-                  <div className="flex items-center gap-4 mb-10 text-brand">
-                    <Star className="w-8 h-8" />
-                    <h4 className="text-2xl font-black uppercase tracking-tighter">Silné stránky</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {top.map((m, i) => (
-                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg shadow-brand/10">
-                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
-                        <span className="text-3xl font-black">{m.score.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-               
-               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
-                  <div className="flex items-center gap-4 mb-10 text-black">
-                    <Target className="w-8 h-8" />
-                    <h4 className="text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
-                  </div>
-                  <div className="space-y-4">
-                    {bottom.length > 0 ? bottom.map((m, i) => (
-                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-black text-white">
-                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
-                        <span className="text-3xl font-black text-brand">{m.score.toFixed(2)}</span>
-                      </div>
-                    )) : <p className="text-center py-10 text-black/20 font-black uppercase tracking-widest text-[10px]">Žiadne kritické body</p>}
-                  </div>
-               </div>
             </div>
           </div>
         ) : (
@@ -276,8 +209,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-24">
-      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl shadow-black/5 flex flex-col md:flex-row justify-between items-center gap-6">
+    <div className="space-y-8 animate-fade-in pb-24 px-4 md:px-0">
+      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
            <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20"><ClipboardCheck className="text-white w-8 h-8" /></div>
            <div>
@@ -287,34 +220,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* TLAČIDLÁ SA ZOBRAZIA LEN AK NIE SME V ZDIEĽANOM ODKAZE */}
           {!isSharedView && (
             <>
               <button 
                 onClick={generateShareLink}
-                className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
-                  copyStatus 
-                    ? 'bg-green-600 text-white scale-105' 
-                    : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}
               >
                 {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                 {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
               </button>
-
-              <button 
-                onClick={exportToJson}
-                className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
-              >
+              <button onClick={exportToJson} className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20">
                 <Download className="w-4 h-4" /> Exportovať JSON
               </button>
             </>
           )}
-
-          <button 
-            onClick={onReset} 
-            className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"
-          >
+          <button onClick={onReset} className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5">
             <RefreshCw className="w-4 h-4" /> {isSharedView ? 'Zavrieť report' : 'Reset'}
           </button>
         </div>
@@ -334,37 +254,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         ))}
       </div>
 
-    {activeTab === 'ENGAGEMENT' && (
-  <div className="space-y-10">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      {/* Karta 1: Celkový počet oslovených */}
-      <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl shadow-black/10">
-         <span className="block text-[10px] font-black uppercase opacity-50 mb-2 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
-         <span className="text-6xl font-black tracking-tighter leading-none">
-           {data.totalSent || 0}
-         </span>
-      </div>
+      {activeTab === 'ENGAGEMENT' && (
+        <div className="space-y-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl">
+               <span className="block text-[10px] font-black uppercase opacity-50 mb-2 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
+               <span className="text-6xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
+            </div>
 
-      {/* Karta 2: Počet zapojených osôb */}
-      <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl shadow-brand/20">
-         <span className="block text-[10px] font-black uppercase opacity-60 mb-2 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
-         <span className="text-6xl font-black tracking-tighter leading-none">
-           {data.totalReceived || 0}
-         </span>
-      </div>
+            <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl">
+               <span className="block text-[10px] font-black uppercase opacity-60 mb-2 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+               <span className="text-6xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
+            </div>
 
-      {/* Karta 3: Celková návratnosť s percentom */}
-      <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl shadow-black/5">
-         <span className="block text-[10px] font-black uppercase text-black/40 mb-2 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
-         <div className="flex items-baseline gap-1">
-           <span className="text-6xl font-black text-black tracking-tighter leading-none">
-             {/* Odstránime prípadné % z dát, aby sme ho mohli nastylovať sami */}
-             {String(data.successRate || '0').replace('%', '')}
-           </span>
-           <span className="text-3xl font-black text-black/20 tracking-tighter">%</span>
-         </div>
-      </div>
+            <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl">
+               <span className="block text-[10px] font-black uppercase text-black/40 mb-2 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+               <div className="flex items-baseline gap-1">
+                 <span className="text-6xl font-black text-black tracking-tighter leading-none">
+                   {String(data.successRate || '0').replace('%', '')}
+                 </span>
+                 <span className="text-3xl font-black text-black/20 tracking-tighter">%</span>
+               </div>
+            </div>
+
+          </div>
 
           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
