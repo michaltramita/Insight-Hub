@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FeedbackAnalysisResult } from '../types';
+import { FeedbackAnalysisResult, TeamWorkSituation } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
-import LZString from 'lz-string'; 
 import { 
-  RefreshCw, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX
+  RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
+  BarChart4, ClipboardCheck, MapPin, UserCheck,
+  Building2, Star, Target, SearchX, ArrowUpDown, Download
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -16,28 +16,19 @@ interface Props {
   onReset: () => void;
 }
 
-// Typy pre vnútro komponentu
 type TabType = 'ENGAGEMENT' | 'card1' | 'card2' | 'card3' | 'card4';
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
-  // --- OPRAVA NACÍTANIA DÁT (FALLBACK) ---
-  const data = useMemo(() => {
-    // 1. Skúsime nový formát (z Gemini)
-    if (result.satisfaction) return result.satisfaction;
-    // 2. Skúsime starý formát (kde bol JSON priamo objektom spokojnosti)
-    if ((result as any).card1) return result as any;
-    return null;
-  }, [result]);
-
-  const scaleMax = result.reportMetadata?.scaleMax || (data as any)?.reportMetadata?.scaleMax || 6;
+  const data = result.satisfaction;
+  const scaleMax = result.reportMetadata?.scaleMax || 6;
+  
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
-  const [copyStatus, setCopyStatus] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  
+
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
   });
@@ -50,26 +41,25 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  // Funkcia na generovanie Magic Linku
-  const generateShareLink = () => {
-    try {
-      const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
-      const shareUrl = `${window.location.origin}${window.location.pathname}#report=${compressed}`;
-      navigator.clipboard.writeText(shareUrl);
-      setCopyStatus(true);
-      setTimeout(() => setCopyStatus(false), 3000);
-    } catch (err) {
-      alert("Nepodarilo sa skopírovať odkaz.");
-    }
+  if (!data) return null;
+
+  // --- FUNKCIA NA EXPORT JSON (Pre klienta) ---
+  const exportToJson = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${data.clientName || 'report'}_analyza.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
-  // Zoznam tímov
   const masterTeams = useMemo(() => {
     if (!data?.teamEngagement) return [];
     return data.teamEngagement
-      .map((t: any) => t.name)
-      .filter((name: string) => name && !['total', 'celkom'].includes(name.toLowerCase()))
-      .sort((a: string, b: string) => {
+      .map(t => t.name)
+      .filter(name => name && !['total', 'celkom'].includes(name.toLowerCase()))
+      .sort((a, b) => {
         const isAvgA = a.toLowerCase().includes('priemer');
         const isAvgB = b.toLowerCase().includes('priemer');
         if (isAvgA && !isAvgB) return -1;
@@ -80,81 +70,230 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   useEffect(() => {
     if (masterTeams.length > 0 && !selectedTeams.card1) {
-      const initial = masterTeams.find((t: string) => t.toLowerCase().includes('priemer')) || masterTeams[0];
+      const initial = masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0];
       setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
     }
   }, [masterTeams]);
 
-  if (!data) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border-2 border-dashed border-black/10">
-        <SearchX className="w-16 h-16 text-black/20 mb-4" />
-        <h2 className="text-2xl font-black uppercase tracking-tighter">Dáta nenájdené</h2>
-        <button onClick={onReset} className="mt-6 px-8 py-3 bg-black text-white rounded-full font-bold uppercase text-[10px]">Späť</button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => setIsTransitioning(false), 400);
+    return () => clearTimeout(timer);
+  }, [activeTab, viewMode]);
 
-  // --- POMOCNÉ FUNKCIE PRE SEKCIU ---
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'desc' ? 'asc' : sortDirection === 'asc' ? null : 'desc');
+      if (sortDirection === 'asc') setSortKey(null);
+    } else {
+      setSortKey(key);
+      setSortDirection('desc');
+    }
+  };
+
   const getActiveData = (tab: 'card1' | 'card2' | 'card3' | 'card4', teamName: string) => {
     const card = data[tab];
     if (!card) return [];
-    const team = card.teams.find((t: any) => t.teamName === teamName) || card.teams[0];
+    const team = card.teams.find(t => t.teamName === teamName) || card.teams[0];
     return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
+  };
+
+  const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
+    const card = data[tab];
+    if (!card) return [];
+    const categories = Array.from(new Set(card.teams.flatMap(t => t.metrics.map(m => m.category))));
+    return categories.map(cat => {
+      const row: any = { category: cat };
+      selectedNames.forEach(tName => {
+        const team = card.teams.find(t => t.teamName === tName);
+        const metric = team?.metrics.find(m => m.category === cat);
+        row[tName] = metric?.score || 0;
+      });
+      return row;
+    });
+  };
+
+  const filteredEngagement = useMemo(() => {
+    let teams = [...(data.teamEngagement || [])].filter(t => 
+      t.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    if (sortKey && sortDirection) {
+      teams.sort((a, b) => {
+        const valA = sortKey === 'count' ? a.count : a.name.toLowerCase();
+        const valB = sortKey === 'count' ? b.count : b.name.toLowerCase();
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return teams;
+  }, [data.teamEngagement, searchTerm, sortKey, sortDirection]);
+
+  const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
+    const card = data[tab];
+    if (!card) return null;
+
+    const teamValue = selectedTeams[tab];
+    const activeMetrics = getActiveData(tab, teamValue);
+    const top = activeMetrics.slice(0, 3);
+    const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
+
+    return (
+      <div className="space-y-10 animate-fade-in">
+        <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-widest">
+                <MapPin className="w-3 h-3" /> Konfigurácia reportu
+              </div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter leading-tight">{card.title}</h2>
+              <div className="flex bg-black/5 p-1 rounded-xl w-fit">
+                <button onClick={() => setViewMode('DETAIL')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Detail tímu</button>
+                <button onClick={() => setViewMode('COMPARISON')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Porovnanie</button>
+              </div>
+            </div>
+            {viewMode === 'DETAIL' && (
+              <div className="w-full lg:w-96">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-black/30 mb-2 ml-2">Vyberte stredisko:</label>
+                <select 
+                  value={teamValue} 
+                  onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
+                  className="w-full p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer"
+                >
+                  {masterTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          {viewMode === 'COMPARISON' && (
+            <TeamSelectorGrid 
+              availableTeams={masterTeams} 
+              selectedTeams={comparisonSelection[tab]} 
+              onToggleTeam={(t) => {
+                const current = comparisonSelection[tab];
+                setComparisonSelection({
+                  ...comparisonSelection, 
+                  [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]
+                });
+              }}
+              onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
+            />
+          )}
+        </div>
+
+        {viewMode === 'DETAIL' ? (
+          <div className={`space-y-14 transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+              <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-brand rounded-2xl shadow-lg shadow-brand/20"><BarChart4 className="w-8 h-8 text-white" /></div>
+                  <div>
+                    <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none">{teamValue}</h3>
+                    <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mt-2">Kvantitatívny profil oblasti</p>
+                  </div>
+                </div>
+                <div className="px-6 py-3 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">Škála 1-{scaleMax}</div>
+              </div>
+              {/* --- GRAF S VÄČŠÍMI FONTMY A ČÍSLAMI --- */}
+              <div className="h-[600px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, bottom: 20, top: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+                    <XAxis type="number" domain={[0, scaleMax]} hide />
+                    <YAxis 
+                      dataKey="category" 
+                      type="category" 
+                      width={380} 
+                      tick={{ fontSize: 14, fill: '#000', fontWeight: 900, width: 370 }} 
+                      interval={0} 
+                    />
+                    <Tooltip 
+                       cursor={{ fill: '#00000005' }}
+                       contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 25px 50px rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 'bold' }}
+                    />
+                    <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
+                      {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
+                      <LabelList dataKey="score" position="right" style={{ fill: '#000', fontWeight: 900, fontSize: '14px' }} offset={10} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+                  <div className="flex items-center gap-4 mb-10 text-brand">
+                    <Star className="w-8 h-8" />
+                    <h4 className="text-2xl font-black uppercase tracking-tighter">Silné stránky</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {top.map((m, i) => (
+                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg shadow-brand/10">
+                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
+                        <span className="text-3xl font-black">{m.score.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+               
+               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+                  <div className="flex items-center gap-4 mb-10 text-black">
+                    <Target className="w-8 h-8" />
+                    <h4 className="text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {bottom.length > 0 ? bottom.map((m, i) => (
+                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-black text-white">
+                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
+                        <span className="text-3xl font-black text-brand">{m.score.toFixed(2)}</span>
+                      </div>
+                    )) : <p className="text-center py-10 text-black/20 font-black uppercase tracking-widest text-[10px]">Žiadne kritické body</p>}
+                  </div>
+               </div>
+            </div>
+          </div>
+        ) : (
+          <ComparisonMatrix teams={comparisonSelection[tab]} matrixData={getComparisonData(tab, comparisonSelection[tab])} />
+        )}
+      </div>
+    );
   };
 
   return (
     <div className="space-y-8 animate-fade-in pb-24">
-      {/* HEADER */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl shadow-black/5 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
-           <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20">
-             <ClipboardCheck className="text-white w-8 h-8" />
-           </div>
+           <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20"><ClipboardCheck className="text-white w-8 h-8" /></div>
            <div>
              <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">{data.clientName || "Report"}</h1>
-             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date || 'Neuvedený'}</p>
+             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date}</p>
            </div>
         </div>
-
+        
+        {/* --- TLAČIDLÁ: EXPORT + RESET --- */}
         <div className="flex items-center gap-3">
           <button 
-            onClick={generateShareLink}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
-              copyStatus ? 'bg-green-500 text-white' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
-            }`}
+            onClick={exportToJson}
+            className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
           >
-            {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-            {copyStatus ? 'Skopírované!' : 'Zdieľať odkaz'}
+            <Download className="w-4 h-4" /> Exportovať JSON
           </button>
-
           <button 
-            onClick={() => {
-              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
-              const downloadAnchorNode = document.createElement('a');
-              downloadAnchorNode.setAttribute("href", dataStr);
-              downloadAnchorNode.setAttribute("download", `${data.clientName || 'report'}_export.json`);
-              downloadAnchorNode.click();
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-full font-bold text-[10px] uppercase tracking-widest"
+            onClick={onReset} 
+            className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"
           >
-            <Download className="w-4 h-4" /> JSON
-          </button>
-          
-          <button onClick={onReset} className="px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest transition-all">
-            Reset
+            <RefreshCw className="w-4 h-4" /> Reset
           </button>
         </div>
       </div>
 
-      {/* TABS */}
-      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar">
+      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto border border-black/5 shadow-inner overflow-x-auto no-scrollbar">
         {[
           { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
-          { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
-          { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
-          { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
-          { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
+          { id: 'card1', icon: BarChart4, label: data.card1.title || 'Karta 1' },
+          { id: 'card2', icon: UserCheck, label: data.card2.title || 'Karta 2' },
+          { id: 'card3', icon: Users, label: data.card3.title || 'Karta 3' },
+          { id: 'card4', icon: Building2, label: data.card4.title || 'Karta 4' }
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
@@ -162,55 +301,66 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         ))}
       </div>
 
-      {/* OBSAH SEKCIÍ (Grafy sa vyrenderujú tu) */}
-      {activeTab === 'ENGAGEMENT' ? (
-        <div className="animate-fade-in space-y-10">
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-black text-white p-8 rounded-[2.5rem]">
-                <span className="block text-[10px] font-black uppercase opacity-50">Rozoslaných</span>
-                <span className="text-5xl font-black tracking-tighter">{data.totalSent}</span>
-              </div>
-              <div className="bg-brand text-white p-8 rounded-[2.5rem]">
-                <span className="block text-[10px] font-black uppercase opacity-50">Vyplnených</span>
-                <span className="text-5xl font-black tracking-tighter">{data.totalReceived}</span>
-              </div>
-              <div className="bg-white border border-black/5 p-8 rounded-[2.5rem]">
-                <span className="block text-[10px] font-black uppercase text-black/40">Návratnosť</span>
-                <span className="text-5xl font-black tracking-tighter">{data.successRate}</span>
-              </div>
-           </div>
-        </div>
-      ) : (
-        <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl font-black uppercase tracking-tighter">{data[activeTab]?.title}</h2>
-            <select 
-              value={selectedTeams[activeTab as keyof typeof selectedTeams]} 
-              onChange={(e) => setSelectedTeams({...selectedTeams, [activeTab]: e.target.value})} 
-              className="p-4 bg-black text-white rounded-2xl font-black text-xs outline-none"
-            >
-              {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
-            </select>
+      {activeTab === 'ENGAGEMENT' && (
+        <div className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-black text-white p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase opacity-50 mb-1">Rozoslaných</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalSent}</span>
+            </div>
+            <div className="bg-brand text-white p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase opacity-60 mb-1">Vyplnených</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalReceived}</span>
+            </div>
+            <div className="bg-white border border-black/5 p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase text-black/40 mb-1">Návratnosť</span>
+               <span className="text-5xl font-black text-black tracking-tighter">{data.successRate}</span>
+            </div>
           </div>
-          
-          <div className="h-[600px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={getActiveData(activeTab as any, selectedTeams[activeTab as keyof typeof selectedTeams])} layout="vertical" margin={{ left: 40, right: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-                <XAxis type="number" domain={[0, scaleMax]} hide />
-                <YAxis dataKey="category" type="category" width={380} tick={{ fontSize: 14, fontWeight: 900, fill: '#000' }} interval={0} />
-                <Tooltip />
-                <Bar dataKey="score" radius={[0, 10, 10, 0]} barSize={30}>
-                  {getActiveData(activeTab as any, selectedTeams[activeTab as keyof typeof selectedTeams]).map((entry: any, index: number) => (
-                    <Cell key={index} fill={entry.score <= 4.0 ? '#000' : '#B81547'} />
+
+          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-3xl border border-black/5">
+              <table className="w-full text-left">
+                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
+                  <tr>
+                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}>Stredisko</th>
+                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}>Počet</th>
+                    <th className="p-6 text-center">Podiel</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/5 font-black text-xs">
+                  {filteredEngagement.map((team, idx) => (
+                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
+                      <td className="p-6 group-hover:text-brand">{team.name}</td>
+                      <td className="p-6 text-center">{team.count}</td>
+                      <td className="p-6">
+                        <div className="flex items-center justify-center gap-4">
+                          <div className="w-32 bg-black/5 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                          </div>
+                          <span className="text-brand text-[10px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                  <LabelList dataKey="score" position="right" style={{ fontWeight: 900, fontSize: '14px' }} offset={10} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
+
+      {activeTab === 'card1' && renderSection('card1')}
+      {activeTab === 'card2' && renderSection('card2')}
+      {activeTab === 'card3' && renderSection('card3')}
+      {activeTab === 'card4' && renderSection('card4')}
     </div>
   );
 };
