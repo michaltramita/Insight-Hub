@@ -5,7 +5,7 @@ import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown
+  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -22,7 +22,6 @@ type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
-  // --- DÁTA A LOGIKA ---
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
@@ -42,7 +41,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     card1: [], card2: [], card3: [] , card4: []
   });
 
-  // --- FUNKCIE ---
   const generateShareLink = () => {
     try {
       const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
@@ -58,7 +56,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `${data.clientName || 'report'}_analyza.json`);
+    document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   const masterTeams = useMemo(() => {
@@ -127,7 +127,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return teams;
   }, [data.teamEngagement, searchTerm, sortKey, sortDirection]);
 
-  // --- RENDER SECTION (GRAF + BODY) ---
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
     const card = data[tab];
     if (!card) return null;
@@ -139,36 +138,53 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return (
       <div className="space-y-10 animate-fade-in">
         <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-          <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
-            <div className="space-y-4">
-              <h2 className="text-3xl font-black uppercase tracking-tighter leading-tight">{card.title}</h2>
-              <div className="flex bg-black/5 p-1 rounded-xl w-fit">
-                <button onClick={() => setViewMode('DETAIL')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Detail tímu</button>
-                <button onClick={() => setViewMode('COMPARISON')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Porovnanie</button>
+          <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-8">
+            <div className="space-y-6 w-full lg:w-auto">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
+                <MapPin className="w-3 h-3" /> Konfigurácia reportu
+              </div>
+              <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{card.title}</h2>
+              <div className="flex bg-black/5 p-1 rounded-2xl w-fit border border-black/5">
+                <button onClick={() => setViewMode('DETAIL')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Detail tímu</button>
+                <button onClick={() => setViewMode('COMPARISON')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Porovnanie</button>
               </div>
             </div>
+
             {viewMode === 'DETAIL' && (
-              <select value={teamValue} onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} className="p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer">
-                {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <div className="flex flex-col items-end gap-3 w-full lg:w-auto">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mr-4">VYBRANÝ TÍM / STREDISKO:</span>
+                <div className="relative w-full lg:w-auto min-w-[340px]">
+                  <select 
+                    value={teamValue} 
+                    onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
+                    className="w-full p-7 pr-14 bg-black text-white rounded-[1.5rem] font-black text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                  >
+                    {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-white/40 pointer-events-none" />
+                </div>
+              </div>
             )}
           </div>
+
           {viewMode === 'COMPARISON' && (
-            <TeamSelectorGrid 
-              availableTeams={masterTeams} 
-              selectedTeams={comparisonSelection[tab]} 
-              onToggleTeam={(t) => {
-                const current = comparisonSelection[tab];
-                setComparisonSelection({...comparisonSelection, [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]});
-              }}
-              onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
-            />
+            <div className="mt-8 border-t border-black/5 pt-8">
+              <TeamSelectorGrid 
+                availableTeams={masterTeams} 
+                selectedTeams={comparisonSelection[tab]} 
+                onToggleTeam={(t) => {
+                  const current = comparisonSelection[tab];
+                  setComparisonSelection({...comparisonSelection, [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]});
+                }}
+                onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
+              />
+            </div>
           )}
         </div>
 
         {viewMode === 'DETAIL' ? (
           <div className="space-y-10">
-            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl h-[650px]">
+            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl h-[650px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, top: 20, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
@@ -191,9 +207,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                   <div className="space-y-4">
                     {top.map((m, i) => (
-                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg">
-                        <span className="font-bold text-xs pr-4 leading-tight uppercase">{m.category}</span>
-                        <span className="text-3xl font-black">{m.score.toFixed(2)}</span>
+                      <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg">
+                        <span className="font-bold text-xs pr-4 leading-tight uppercase tracking-wide">{m.category}</span>
+                        <span className="text-4xl font-black">{m.score.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -205,9 +221,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                   <div className="space-y-4">
                     {bottom.length > 0 ? bottom.map((m, i) => (
-                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-black text-white">
-                        <span className="font-bold text-xs pr-4 leading-tight uppercase">{m.category}</span>
-                        <span className="text-3xl font-black text-brand">{m.score.toFixed(2)}</span>
+                      <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-black text-white shadow-lg">
+                        <span className="font-bold text-xs pr-4 leading-tight uppercase tracking-wide">{m.category}</span>
+                        <span className="text-4xl font-black text-brand">{m.score.toFixed(2)}</span>
                       </div>
                     )) : <p className="text-center py-10 text-black/20 font-black uppercase tracking-widest text-[10px]">Žiadne kritické body</p>}
                   </div>
@@ -221,10 +237,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     );
   };
 
-  if (!data) return null;
-
   return (
-    <div className="space-y-8 animate-fade-in pb-24">
+    <div className="space-y-8 animate-fade-in pb-24 px-4 md:px-0">
       {/* HEADER */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
@@ -241,19 +255,19 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                 {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
               </button>
-              <button onClick={exportToJson} className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg">
+              <button onClick={exportToJson} className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20">
                 <Download className="w-4 h-4" /> Exportovať JSON
               </button>
             </>
           )}
-          <button onClick={onReset} className="px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all">
+          <button onClick={onReset} className="px-8 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all">
             {isSharedView ? 'Zavrieť report' : 'Reset'}
           </button>
         </div>
       </div>
 
       {/* TABS */}
-      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar">
+      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {[
           { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
           { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
@@ -261,7 +275,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
           { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
         ].map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
         ))}
@@ -269,54 +283,52 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {activeTab === 'ENGAGEMENT' ? (
         <div className="space-y-10 animate-fade-in">
-          {/* KARTY S PERCENTAMI */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl">
-               <span className="block text-[10px] font-black uppercase opacity-50 mb-2 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
-               <span className="text-6xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
+               <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
+               <span className="text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
             </div>
             <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl">
-               <span className="block text-[10px] font-black uppercase opacity-60 mb-2 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
-               <span className="text-6xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
+               <span className="block text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+               <span className="text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
             </div>
             <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl">
-               <span className="block text-[10px] font-black uppercase text-black/40 mb-2 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+               <span className="block text-[10px] font-black uppercase text-black/40 mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
                <div className="flex items-baseline gap-1">
-                 <span className="text-6xl font-black text-black tracking-tighter leading-none">{String(data.successRate || '0').replace('%', '')}</span>
-                 <span className="text-3xl font-black text-black/20 tracking-tighter">%</span>
+                 <span className="text-7xl font-black text-black tracking-tighter leading-none">{String(data.successRate || '0').replace('%', '')}</span>
+                 <span className="text-4xl font-black text-black/10 tracking-tighter">%</span>
                </div>
             </div>
           </div>
 
-          {/* TABUĽKA STREDÍSK */}
           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
-                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
+                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all" />
               </div>
             </div>
             <div className="overflow-hidden rounded-3xl border border-black/5">
               <table className="w-full text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
                   <tr>
-                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}>Stredisko</th>
-                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}>Počet</th>
+                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}><div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div></th>
+                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}><div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div></th>
                     <th className="p-6 text-center">Podiel</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 font-black text-xs">
                   {filteredEngagement.map((team: any, idx: number) => (
                     <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
-                      <td className="p-6 group-hover:text-brand">{team.name}</td>
-                      <td className="p-6 text-center">{team.count}</td>
-                      <td className="p-6">
-                        <div className="flex items-center justify-center gap-4">
-                          <div className="w-32 bg-black/5 h-2 rounded-full overflow-hidden">
+                      <td className="p-7 group-hover:text-brand transition-colors">{team.name}</td>
+                      <td className="p-7 text-center">{team.count}</td>
+                      <td className="p-7">
+                        <div className="flex items-center justify-center gap-5">
+                          <div className="w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
                             <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
                           </div>
-                          <span className="text-brand text-[10px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                          <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
                         </div>
                       </td>
                     </tr>
