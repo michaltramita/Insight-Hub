@@ -5,10 +5,10 @@ import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import { 
   RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
   BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, SearchX, ArrowUpDown
+  Building2, Star, Target, SearchX, ArrowUpDown, Download
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
 } from 'recharts';
 
 interface Props {
@@ -43,14 +43,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   if (!data) return null;
 
-  // 1. OPRAVENÉ: Získanie zoznamu tímov (ZAHŔŇA PRIEMER A RADÍ HO NA ZAČIATOK)
+  // --- FUNKCIA NA EXPORT JSON (Pre klienta) ---
+  const exportToJson = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${data.clientName || 'report'}_analyza.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   const masterTeams = useMemo(() => {
     if (!data?.teamEngagement) return [];
     return data.teamEngagement
       .map(t => t.name)
-      .filter(name => name && !['total', 'celkom'].includes(name.toLowerCase())) // Vyhodíme len "Celkom"
+      .filter(name => name && !['total', 'celkom'].includes(name.toLowerCase()))
       .sort((a, b) => {
-        // Logika: 'Priemer' bude vždy prvý, ostatné podľa abecedy
         const isAvgA = a.toLowerCase().includes('priemer');
         const isAvgB = b.toLowerCase().includes('priemer');
         if (isAvgA && !isAvgB) return -1;
@@ -61,7 +70,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   useEffect(() => {
     if (masterTeams.length > 0 && !selectedTeams.card1) {
-      // Ak existuje Priemer, nastavíme ho ako predvolený
       const initial = masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0];
       setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
     }
@@ -186,15 +194,26 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
                 <div className="px-6 py-3 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">Škála 1-{scaleMax}</div>
               </div>
-              <div className="h-[500px] w-full">
+              {/* --- GRAF S VÄČŠÍMI FONTMY A ČÍSLAMI --- */}
+              <div className="h-[600px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 60, bottom: 20, top: 20 }}>
+                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, bottom: 20, top: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                     <XAxis type="number" domain={[0, scaleMax]} hide />
-                    <YAxis dataKey="category" type="category" width={300} tick={{ fontSize: 12, fill: '#000', fontWeight: 800 }} interval={0} />
-                    <Tooltip cursor={{ fill: '#00000005' }} />
+                    <YAxis 
+                      dataKey="category" 
+                      type="category" 
+                      width={380} 
+                      tick={{ fontSize: 14, fill: '#000', fontWeight: 900, width: 370 }} 
+                      interval={0} 
+                    />
+                    <Tooltip 
+                       cursor={{ fill: '#00000005' }}
+                       contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 25px 50px rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 'bold' }}
+                    />
                     <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
                       {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
+                      <LabelList dataKey="score" position="right" style={{ fill: '#000', fontWeight: 900, fontSize: '14px' }} offset={10} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -250,7 +269,22 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
              <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date}</p>
            </div>
         </div>
-        <button onClick={onReset} className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"><RefreshCw className="w-4 h-4" /> Reset</button>
+        
+        {/* --- TLAČIDLÁ: EXPORT + RESET --- */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={exportToJson}
+            className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
+          >
+            <Download className="w-4 h-4" /> Exportovať JSON
+          </button>
+          <button 
+            onClick={onReset} 
+            className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"
+          >
+            <RefreshCw className="w-4 h-4" /> Reset
+          </button>
+        </div>
       </div>
 
       <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto border border-black/5 shadow-inner overflow-x-auto no-scrollbar">
@@ -286,7 +320,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-              <h3 className="text-2xl font-black uppercase tracking-tighter">Štruktúra stredísk</h3>
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
                 <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
@@ -303,7 +337,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </thead>
                 <tbody className="divide-y divide-black/5 font-black text-xs">
                   {filteredEngagement.map((team, idx) => (
-                    <tr key={idx} className="hover:bg-brand/5 transition-colors group">
+                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
                       <td className="p-6 group-hover:text-brand">{team.name}</td>
                       <td className="p-6 text-center">{team.count}</td>
                       <td className="p-6">
