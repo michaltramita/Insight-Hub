@@ -42,23 +42,43 @@ const App: React.FC = () => {
 
   const handleFileSelect = async (file: File) => {
     if (!selectedMode) return;
+    
+    const fileName = file.name.toLowerCase();
+
+    // 1. ŠPECIÁLNY PRÍPAD: Ak klient nahrá vopred analyzovaný JSON
+    if (fileName.endsWith('.json')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const jsonData = JSON.parse(e.target?.result as string);
+          setResult(jsonData);
+          setStatus(AppStatus.SUCCESS);
+        } catch (err) {
+          setError("Chybný formát JSON súboru. Uistite sa, že nahrávate platný export.");
+          setStatus(AppStatus.ERROR);
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
     setStatus(AppStatus.ANALYZING);
     setError(null);
 
     try {
-      // 1. Zistíme, či ide o Excel súbor podľa prípony
-      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      // 2. Zistíme, či ide o Excel alebo CSV súbor
+      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
       
       let processedData: string;
 
-      // 2. Spracujeme dáta: Excel na CSV text, PDF na Base64
+      // 3. Spracujeme dáta: Excel/CSV na text, PDF na Base64
       if (isExcel) {
         processedData = await parseExcelFile(file);
       } else {
         processedData = await fileToBase64(file);
       }
 
-      // 3. Odošleme na analýzu (pridaný parameter isExcel)
+      // 4. Odošleme na analýzu
       const data = await analyzeDocument(processedData, selectedMode, isExcel);
       
       // Základná validácia dát
