@@ -1,210 +1,365 @@
-import React, { useState, useEffect } from 'react';
-import FileUpload from './components/FileUpload';
-import Dashboard from './components/Dashboard';
-import SatisfactionDashboard from './components/SatisfactionDashboard';
-import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
-import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
-import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, FileJson } from 'lucide-react';
-import LZString from 'lz-string';
+import React, { useState, useMemo, useEffect } from 'react';
+import { FeedbackAnalysisResult, TeamWorkSituation } from '../types';
+import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
+import ComparisonMatrix from './satisfaction/ComparisonMatrix';
+import { 
+  RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
+  BarChart4, ClipboardCheck, MapPin, UserCheck,
+  Building2, Star, Target, SearchX, ArrowUpDown, Download
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
+} from 'recharts';
 
-const App: React.FC = () => {
-  const [status, setStatus] = useState<AppStatus>(AppStatus.HOME);
-  const [selectedMode, setSelectedMode] = useState<AnalysisMode | null>(null);
-  const [result, setResult] = useState<FeedbackAnalysisResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [needsKey, setNeedsKey] = useState<boolean>(false);
+interface Props {
+  result: FeedbackAnalysisResult;
+  onReset: () => void;
+}
+
+type TabType = 'ENGAGEMENT' | 'card1' | 'card2' | 'card3' | 'card4';
+type ViewMode = 'DETAIL' | 'COMPARISON';
+type SortKey = 'count' | 'name';
+type SortDirection = 'asc' | 'desc' | null;
+
+const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
+  const data = result.satisfaction;
+  const scaleMax = result.reportMetadata?.scaleMax || 6;
+  
+  const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
+  const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
+    card1: '', card2: '', card3: '', card4: ''
+  });
+
+  const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({
+    card1: [], card2: [], card3: [], card4: []
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  if (!data) return null;
+
+  const exportToJson = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${data.clientName || 'report'}_analyza.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const masterTeams = useMemo(() => {
+    if (!data?.teamEngagement) return [];
+    return data.teamEngagement
+      .map(t => t.name)
+      .filter(name => name && !['total', 'celkom'].includes(name.toLowerCase()))
+      .sort((a, b) => {
+        const isAvgA = a.toLowerCase().includes('priemer');
+        const isAvgB = b.toLowerCase().includes('priemer');
+        if (isAvgA && !isAvgB) return -1;
+        if (!isAvgA && isAvgB) return 1;
+        return a.localeCompare(b);
+      });
+  }, [data]);
 
   useEffect(() => {
-    const handleUrlData = () => {
-      const hash = window.location.hash;
-      if (hash && hash.startsWith('#report=')) {
-        try {
-          const compressedData = hash.replace('#report=', '');
-          const decompressed = LZString.decompressFromEncodedURIComponent(compressedData);
-          
-          if (decompressed) {
-            const jsonData = JSON.parse(decompressed);
+    if (masterTeams.length > 0 && !selectedTeams.card1) {
+      const initial = masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0];
+      setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
+    }
+  }, [masterTeams]);
+
+  useEffect(() => {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => setIsTransitioning(false), 400);
+    return () => clearTimeout(timer);
+  }, [activeTab, viewMode]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'desc' ? 'asc' : sortDirection === 'asc' ? null : 'desc');
+      if (sortDirection === 'asc') setSortKey(null);
+    } else {
+      setSortKey(key);
+      setSortDirection('desc');
+    }
+  };
+
+  const getActiveData = (tab: 'card1' | 'card2' | 'card3' | 'card4', teamName: string) => {
+    const card = data[tab];
+    if (!card) return [];
+    const team = card.teams.find(t => t.teamName === teamName) || card.teams[0];
+    return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
+  };
+
+  const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
+    const card = data[tab];
+    if (!card) return [];
+    const categories = Array.from(new Set(card.teams.flatMap(t => t.metrics.map(m => m.category))));
+    return categories.map(cat => {
+      const row: any = { category: cat };
+      selectedNames.forEach(tName => {
+        const team = card.teams.find(t => t.teamName === tName);
+        const metric = team?.metrics.find(m => m.category === cat);
+        row[tName] = metric?.score || 0;
+      });
+      return row;
+    });
+  };
+
+  const filteredEngagement = useMemo(() => {
+    let teams = [...(data.teamEngagement || [])].filter(t => 
+      t.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    if (sortKey && sortDirection) {
+      teams.sort((a, b) => {
+        const valA = sortKey === 'count' ? a.count : a.name.toLowerCase();
+        const valB = sortKey === 'count' ? b.count : b.name.toLowerCase();
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return teams;
+  }, [data.teamEngagement, searchTerm, sortKey, sortDirection]);
+
+  const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
+    const card = data[tab];
+    if (!card) return null;
+
+    const teamValue = selectedTeams[tab];
+    const activeMetrics = getActiveData(tab, teamValue);
+    const top = activeMetrics.slice(0, 3);
+    const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
+
+    return (
+      <div className="space-y-10 animate-fade-in">
+        <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-widest">
+                <MapPin className="w-3 h-3" /> Konfigurácia reportu
+              </div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter leading-tight">{card.title}</h2>
+              <div className="flex bg-black/5 p-1 rounded-xl w-fit">
+                <button onClick={() => setViewMode('DETAIL')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Detail tímu</button>
+                <button onClick={() => setViewMode('COMPARISON')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-sm' : 'text-black/30'}`}>Porovnanie</button>
+              </div>
+            </div>
+            {viewMode === 'DETAIL' && (
+              <div className="w-full lg:w-96">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-black/30 mb-2 ml-2">Vyberte stredisko:</label>
+                <select 
+                  value={teamValue} 
+                  onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
+                  className="w-full p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer"
+                >
+                  {masterTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          {viewMode === 'COMPARISON' && (
+            <TeamSelectorGrid 
+              availableTeams={masterTeams} 
+              selectedTeams={comparisonSelection[tab]} 
+              onToggleTeam={(t) => {
+                const current = comparisonSelection[tab];
+                setComparisonSelection({
+                  ...comparisonSelection, 
+                  [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]
+                });
+              }}
+              onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
+            />
+          )}
+        </div>
+
+        {viewMode === 'DETAIL' ? (
+          <div className={`space-y-14 transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+              <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-brand rounded-2xl shadow-lg shadow-brand/20"><BarChart4 className="w-8 h-8 text-white" /></div>
+                  <div>
+                    <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none">{teamValue}</h3>
+                    <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest mt-2">Kvantitatívny profil oblasti</p>
+                  </div>
+                </div>
+                <div className="px-6 py-3 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">Škála 1-{scaleMax}</div>
+              </div>
+              <div className="h-[600px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, bottom: 20, top: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+                    <XAxis type="number" domain={[0, scaleMax]} hide />
+                    <YAxis 
+                      dataKey="category" 
+                      type="category" 
+                      width={380} 
+                      tick={{ fontSize: 14, fill: '#000', fontWeight: 900, width: 370 }} 
+                      interval={0} 
+                    />
+                    <Tooltip 
+                       cursor={{ fill: '#00000005' }}
+                       contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 25px 50px rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 'bold' }}
+                    />
+                    <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
+                      {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
+                      <LabelList dataKey="score" position="right" style={{ fill: '#000', fontWeight: 900, fontSize: '14px' }} offset={10} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
             
-            if (!jsonData.mode) {
-              jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
-            }
-
-            setResult(jsonData);
-            setStatus(AppStatus.SUCCESS);
-          }
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
-
-    handleUrlData();
-    window.addEventListener('hashchange', handleUrlData);
-
-    const checkKey = async () => {
-      const aistudio = (window as any).aistudio;
-      if (aistudio) {
-        try {
-          const hasKey = await aistudio.hasSelectedApiKey();
-          if (!hasKey) setNeedsKey(true);
-        } catch (e) { console.debug(e); }
-      }
-    };
-    checkKey();
-
-    return () => window.removeEventListener('hashchange', handleUrlData);
-  }, []);
-
-  const handleOpenKeyDialog = async () => {
-    const aistudio = (window as any).aistudio;
-    if (aistudio) {
-      await aistudio.openSelectKey();
-      setNeedsKey(false);
-    }
-  };
-
-  const selectMode = (mode: AnalysisMode) => {
-    setSelectedMode(mode);
-    setStatus(AppStatus.READY_TO_UPLOAD);
-  };
-
-  const handleFileSelect = async (file: File) => {
-    const fileName = file.name.toLowerCase();
-
-    if (fileName.endsWith('.json')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const jsonData = JSON.parse(e.target?.result as string);
-          if (!jsonData.mode) {
-            jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
-          }
-          setResult(jsonData);
-          setStatus(AppStatus.SUCCESS);
-        } catch (err) {
-          setError("Chybný formát JSON súboru.");
-          setStatus(AppStatus.ERROR);
-        }
-      };
-      reader.readAsText(file);
-      return;
-    }
-
-    if (!selectedMode) return;
-    setStatus(AppStatus.ANALYZING);
-    setError(null);
-
-    try {
-      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
-      let processedData: string;
-      if (isExcel) {
-        processedData = await parseExcelFile(file);
-      } else {
-        processedData = await fileToBase64(file);
-      }
-
-      const data = await analyzeDocument(processedData, selectedMode, isExcel);
-      if (!data || (!data.employees && !data.satisfaction)) {
-        throw new Error("Nepodarilo sa extrahovať štruktúrované dáta.");
-      }
-
-      setResult(data);
-      setStatus(AppStatus.SUCCESS);
-    } catch (err: any) {
-      setError(err.message || "Nepodarilo sa spracovať dokument.");
-      setStatus(AppStatus.ERROR);
-    }
-  };
-
-  const handleReset = () => {
-    window.location.hash = '';
-    setStatus(AppStatus.HOME);
-    setResult(null);
-    setSelectedMode(null);
-    setError(null);
-  };
-
-  const handleBackToMode = () => {
-    setStatus(AppStatus.HOME);
-    setSelectedMode(null);
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+                  <div className="flex items-center gap-4 mb-10 text-brand">
+                    <Star className="w-8 h-8" />
+                    <h4 className="text-2xl font-black uppercase tracking-tighter">Silné stránky</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {top.map((m, i) => (
+                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg shadow-brand/10">
+                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
+                        <span className="text-3xl font-black">{m.score.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+               
+               <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl shadow-black/5">
+                  <div className="flex items-center gap-4 mb-10 text-black">
+                    <Target className="w-8 h-8" />
+                    <h4 className="text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {bottom.length > 0 ? bottom.map((m, i) => (
+                      <div key={i} className="p-6 rounded-3xl flex justify-between items-center bg-black text-white">
+                        <span className="font-bold text-xs pr-4 leading-tight">{m.category}</span>
+                        <span className="text-3xl font-black text-brand">{m.score.toFixed(2)}</span>
+                      </div>
+                    )) : <p className="text-center py-10 text-black/20 font-black uppercase tracking-widest text-[10px]">Žiadne kritické body</p>}
+                  </div>
+               </div>
+            </div>
+          </div>
+        ) : (
+          <ComparisonMatrix teams={comparisonSelection[tab]} matrixData={getComparisonData(tab, comparisonSelection[tab])} />
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans relative">
-      {needsKey && (
-        <button 
-          onClick={handleOpenKeyDialog} 
-          className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[60] text-[10px] md:text-xs font-bold text-brand bg-white border border-brand/20 px-3 py-2 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-brand/5"
-        >
-          <Key className="w-3 h-3 md:w-4 h-4" /> NASTAVIŤ API KĽÚČ
-        </button>
+    <div className="space-y-8 animate-fade-in pb-24">
+      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl shadow-black/5 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="flex items-center gap-5">
+           <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20"><ClipboardCheck className="text-white w-8 h-8" /></div>
+           <div>
+             <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">{data.clientName || "Report"}</h1>
+             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date}</p>
+           </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={exportToJson}
+            className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
+          >
+            <Download className="w-4 h-4" /> Exportovať JSON
+          </button>
+          <button 
+            onClick={onReset} 
+            className="flex items-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold transition-all text-[10px] uppercase tracking-widest border border-black/5"
+          >
+            <RefreshCw className="w-4 h-4" /> Reset
+          </button>
+        </div>
+      </div>
+
+      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto border border-black/5 shadow-inner overflow-x-auto no-scrollbar">
+        {[
+          { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
+          { id: 'card1', icon: BarChart4, label: data.card1.title || 'Karta 1' },
+          { id: 'card2', icon: UserCheck, label: data.card2.title || 'Karta 2' },
+          { id: 'card3', icon: Users, label: data.card3.title || 'Karta 3' },
+          { id: 'card4', icon: Building2, label: data.card4.title || 'Karta 4' }
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}>
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'ENGAGEMENT' && (
+        <div className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-black text-white p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase opacity-50 mb-1">Rozoslaných</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalSent}</span>
+            </div>
+            <div className="bg-brand text-white p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase opacity-60 mb-1">Vyplnených</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalReceived}</span>
+            </div>
+            <div className="bg-white border border-black/5 p-8 rounded-[2.5rem] shadow-xl">
+               <span className="block text-[10px] font-black uppercase text-black/40 mb-1">Návratnosť</span>
+               <span className="text-5xl font-black text-black tracking-tighter">{data.successRate}</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-3xl border border-black/5">
+              <table className="w-full text-left">
+                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
+                  <tr>
+                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}>Stredisko</th>
+                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}>Počet</th>
+                    <th className="p-6 text-center">Podiel</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/5 font-black text-xs">
+                  {filteredEngagement.map((team, idx) => (
+                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
+                      <td className="p-6 group-hover:text-brand">{team.name}</td>
+                      <td className="p-6 text-center">{team.count}</td>
+                      <td className="p-6">
+                        <div className="flex items-center justify-center gap-4">
+                          <div className="w-32 bg-black/5 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                          </div>
+                          <span className="text-brand text-[10px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20">
-        {status === AppStatus.HOME && (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
-              <Sparkles className="w-3 h-3 md:w-4 h-4" /> Next-gen Analytics
-            </div>
-            
-            <h1 className="text-4xl md:text-7xl font-black mb-4 md:mb-6 leading-none tracking-tighter flex flex-col items-center uppercase">
-              <span>Libellius</span>
-              <span className="text-brand">InsightHub</span>
-            </h1>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-2 mb-12">
-              <button onClick={() => selectMode('360_FEEDBACK')} className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left relative overflow-hidden bg-[#f9f9f9]">
-                <Users className="w-10 h-10 mb-6" />
-                <span className="text-2xl md:text-3xl font-black block uppercase leading-tight">360° Spätná väzba</span>
-                <div className="mt-6 px-8 py-3 bg-brand text-white rounded-full font-black text-xs uppercase tracking-widest">Spustiť analýzu</div>
-              </button>
-              
-              <button onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')} className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left relative overflow-hidden bg-[#f9f9f9]">
-                <BarChart3 className="w-10 h-10 mb-6" />
-                <span className="text-2xl md:text-3xl font-black block uppercase leading-tight">Spokojnosť</span>
-                <div className="mt-6 px-8 py-3 bg-black text-white rounded-full font-black text-xs uppercase tracking-widest">Spustiť analýzu</div>
-              </button>
-            </div>
-
-            <label className="flex items-center gap-3 px-8 py-4 bg-black/5 hover:bg-black/10 rounded-2xl cursor-pointer transition-all group">
-              <FileJson className="w-5 h-5 text-black/40 group-hover:text-brand transition-colors" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/60">Nahrať existujúci .json report</span>
-              <input type="file" accept=".json" className="hidden" onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])} />
-            </label>
-          </div>
-        )}
-
-        {status === AppStatus.READY_TO_UPLOAD && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in px-4">
-             <button onClick={handleBackToMode} className="mb-10 flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-[10px] hover:text-black">
-               <ChevronLeft className="w-4 h-4" /> Späť
-             </button>
-             <FileUpload onFileSelect={handleFileSelect} isAnalyzing={false} mode={selectedMode} />
-          </div>
-        )}
-
-        {status === AppStatus.ANALYZING && <FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} />}
-
-        {status === AppStatus.SUCCESS && result && (
-          <div className="px-2 md:px-0">
-            {result.mode === '360_FEEDBACK' ? 
-              <Dashboard result={result} onReset={handleReset} /> : 
-              <SatisfactionDashboard result={result} onReset={handleReset} />
-            }
-          </div>
-        )}
-
-        {status === AppStatus.ERROR && (
-          <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
-            <AlertCircle className="w-16 h-16 text-brand mb-6" />
-            <h3 className="text-2xl font-black mb-2 uppercase tracking-tighter">Chyba</h3>
-            <p className="text-black/50 mb-8 max-w-sm">{error}</p>
-            <button onClick={handleReset} className="px-12 py-4 bg-black text-white rounded-full font-black uppercase tracking-widest text-xs">Skúsiť znova</button>
-          </div>
-        )}
-      </main>
+      {activeTab === 'card1' && renderSection('card1')}
+      {activeTab === 'card2' && renderSection('card2')}
+      {activeTab === 'card3' && renderSection('card3')}
+      {activeTab === 'card4' && renderSection('card4')}
     </div>
   );
 };
 
-export default App;
+export default SatisfactionDashboard;
