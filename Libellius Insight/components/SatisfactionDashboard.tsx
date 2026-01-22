@@ -2,10 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FeedbackAnalysisResult, TeamWorkSituation } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
+// 1. IMPORTY PRE MAGIC LINK
+import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Mail, CheckCircle2, Percent, Search, 
   BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, SearchX, ArrowUpDown, Download
+  Building2, Star, Target, SearchX, ArrowUpDown, Download,
+  Link as LinkIcon, Check
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -22,28 +25,42 @@ type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
-  const data = result.satisfaction;
-  const scaleMax = result.reportMetadata?.scaleMax || 6;
+  // --- KĽÚČOVÁ ZMENA: Ak result.satisfaction neexistuje, použije sa priamo result ---
+  const data = result.satisfaction || (result as any);
+  const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [copyStatus, setCopyStatus] = useState(false);
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
   });
 
   const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({
-    card1: [], card2: [], card3: [], card4: []
+    card1: [], card2: [], card3: [] , card4: []
   });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  if (!data) return null;
+  // --- FUNKCIA NA GENEROVANIE ODKAZU ---
+  const generateShareLink = () => {
+    try {
+      const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
+      const shareUrl = `${window.location.origin}${window.location.pathname}#report=${compressed}`;
+      navigator.clipboard.writeText(shareUrl);
+      setCopyStatus(true);
+      setTimeout(() => setCopyStatus(false), 2000);
+    } catch (err) {
+      alert("Chyba pri kopírovaní odkazu.");
+    }
+  };
 
-  // --- FUNKCIA NA EXPORT JSON (Pre klienta) ---
+  if (!data || (!data.card1 && !data.teamEngagement)) return null;
+
   const exportToJson = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(result));
     const downloadAnchorNode = document.createElement('a');
@@ -57,9 +74,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const masterTeams = useMemo(() => {
     if (!data?.teamEngagement) return [];
     return data.teamEngagement
-      .map(t => t.name)
-      .filter(name => name && !['total', 'celkom'].includes(name.toLowerCase()))
-      .sort((a, b) => {
+      .map((t: any) => t.name)
+      .filter((name: string) => name && !['total', 'celkom'].includes(name.toLowerCase()))
+      .sort((a: string, b: string) => {
         const isAvgA = a.toLowerCase().includes('priemer');
         const isAvgB = b.toLowerCase().includes('priemer');
         if (isAvgA && !isAvgB) return -1;
@@ -70,7 +87,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   useEffect(() => {
     if (masterTeams.length > 0 && !selectedTeams.card1) {
-      const initial = masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0];
+      const initial = masterTeams.find((t: string) => t.toLowerCase().includes('priemer')) || masterTeams[0];
       setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
     }
   }, [masterTeams]);
@@ -94,19 +111,19 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const getActiveData = (tab: 'card1' | 'card2' | 'card3' | 'card4', teamName: string) => {
     const card = data[tab];
     if (!card) return [];
-    const team = card.teams.find(t => t.teamName === teamName) || card.teams[0];
+    const team = card.teams.find((t: any) => t.teamName === teamName) || card.teams[0];
     return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
 
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
     const card = data[tab];
     if (!card) return [];
-    const categories = Array.from(new Set(card.teams.flatMap(t => t.metrics.map(m => m.category))));
+    const categories = Array.from(new Set(card.teams.flatMap((t: any) => t.metrics.map((m: any) => m.category))));
     return categories.map(cat => {
       const row: any = { category: cat };
       selectedNames.forEach(tName => {
-        const team = card.teams.find(t => t.teamName === tName);
-        const metric = team?.metrics.find(m => m.category === cat);
+        const team = card.teams.find((t: any) => t.teamName === tName);
+        const metric = team?.metrics.find((m: any) => m.category === cat);
         row[tName] = metric?.score || 0;
       });
       return row;
@@ -114,7 +131,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   };
 
   const filteredEngagement = useMemo(() => {
-    let teams = [...(data.teamEngagement || [])].filter(t => 
+    let teams = [...(data.teamEngagement || [])].filter((t: any) => 
       t.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     if (sortKey && sortDirection) {
@@ -160,7 +177,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
                   className="w-full p-5 bg-black text-white rounded-2xl font-black text-sm outline-none shadow-xl cursor-pointer"
                 >
-                  {masterTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                  {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
             )}
@@ -194,7 +211,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
                 <div className="px-6 py-3 bg-black text-white text-[10px] font-black rounded-full uppercase tracking-widest">Škála 1-{scaleMax}</div>
               </div>
-              {/* --- GRAF S VÄČŠÍMI FONTMY A ČÍSLAMI --- */}
               <div className="h-[600px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, bottom: 20, top: 20 }}>
@@ -266,12 +282,24 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
            <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20"><ClipboardCheck className="text-white w-8 h-8" /></div>
            <div>
              <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">{data.clientName || "Report"}</h1>
-             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date}</p>
+             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date || '2024'}</p>
            </div>
         </div>
         
-        {/* --- TLAČIDLÁ: EXPORT + RESET --- */}
         <div className="flex items-center gap-3">
+          {/* TLAČIDLO ZDIEĽAŤ ODKAZ */}
+          <button 
+            onClick={generateShareLink}
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
+              copyStatus 
+                ? 'bg-green-600 text-white scale-105' 
+                : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+            }`}
+          >
+            {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+            {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
+          </button>
+
           <button 
             onClick={exportToJson}
             className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
@@ -290,10 +318,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto border border-black/5 shadow-inner overflow-x-auto no-scrollbar">
         {[
           { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
-          { id: 'card1', icon: BarChart4, label: data.card1.title || 'Karta 1' },
-          { id: 'card2', icon: UserCheck, label: data.card2.title || 'Karta 2' },
-          { id: 'card3', icon: Users, label: data.card3.title || 'Karta 3' },
-          { id: 'card4', icon: Building2, label: data.card4.title || 'Karta 4' }
+          { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
+          { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
+          { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
+          { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
@@ -306,63 +334,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-8 rounded-[2.5rem] shadow-xl">
                <span className="block text-[10px] font-black uppercase opacity-50 mb-1">Rozoslaných</span>
-               <span className="text-5xl font-black tracking-tighter">{data.totalSent}</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalSent || 0}</span>
             </div>
             <div className="bg-brand text-white p-8 rounded-[2.5rem] shadow-xl">
                <span className="block text-[10px] font-black uppercase opacity-60 mb-1">Vyplnených</span>
-               <span className="text-5xl font-black tracking-tighter">{data.totalReceived}</span>
+               <span className="text-5xl font-black tracking-tighter">{data.totalReceived || 0}</span>
             </div>
             <div className="bg-white border border-black/5 p-8 rounded-[2.5rem] shadow-xl">
                <span className="block text-[10px] font-black uppercase text-black/40 mb-1">Návratnosť</span>
-               <span className="text-5xl font-black text-black tracking-tighter">{data.successRate}</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
-                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none" />
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-3xl border border-black/5">
-              <table className="w-full text-left">
-                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
-                  <tr>
-                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}>Stredisko</th>
-                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}>Počet</th>
-                    <th className="p-6 text-center">Podiel</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/5 font-black text-xs">
-                  {filteredEngagement.map((team, idx) => (
-                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
-                      <td className="p-6 group-hover:text-brand">{team.name}</td>
-                      <td className="p-6 text-center">{team.count}</td>
-                      <td className="p-6">
-                        <div className="flex items-center justify-center gap-4">
-                          <div className="w-32 bg-black/5 h-2 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
-                          </div>
-                          <span className="text-brand text-[10px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'card1' && renderSection('card1')}
-      {activeTab === 'card2' && renderSection('card2')}
-      {activeTab === 'card3' && renderSection('card3')}
-      {activeTab === 'card4' && renderSection('card4')}
-    </div>
-  );
-};
-
-export default SatisfactionDashboard;
+               <span className="text-5xl font-black text-black tracking-tighter">{data
