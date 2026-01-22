@@ -28,18 +28,23 @@ export interface EmployeeProfile {
 
 export interface EngagementTeam {
   name: string;
-  count: number; // Received/Filled count
-  sentCount: number; // Sent count
+  count: number; // Počet prijatých
 }
 
 export interface SatisfactionMetric {
-  category: string;
-  score: number;
+  category: string; // Otázka
+  score: number;   // Hodnota
 }
 
 export interface TeamWorkSituation {
   teamName: string;
   metrics: SatisfactionMetric[];
+}
+
+// Nový interface pre dynamickú kartu
+export interface SatisfactionCard {
+  title: string; // Dynamický názov z Excelu (stĺpec 'oblast')
+  teams: TeamWorkSituation[];
 }
 
 export interface EmployeeSatisfactionData {
@@ -48,10 +53,11 @@ export interface EmployeeSatisfactionData {
   totalReceived: number;
   successRate: string;
   teamEngagement: EngagementTeam[];
-  workSituationByTeam: TeamWorkSituation[];
-  supervisorByTeam: TeamWorkSituation[];
-  workTeamByTeam: TeamWorkSituation[];
-  companySituationByTeam: TeamWorkSituation[];
+  // Anonymné karty namiesto fixných názvov
+  card1: SatisfactionCard;
+  card2: SatisfactionCard;
+  card3: SatisfactionCard;
+  card4: SatisfactionCard;
 }
 
 export type AnalysisMode = '360_FEEDBACK' | 'ZAMESTNANECKA_SPOKOJNOST';
