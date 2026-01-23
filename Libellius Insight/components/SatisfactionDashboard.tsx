@@ -5,7 +5,8 @@ import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown
+  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
+  MessageSquare, Quote, MessageCircle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -16,7 +17,7 @@ interface Props {
   onReset: () => void;
 }
 
-type TabType = 'ENGAGEMENT' | 'card1' | 'card2' | 'card3' | 'card4';
+type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | 'card1' | 'card2' | 'card3' | 'card4';
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
@@ -32,6 +33,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
@@ -74,9 +77,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   }, [data]);
 
   useEffect(() => {
-    if (masterTeams.length > 0 && !selectedTeams.card1) {
+    if (masterTeams.length > 0) {
       const initial = masterTeams.find((t: string) => t.toLowerCase().includes('priemer')) || masterTeams[0];
-      setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
+      if (!selectedTeams.card1) {
+        setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
+      }
+      if (!openQuestionsTeam) {
+        setOpenQuestionsTeam(initial);
+      }
     }
   }, [masterTeams]);
 
@@ -94,6 +102,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     if (!card) return [];
     const team = card.teams.find((t: any) => t.teamName === teamName) || card.teams[0];
     return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
+  };
+
+  const getOpenQuestionsForTeam = (teamName: string) => {
+    if (!data.openQuestions) return [];
+    const teamData = data.openQuestions.find((t: any) => t.teamName === teamName);
+    return teamData ? teamData.questions : [];
   };
 
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
@@ -237,6 +251,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     );
   };
 
+  if (!data) return null;
+
   return (
     <div className="space-y-8 animate-fade-in pb-24 px-4 md:px-0">
       {/* HEADER */}
@@ -270,29 +286,30 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {[
           { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
+          { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Voľné otázky' },
           { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
           { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
           { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
           { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
         ].map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'ENGAGEMENT' ? (
+      {activeTab === 'ENGAGEMENT' && (
         <div className="space-y-10 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl">
+            <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
                <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
                <span className="text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
             </div>
-            <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl">
+            <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
                <span className="block text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
                <span className="text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
             </div>
-            <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl">
+            <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
                <span className="block text-[10px] font-black uppercase text-black/40 mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
                <div className="flex items-baseline gap-1">
                  <span className="text-7xl font-black text-black tracking-tighter leading-none">{String(data.successRate || '0').replace('%', '')}</span>
@@ -313,8 +330,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               <table className="w-full text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
                   <tr>
-                    <th className="p-6 cursor-pointer" onClick={() => handleSort('name')}><div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div></th>
-                    <th className="p-6 text-center cursor-pointer" onClick={() => handleSort('count')}><div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div></th>
+                    <th className="p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}><div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div></th>
+                    <th className="p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}><div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div></th>
                     <th className="p-6 text-center">Podiel</th>
                   </tr>
                 </thead>
@@ -326,7 +343,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       <td className="p-7">
                         <div className="flex items-center justify-center gap-5">
                           <div className="w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                            <div className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
                           </div>
                           <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
                         </div>
@@ -338,7 +355,82 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
         </div>
-      ) : renderSection(activeTab as any)}
+      )}
+
+      {/* NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY */}
+      {activeTab === 'OPEN_QUESTIONS' && (
+        <div className="space-y-10 animate-fade-in">
+           {/* HLAVIČKA S VÝBEROM TÍMU */}
+           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+             <div className="flex flex-col lg:flex-row justify-between items-end gap-8">
+                <div className="space-y-6">
+                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
+                    <MessageSquare className="w-3 h-3" /> Kvalitatívna spätná väzba
+                  </div>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Odpovede zamestnancov</h2>
+                </div>
+                
+                <div className="flex flex-col items-end gap-3 w-full lg:w-auto">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mr-4">VYBRANÝ TÍM / STREDISKO:</span>
+                   <div className="relative w-full lg:w-auto min-w-[340px]">
+                      <select 
+                        value={openQuestionsTeam} 
+                        onChange={(e) => setOpenQuestionsTeam(e.target.value)} 
+                        className="w-full p-7 pr-14 bg-black text-white rounded-[1.5rem] font-black text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                      >
+                        {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-white/40 pointer-events-none" />
+                   </div>
+                </div>
+             </div>
+           </div>
+
+           {/* MASONRY GRID PRE OTÁZKY */}
+           <div className="columns-1 lg:columns-2 gap-8 space-y-8">
+              {getOpenQuestionsForTeam(openQuestionsTeam).length > 0 ? (
+                getOpenQuestionsForTeam(openQuestionsTeam).map((q: any, i: number) => (
+                  <div key={i} className="bg-white p-8 rounded-[2rem] border border-black/5 shadow-xl break-inside-avoid hover:shadow-2xl transition-shadow duration-300">
+                     <div className="flex items-start gap-4 mb-6">
+                        <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
+                          <MessageCircle className="w-6 h-6 text-brand" />
+                        </div>
+                        <h3 className="text-lg font-black uppercase tracking-tight leading-snug pt-1">
+                           {q.questionText}
+                        </h3>
+                     </div>
+                     
+                     <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        {q.answers && q.answers.length > 0 ? (
+                          q.answers.map((ans: string, j: number) => (
+                            <div key={j} className="relative group">
+                               <div className="absolute left-0 top-4 bottom-4 w-1 bg-black/5 rounded-full group-hover:bg-brand transition-colors"></div>
+                               <div className="pl-6 py-2">
+                                  <Quote className="w-4 h-4 text-black/20 mb-2" />
+                                  <p className="text-sm font-medium text-black/80 leading-relaxed italic">
+                                    "{ans}"
+                                  </p>
+                               </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-black/20 font-bold text-xs uppercase tracking-widest italic pl-4 py-4">
+                            Žiadne odpovede na túto otázku
+                          </div>
+                        )}
+                     </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
+                  Pre vybrané stredisko nie sú dostupné žiadne textové odpovede
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
     </div>
   );
 };
