@@ -58,6 +58,27 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
+    // --- NOVÉ: Schéma pre voľné otázky ---
+    const openQuestionsSchema = {
+      type: schemaType.ARRAY,
+      items: {
+        type: schemaType.OBJECT,
+        properties: {
+          teamName: { type: schemaType.STRING },
+          questions: {
+            type: schemaType.ARRAY,
+            items: {
+              type: schemaType.OBJECT,
+              properties: {
+                questionText: { type: schemaType.STRING },
+                answers: { type: schemaType.ARRAY, items: { type: schemaType.STRING } }
+              }
+            }
+          }
+        }
+      }
+    };
+
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -82,12 +103,15 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
+            // --- NOVÉ: Pridané do hlavného objektu ---
+            openQuestions: openQuestionsSchema,
+            
             card1: cardSchema,
             card2: cardSchema,
             card3: cardSchema,
             card4: cardSchema
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "openQuestions", "card1", "card2", "card3", "card4"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -95,7 +119,7 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU ---
+// --- 2. PARSOVANIE EXCELU (Upravené pre texty) ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -105,8 +129,21 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const csvData = XLSX.utils.sheet_to_csv(worksheet);
-        resolve(csvData);
+        
+        // ZMENA: Používame JSON namiesto CSV pre lepšiu kontrolu nad stĺpcami
+        const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Mapujeme len relevantné stĺpce (aby sme šetrili tokeny a boli presní)
+        const simplifiedData = jsonData.map(row => ({
+          skupina: row['skupina'] || row['Skupina'],
+          otazka: row['otazka'] || row['Otazka'],
+          hodnota: row['hodnota'],          // Čísla pre grafy
+          text: row['text_odpovede'],       // Texty pre otvorené otázky (z tvojho excelu)
+          oblast: row['oblast'] || row['typ'] // Pre rozdelenie do kariet
+        }));
+
+        // Limitujeme dĺžku stringu pre istotu
+        resolve(JSON.stringify(simplifiedData).slice(0, 400000));
       } catch (err) {
         reject(new Error("Nepodarilo sa prečítať Excel súbor."));
       }
@@ -126,22 +163,33 @@ export const analyzeDocument = async (
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
-    Si HR analytik. Spracuj priložené CSV dáta z prieskumu spokojnosti.
+    Si HR analytik. Spracuj priložené dáta (JSON format) z prieskumu spokojnosti.
     
-    1. Identifikuj unikátne hodnoty v stĺpci 'oblast'.
-    2. Prvú nájdenú oblasť priraď do 'card1', druhú do 'card2', atď.
-    3. Do poľa 'title' v každej karte napíš presný názov tejto oblasti.
-    4. Pre každú kartu zoskup riadky podľa stĺpca 'skupina' (teamName). 
-       DÔLEŽITÉ: Zahrň aj riadky, kde skupina je 'Priemer' alebo 'Celkový priemer' ako samostatný tím.
-    5. V 'teamEngagement' extrahuj riadky z oblasti 'Zapojenie účastníkov' pre všetky tímy VRÁTANE tímu 'Priemer'.
-    6. 'totalSent', 'totalReceived' a 'successRate' vytiahni z riadkov v oblasti 'Zapojenie účastníkov', kde skupina je 'Celkom'.
+    1. METRIKY (KARTY 1-4):
+       - Identifikuj unikátne hodnoty v kľúči 'oblast' (alebo 'typ').
+       - Prvú nájdenú oblasť priraď do 'card1', druhú do 'card2', atď.
+       - Pre každú kartu zoskup riadky podľa 'skupina' (teamName) a vypočítaj priemer z 'hodnota'. 
+       - DÔLEŽITÉ: Zahrň aj riadky, kde skupina je 'Priemer' alebo 'Celkový priemer'.
+
+    2. VOĽNÉ OTÁZKY (openQuestions):
+       - Hľadaj záznamy, kde je vyplnený kľúč 'text' (text_odpovede).
+       - Tieto záznamy priraď do poľa 'openQuestions'.
+       - Zoskup ich podľa 'skupina' (teamName) a 'otazka'.
+       - Všetky texty vlož do poľa 'answers'.
+
+    3. ÚČASŤ:
+       - V 'teamEngagement' extrahuj počty pre všetky tímy.
+       - 'totalSent', 'totalReceived' a 'successRate' vytiahni zo skupiny 'Celkom'.
   `;
 
   try {
     const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
+    
+    // Ak je to Excel, posielame JSON string ako text. Ak PDF, tak inlineData.
     const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
 
-    if (!isExcel) {
+    if (!isExcel && inputData) {
+      // Pre PDF a iné binary súbory
       parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
     }
 
