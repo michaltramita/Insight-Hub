@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// --- 1. SCHÉMA ---
+// --- 1. SCHÉMA PRE AI ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
@@ -58,27 +58,6 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
-    // --- NOVÉ: Schéma pre voľné otázky ---
-    const openQuestionsSchema = {
-      type: schemaType.ARRAY,
-      items: {
-        type: schemaType.OBJECT,
-        properties: {
-          teamName: { type: schemaType.STRING },
-          questions: {
-            type: schemaType.ARRAY,
-            items: {
-              type: schemaType.OBJECT,
-              properties: {
-                questionText: { type: schemaType.STRING },
-                answers: { type: schemaType.ARRAY, items: { type: schemaType.STRING } }
-              }
-            }
-          }
-        }
-      }
-    };
-
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -103,13 +82,12 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
-            openQuestions: openQuestionsSchema,
             card1: cardSchema,
             card2: cardSchema,
             card3: cardSchema,
             card4: cardSchema
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "openQuestions", "card1", "card2", "card3", "card4"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -117,7 +95,7 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU (Opravené - bez odrezávania textu) ---
+// --- 2. PARSOVANIE EXCELU ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -138,7 +116,6 @@ export const parseExcelFile = async (file: File): Promise<string> => {
           oblast: row['oblast'] || row['typ']
         }));
 
-        // ZMENA: Posielame celý súbor bez obmedzenia, model Flash to zvládne.
         resolve(JSON.stringify(simplifiedData));
       } catch (err) {
         reject(new Error("Nepodarilo sa prečítať Excel súbor."));
@@ -149,42 +126,91 @@ export const parseExcelFile = async (file: File): Promise<string> => {
   });
 };
 
-// --- 3. HLAVNÁ ANALÝZA ---
+// --- 3. HLAVNÁ ANALÝZA S HYBRIDNÝM PRÍSTUPOM ---
 export const analyzeDocument = async (
   inputData: string, 
   mode: AnalysisMode,
   isExcel: boolean = false
 ): Promise<FeedbackAnalysisResult> => {
-  
+
+  let extractedOpenQuestions: any[] = [];
+  let aiInputData = inputData;
+  let teamsListString = "";
+
+  if (isExcel && mode === 'ZAMESTNANECKA_SPOKOJNOST') {
+    try {
+      const rawData = JSON.parse(inputData);
+      const openQsMap: Record<string, Record<string, string[]>> = {};
+      const filteredForAi: any[] = [];
+      const uniqueTeams = new Set<string>();
+
+      rawData.forEach((row: any) => {
+        if (row.skupina && row.skupina !== 'Celkom') {
+           uniqueTeams.add(row.skupina);
+        }
+
+        if (row.text && row.text.toString().trim() !== "") {
+          const team = row.skupina;
+          const q = row.otazka;
+          const ans = row.text.toString();
+          
+          if (team && q) {
+            if (!openQsMap[team]) openQsMap[team] = {};
+            if (!openQsMap[team][q]) openQsMap[team][q] = [];
+            openQsMap[team][q].push(ans);
+          }
+        } 
+        else if (row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
+          filteredForAi.push(row);
+        }
+      });
+
+      teamsListString = Array.from(uniqueTeams).join(", ");
+
+      extractedOpenQuestions = Object.entries(openQsMap).map(([teamName, qs]) => ({
+        teamName,
+        questions: Object.entries(qs).map(([questionText, answers]) => ({
+          questionText,
+          answers
+        }))
+      }));
+
+      aiInputData = JSON.stringify(filteredForAi);
+    } catch (e) {
+      console.warn("Chyba pri manuálnej extrakcii textov", e);
+    }
+  }
+
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
     Si HR analytik. Spracuj priložené dáta (JSON format) z prieskumu spokojnosti.
+    Dáta obsahujú číselné metriky (tvrdenia a ich hodnotenie).
+
+    DÔLEŽITÉ - ZOZNAM TÍMOV V DÁTACH:
+    ${teamsListString}
     
     1. METRIKY (KARTY 1-4):
-       - Identifikuj unikátne hodnoty v kľúči 'oblast' (alebo 'typ').
-       - Prvú nájdenú oblasť priraď do 'card1', druhú do 'card2', atď.
-       - Pre každú kartu zoskup riadky podľa 'skupina' (teamName) a vypočítaj priemer z 'hodnota'. 
-       - DÔLEŽITÉ: Zahrň aj riadky, kde skupina je 'Priemer' alebo 'Celkový priemer'.
+       - Dáta sú rozdelené do oblastí (kľúč 'oblast'). Prvú oblasť daj do card1, druhú do card2 atď. (do 'title' daj názov oblasti).
+       - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM z vyššie uvedeného zoznamu.
+       - ZÁSADNÉ PRAVIDLO: Pre daný tím NEPOČÍTAJ jeden celkový priemer! V grafe chceme vidieť všetky tvrdenia samostatne.
+       - Do poľa 'metrics' vlož VŠETKY tvrdenia (z kľúča 'otazka'), ktoré do danej oblasti patria.
+       - 'category' = text tvrdenia. Vzhľadom na to, že tvrdenia sú dlhé vety, inteligentne a trefne ich SKRÁŤ na 4 až 6 slov, aby sa zmestili na os grafu (napr. "Viem, čo sa odo mňa očakáva" zmeň na "Jasné pracovné očakávania").
+       - 'score' = presná 'hodnota' priradená k tomuto tvrdeniu a tomuto tímu v dátach.
+       - Zopakuj to pre všetky tímy, nesmieš ani jeden vynechať.
 
-    2. VOĽNÉ OTÁZKY (openQuestions):
-       - Hľadaj záznamy, kde je vyplnený kľúč 'text' (text_odpovede).
-       - Tieto záznamy priraď do poľa 'openQuestions'.
-       - Zoskup ich podľa 'skupina' (teamName) a 'otazka'.
-       - Všetky texty vlož do poľa 'answers'. DÔLEŽITÉ: NEVYNECHAJ ANI JEDNU ODPOVEĎ! Nesmieš ich skracovať ani sumarizovať. Vypíš ich všetky tak, ako sú v dátach, pre každý jeden tím.
-
-    3. ÚČASŤ:
-       - V 'teamEngagement' extrahuj počty pre všetky tímy.
+    2. ÚČASŤ (teamEngagement):
+       - Vytvor záznam v poli teamEngagement pre každý jeden tím z vyššie uvedeného zoznamu.
        - 'totalSent', 'totalReceived' a 'successRate' vytiahni zo skupiny 'Celkom'.
   `;
 
   try {
     const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
     
-    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
+    const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${aiInputData}` : basePrompt }];
 
-    if (!isExcel && inputData) {
-      parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
+    if (!isExcel && aiInputData) {
+      parts.push({ inlineData: { data: aiInputData, mimeType: "application/pdf" } } as any);
     }
 
     const response = await ai.models.generateContent({
@@ -199,7 +225,13 @@ export const analyzeDocument = async (
 
     const text = response.text || "";
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
+    const finalResult = JSON.parse(cleanJson) as FeedbackAnalysisResult;
+
+    if (mode === 'ZAMESTNANECKA_SPOKOJNOST' && finalResult.satisfaction) {
+      finalResult.satisfaction.openQuestions = extractedOpenQuestions;
+    }
+
+    return finalResult;
 
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
@@ -207,7 +239,6 @@ export const analyzeDocument = async (
   }
 };
 
-// --- 4. EXPORTOVANÉ PRE APP.TSX ---
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
