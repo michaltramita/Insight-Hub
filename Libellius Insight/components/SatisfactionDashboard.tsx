@@ -415,7 +415,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
 
-          {/* --- UPRAVENÝ KOLÁČOVÝ GRAF (Veľký a zarovnaný) --- */}
+          {/* --- ZVÄČŠENÝ KOLÁČOVÝ GRAF --- */}
           {filteredEngagement.length > 0 && (
             <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
@@ -423,15 +423,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
               </p>
               
-              <div className="h-[450px] w-full max-w-4xl">
+              <div className="h-[550px] w-full max-w-5xl"> {/* Zväčšená výška aj šírka kontajnera */}
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={filteredEngagement}
                       cx="40%"
                       cy="50%"
-                      innerRadius={100}
-                      outerRadius={160}
+                      innerRadius={140} // Väčšia "diera" uprostred
+                      outerRadius={220} // Výrazne väčší celkový graf
                       paddingAngle={3}
                       dataKey="count"
                       nameKey="name"
@@ -456,9 +456,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       align="right"
                       iconType="circle"
                       wrapperStyle={{ 
-                        fontSize: '14px', 
+                        fontSize: '16px', // Väčšie písmo v legende
                         fontWeight: 700, 
-                        lineHeight: '30px',
+                        lineHeight: '36px', // Väčšie rozostupy medzi položkami
                         paddingLeft: '40px'
                       }}
                     />
