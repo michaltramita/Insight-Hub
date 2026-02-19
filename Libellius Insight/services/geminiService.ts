@@ -57,7 +57,7 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
-    // SCHÉMA PRE OTÁZKY - Teraz pýtame objekt s titulkom a popisom!
+    // SCHÉMA PRE OTÁZKY - Teraz pýtame aj 'quotes' (citácie)
     const openQuestionsSchema = {
       type: schemaType.ARRAY,
       items: {
@@ -76,9 +76,10 @@ const getSchema = (mode: AnalysisMode) => {
                     type: schemaType.OBJECT,
                     properties: {
                       title: { type: schemaType.STRING },
-                      description: { type: schemaType.STRING }
+                      description: { type: schemaType.STRING },
+                      quotes: { type: schemaType.ARRAY, items: { type: schemaType.STRING } }
                     },
-                    required: ["title", "description"]
+                    required: ["title", "description", "quotes"]
                   } 
                 }
               }
@@ -230,12 +231,13 @@ export const analyzeDocument = async (
     2. ÚČASŤ (teamEngagement):
        - Vytvor záznam pre každý tím. 'totalSent', 'totalReceived', 'successRate' vytiahni zo skupiny 'Celkom'.
 
-    3. VOĽNÉ OTÁZKY - ODPORÚČANIA (openQuestions):
+    3. VOĽNÉ OTÁZKY - ODPORÚČANIA A CITÁCIE (openQuestions):
        - Pozorne si prečítaj odpovede zamestnancov, ktoré som ti poslal vyššie v bloku TEXTOVÉ ODPOVEDE.
        - Pre KAŽDÝ TÍM a pre KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA vychádzajúce z toho, čo zamestnanci napísali.
-       - Každé odporúčanie musí obsahovať 2 časti:
+       - Každé odporúčanie musí obsahovať 3 časti:
          a) 'title': Krátky, úderný názov odporúčania (max 5-7 slov).
-         b) 'description': Detailný popis (2-3 vety). Tu vysvetli, PREČO sa toto odporúča. Uveď kontext z odpovedí (napríklad: "Viacero zamestnancov nezávisle od seba spomenulo, že...", "Z odpovedí jasne vyplýva potreba...", "Zamestnanci sa často sťažovali na...").
+         b) 'description': Detailný popis (2-3 vety). Tu vysvetli, PREČO sa toto odporúča.
+         c) 'quotes': Vyber 5 až 10 REÁLNYCH CITÁCIÍ (doslovných odpovedí od zamestnancov), ktoré najviac podporujú toto odporúčanie. Tieto citácie vlož do poľa ako samostatné stringy. Neskresľuj ich, použi pôvodný text.
   `;
 
   try {
@@ -253,7 +255,7 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.2 // Jemne zvýšená teplota, aby boli popisy pestrejšie
+        temperature: 0.2
       }
     });
 
