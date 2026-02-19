@@ -481,6 +481,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
+      {/* --- NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY - KARTY POD SEBOU --- */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -535,18 +536,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
              </div>
            </div>
 
-           {/* --- 3 KARTY ODPORÚČANÍ (UPRAVENÉ PRE TITLE + DESCRIPTION) --- */}
+           {/* --- 3 KARTY ODPORÚČANÍ (ZORADENÉ POD SEBOU) --- */}
            {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="flex flex-col gap-6"> {/* ZMENA: grid zmenený na flex-col */}
                 {selectedQuestionData.recommendations.map((rec: any, index: number) => (
-                  <div key={index} className="bg-white p-8 rounded-[2rem] border border-black/5 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col group">
-                     <div className="w-12 h-12 rounded-full bg-brand/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-brand transition-all duration-300 shrink-0">
-                        <span className="text-brand font-black text-xl group-hover:text-white transition-colors">{index + 1}</span>
+                  <div key={index} className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col md:flex-row gap-8 items-start group">
+                     {/* Ľavá časť s číslom */}
+                     <div className="w-16 h-16 rounded-full bg-brand/5 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-brand transition-all duration-300 shadow-sm">
+                        <span className="text-brand font-black text-2xl group-hover:text-white transition-colors">{index + 1}</span>
                      </div>
-                     <h4 className="text-xl font-black text-black mb-3 leading-tight">{rec.title}</h4>
-                     <p className="text-black/60 font-medium text-sm leading-relaxed flex-grow">
-                        {rec.description}
-                     </p>
+                     
+                     {/* Pravá časť s textom */}
+                     <div className="flex-grow pt-2">
+                        <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
+                        <p className="text-black/60 font-medium text-base leading-relaxed max-w-4xl">
+                           {rec.description}
+                        </p>
+                     </div>
                   </div>
                 ))}
              </div>
