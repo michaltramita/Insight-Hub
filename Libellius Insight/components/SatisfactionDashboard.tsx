@@ -334,4 +334,305 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         <div className="flex items-center gap-3">
           {!isSharedView && (
             <>
-              <button onClick={generateShareLink} className={`flex
+              <button onClick={generateShareLink} className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
+                {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
+              </button>
+              <button onClick={exportToJson} className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20">
+                <Download className="w-4 h-4" /> Exportovať JSON
+              </button>
+            </>
+          )}
+          <button onClick={onReset} className="px-8 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all">
+            {isSharedView ? 'Zavrieť report' : 'Reset'}
+          </button>
+        </div>
+      </div>
+
+      {/* TABS */}
+      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
+        {[
+          { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
+          { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
+          { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
+          { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
+          { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
+          { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'ENGAGEMENT' && (
+        <div className="space-y-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+               <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
+               <span className="text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
+            </div>
+            <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+               <span className="block text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+               <span className="text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
+            </div>
+            <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+               <span className="block text-[10px] font-black uppercase text-black/40 mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+               <div className="flex items-baseline gap-1">
+                 <span className="text-7xl font-black text-black tracking-tighter leading-none">{String(data.successRate || '0').replace('%', '')}</span>
+                 <span className="text-4xl font-black text-black/10 tracking-tighter">%</span>
+               </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+              
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                  <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all" />
+                </div>
+                <button
+                  onClick={() => setShowTeamFilter(!showTeamFilter)}
+                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'}`}
+                >
+                  <Filter className="w-4 h-4" />
+                  Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
+                </button>
+              </div>
+            </div>
+
+            {showTeamFilter && (
+              <div className="mb-8 p-6 bg-black/5 rounded-3xl border border-black/5 animate-fade-in">
+                <div className="flex flex-wrap gap-2">
+                  {masterTeams.map((team: string) => (
+                    <button
+                      key={team}
+                      onClick={() => {
+                        setSelectedEngagementTeams(prev =>
+                          prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
+                        )
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'}`}
+                    >
+                      {team}
+                    </button>
+                  ))}
+                </div>
+                {selectedEngagementTeams.length > 0 && (
+                  <button
+                    onClick={() => setSelectedEngagementTeams([])}
+                    className="mt-4 text-[10px] uppercase tracking-widest font-black text-brand hover:underline"
+                  >
+                    Vymazať výber
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="overflow-hidden rounded-3xl border border-black/5">
+              <table className="w-full text-left">
+                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
+                  <tr>
+                    <th className="p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}><div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div></th>
+                    <th className="p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}><div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div></th>
+                    <th className="p-6 text-center">Podiel</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/5 font-black text-xs">
+                  {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
+                    <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
+                      <td className="p-7 group-hover:text-brand transition-colors">{team.name}</td>
+                      <td className="p-7 text-center">{team.count}</td>
+                      <td className="p-7">
+                        <div className="flex items-center justify-center gap-5">
+                          <div className="w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                          </div>
+                          <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="p-10 text-center text-black/30 font-black uppercase tracking-widest text-xs">
+                        Žiadne tímy nezodpovedajú filtru
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {filteredEngagement.length > 0 && (
+            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 text-center mb-8">
+                {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
+              </p>
+              
+              <div className="h-[550px] w-full max-w-5xl">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={filteredEngagement}
+                      cx="40%"
+                      cy="50%"
+                      innerRadius={140}
+                      outerRadius={220}
+                      paddingAngle={3}
+                      dataKey="count"
+                      nameKey="name"
+                      stroke="none"
+                    >
+                      {filteredEngagement.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        const count = Number(value);
+                        const percentage = ((count / totalFilteredCount) * 100).toFixed(1);
+                        return [`${count} osôb (${percentage}%)`, name];
+                      }}
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ fontWeight: 900, color: '#000' }}
+                    />
+                    <Legend 
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      iconType="circle"
+                      wrapperStyle={{ 
+                        fontSize: '16px', 
+                        fontWeight: 700, 
+                        lineHeight: '36px',
+                        paddingLeft: '40px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- VOĽNÉ OTÁZKY S CITÁCIAMI --- */}
+      {activeTab === 'OPEN_QUESTIONS' && (
+        <div className="space-y-10 animate-fade-in">
+           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+             <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
+                
+                <div className="space-y-6 w-full lg:w-1/2">
+                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
+                    <Lightbulb className="w-3 h-3" /> Analýza a odporúčania
+                  </div>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
+                  <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
+                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment aj s kontextom. <strong>Kliknutím na odporúčanie zobrazíte reálne citácie zamestnancov.</strong>
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-4 w-full lg:w-1/2">
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE TÍM:</span>
+                     <div className="relative">
+                        <select 
+                          value={openQuestionsTeam} 
+                          onChange={(e) => setOpenQuestionsTeam(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black text-white rounded-[1.5rem] font-black text-lg outline-none shadow-xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                        >
+                          {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
+                     </div>
+                   </div>
+
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE OTÁZKU:</span>
+                     <div className="relative">
+                        <select 
+                          value={selectedQuestionText} 
+                          onChange={(e) => setSelectedQuestionText(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black/5 text-black rounded-[1.5rem] font-bold text-sm outline-none shadow-sm cursor-pointer border border-black/5 hover:bg-black/10 transition-all appearance-none"
+                          disabled={availableQuestions.length === 0}
+                        >
+                          {availableQuestions.length > 0 ? (
+                            availableQuestions.map((q: any, i: number) => (
+                              <option key={i} value={q.questionText}>{q.questionText}</option>
+                            ))
+                          ) : (
+                            <option value="">Žiadne otázky nie sú k dispozícii</option>
+                          )}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-black/40 pointer-events-none" />
+                     </div>
+                   </div>
+                </div>
+             </div>
+           </div>
+
+           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
+             <div className="flex flex-col gap-6">
+                {selectedQuestionData.recommendations.map((rec: any, index: number) => (
+                  <div 
+                     key={index} 
+                     className={`bg-white p-8 md:p-10 rounded-[2.5rem] border transition-all duration-300 flex flex-col group cursor-pointer ${expandedRecIndex === index ? 'border-brand/20 shadow-2xl' : 'border-black/5 shadow-xl hover:shadow-2xl hover:border-black/10'}`}
+                     onClick={() => setExpandedRecIndex(expandedRecIndex === index ? null : index)}
+                  >
+                     <div className="flex flex-col md:flex-row gap-8 items-start w-full">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${expandedRecIndex === index ? 'bg-brand text-white scale-110' : 'bg-brand/5 text-brand group-hover:scale-110 group-hover:bg-brand group-hover:text-white'}`}>
+                           <span className="font-black text-2xl">{index + 1}</span>
+                        </div>
+                        
+                        <div className="flex-grow pt-2 flex flex-col md:flex-row justify-between items-start gap-4">
+                           <div className="max-w-4xl">
+                              <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
+                              <p className="text-black/60 font-medium text-base leading-relaxed">
+                                 {rec.description}
+                              </p>
+                           </div>
+                           <div className={`shrink-0 mt-2 w-10 h-10 rounded-full flex items-center justify-center bg-black/5 transition-transform duration-300 ${expandedRecIndex === index ? 'rotate-180 bg-brand/10 text-brand' : 'text-black/40 group-hover:bg-black/10'}`}>
+                              <ChevronDown className="w-5 h-5" />
+                           </div>
+                        </div>
+                     </div>
+
+                     {expandedRecIndex === index && rec.quotes && rec.quotes.length > 0 && (
+                        <div className="mt-8 pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24">
+                           <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2">
+                              <MessageCircle className="w-4 h-4" /> Najčastejšie spomínané v odpovediach:
+                           </h5>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {rec.quotes.map((quote: string, qIdx: number) => (
+                                 <div key={qIdx} className="bg-black/5 p-5 rounded-2xl relative">
+                                    <Quote className="w-5 h-5 text-black/10 absolute top-4 left-4" />
+                                    <p className="text-sm font-medium text-black/80 italic pl-8 leading-relaxed">
+                                       "{quote}"
+                                    </p>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+                  </div>
+                ))}
+             </div>
+           ) : (
+             <div className="text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
+               Pre túto otázku a stredisko nie sú dostupné žiadne odporúčania.
+             </div>
+           )}
+        </div>
+      )}
+
+      {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
+    </div>
+  );
+};
+
+export default SatisfactionDashboard;
