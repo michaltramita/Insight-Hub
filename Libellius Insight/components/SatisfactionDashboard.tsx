@@ -6,7 +6,7 @@ import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
-  MessageSquare, Quote, MessageCircle, Filter
+  MessageSquare, Quote, MessageCircle, Filter, Hash
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
@@ -24,6 +24,9 @@ type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
+
+// Zoznam slov, ktoré chceme vo Word Cloude ignorovať (slovná vata)
+const STOP_WORDS = new Set(['a', 'v', 'na', 'že', 'som', 'by', 'sa', 'je', 'to', 's', 'z', 'o', 'k', 'do', 'pre', 'ako', 'ale', 'len', 'alebo', 'čo', 'mi', 'si', 'tu', 'tam', 'toto', 'tak', 'už', 'nás', 'nám', 'ich', 'tí', 'tie', 'tieto', 'ktoré', 'ktorý', 'ktorá', 'sme', 'ste', 'sú', 'budeme', 'bude', 'aby', 'keď', 'kde', 'pri', 'od', 'po', 'cez', 'za', 'zo', 'so', 'ani', 'iba', 'tiež', 'však', 'až', 'či', 'viac', 'veľmi', 'bol', 'bola', 'boli', 'ma', 'mám', 'byť']);
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
@@ -115,6 +118,40 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const teamData = data.openQuestions.find((t: any) => t.teamName === teamName);
     return teamData ? teamData.questions : [];
   };
+
+  // --- LOGIKA PRE WORD CLOUD ---
+  const wordCloudData = useMemo(() => {
+    const questions = getOpenQuestionsForTeam(openQuestionsTeam);
+    if (!questions || questions.length === 0) return [];
+    
+    const wordCounts: Record<string, number> = {};
+    
+    // Zozbierame všetky odpovede
+    questions.forEach((q: any) => {
+      if (q.answers) {
+        q.answers.forEach((ans: string) => {
+          // Očistíme text od interpunkcie a rozdelíme na slová
+          const words = ans.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()""'']/g,"").split(/\s+/);
+          words.forEach(word => {
+            // Berieme len slová dlhšie ako 2 znaky, ktoré nie sú v stop-words zozname
+            if (word.length > 2 && !STOP_WORDS.has(word)) {
+              wordCounts[word] = (wordCounts[word] || 0) + 1;
+            }
+          });
+        });
+      }
+    });
+    
+    // Zoradíme a zoberieme top 40 slov
+    return Object.keys(wordCounts).map(word => ({
+      text: word,
+      value: wordCounts[word]
+    })).sort((a, b) => b.value - a.value).slice(0, 40);
+  }, [data.openQuestions, openQuestionsTeam]);
+
+  // Výpočet pre škálovanie veľkosti písma vo Word Cloude
+  const maxWordCount = wordCloudData.length > 0 ? Math.max(...wordCloudData.map(w => w.value)) : 1;
+  const minWordCount = wordCloudData.length > 0 ? Math.min(...wordCloudData.map(w => w.value)) : 1;
 
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
     const card = data[tab];
@@ -415,7 +452,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
 
-          {/* --- ZVÄČŠENÝ KOLÁČOVÝ GRAF --- */}
           {filteredEngagement.length > 0 && (
             <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
@@ -423,15 +459,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
               </p>
               
-              <div className="h-[550px] w-full max-w-5xl"> {/* Zväčšená výška aj šírka kontajnera */}
+              <div className="h-[550px] w-full max-w-5xl">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={filteredEngagement}
                       cx="40%"
                       cy="50%"
-                      innerRadius={140} // Väčšia "diera" uprostred
-                      outerRadius={220} // Výrazne väčší celkový graf
+                      innerRadius={140}
+                      outerRadius={220}
                       paddingAngle={3}
                       dataKey="count"
                       nameKey="name"
@@ -456,9 +492,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       align="right"
                       iconType="circle"
                       wrapperStyle={{ 
-                        fontSize: '16px', // Väčšie písmo v legende
+                        fontSize: '16px', 
                         fontWeight: 700, 
-                        lineHeight: '36px', // Väčšie rozostupy medzi položkami
+                        lineHeight: '36px',
                         paddingLeft: '40px'
                       }}
                     />
@@ -496,6 +532,53 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
              </div>
            </div>
+
+           {/* --- NOVÝ BLOK: WORD CLOUD --- */}
+           {wordCloudData.length > 0 && (
+              <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+                 <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-brand/10 p-3 rounded-2xl text-brand">
+                       <Hash className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-2xl font-black uppercase tracking-tight">Najčastejšie témy</h3>
+                 </div>
+                 
+                 <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-4 p-8 bg-[#fcfcfc] rounded-3xl border border-black/5 min-h-[200px]">
+                    {wordCloudData.map((word, index) => {
+                       // Logika pre veľkosť a farbu:
+                       // Najčastejšie slovo bude mať cca 48px, najmenej časté 14px
+                       const size = minWordCount === maxWordCount 
+                          ? 24 
+                          : 14 + ((word.value - minWordCount) / (maxWordCount - minWordCount)) * 34;
+                       
+                       // Najčastejšie slová (top 20%) budú brandovo červené, stredné čierne, zvyšok sivé
+                       const ratio = (word.value - minWordCount) / (maxWordCount - minWordCount || 1);
+                       let color = '#7F7F7F'; // sivá
+                       let weight = 600;
+                       
+                       if (ratio > 0.7) { color = '#B81547'; weight = 900; } // brandová
+                       else if (ratio > 0.3) { color = '#000000'; weight = 800; } // čierna
+
+                       return (
+                          <div key={index} className="relative group inline-block cursor-default transition-transform hover:scale-110">
+                             <span 
+                                style={{ fontSize: `${size}px`, color: color, fontWeight: weight, lineHeight: 1 }}
+                                className="transition-all duration-300 drop-shadow-sm"
+                             >
+                                {word.text}
+                             </span>
+                             {/* TOOLTIP */}
+                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-black text-white text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-xl pointer-events-none">
+                                Počet výskytov: {word.value}x
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                             </div>
+                          </div>
+                       );
+                    })}
+                 </div>
+              </div>
+           )}
+           {/* --- KONIEC WORD CLOUD --- */}
 
            <div className="columns-1 lg:columns-2 gap-8 space-y-8">
               {getOpenQuestionsForTeam(openQuestionsTeam).length > 0 ? (
