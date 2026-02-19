@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
-  PieChart, Pie, Legend // <--- NOVÉ IMPORTY PRE KOLÁČOVÝ GRAF
+  PieChart, Pie, Legend
 } from 'recharts';
 
 interface Props {
@@ -23,7 +23,6 @@ type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 
-// Paleta farieb pre koláčový graf (od brandovej cez čiernu a sivé odtiene)
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
@@ -155,7 +154,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return teams;
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
-  // Pomocný výpočet pre koláčový graf
   const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
 
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
@@ -417,7 +415,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
 
-          {/* --- NOVÝ BLOK: KOLÁČOVÝ GRAF --- */}
+          {/* --- UPRAVENÝ KOLÁČOVÝ GRAF (Veľký a zarovnaný) --- */}
           {filteredEngagement.length > 0 && (
             <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
@@ -425,15 +423,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
               </p>
               
-              <div className="h-[400px] w-full max-w-2xl">
+              <div className="h-[450px] w-full max-w-4xl">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={filteredEngagement}
-                      cx="50%"
+                      cx="40%"
                       cy="50%"
-                      innerRadius={80}
-                      outerRadius={140}
+                      innerRadius={100}
+                      outerRadius={160}
                       paddingAngle={3}
                       dataKey="count"
                       nameKey="name"
@@ -453,16 +451,22 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       itemStyle={{ fontWeight: 900, color: '#000' }}
                     />
                     <Legend 
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
                       iconType="circle"
-                      wrapperStyle={{ fontSize: '12px', fontWeight: 700 }}
+                      wrapperStyle={{ 
+                        fontSize: '14px', 
+                        fontWeight: 700, 
+                        lineHeight: '30px',
+                        paddingLeft: '40px'
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
           )}
-          {/* --- KONIEC NOVÉHO BLOKU --- */}
-
         </div>
       )}
 
