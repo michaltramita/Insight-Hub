@@ -57,7 +57,6 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
-    // SCHÉMA PRE OTÁZKY - Teraz pýtame aj 'quotes' (citácie)
     const openQuestionsSchema = {
       type: schemaType.ARRAY,
       items: {
@@ -225,7 +224,7 @@ export const analyzeDocument = async (
     1. METRIKY (KARTY 1-4):
        - Dáta sú rozdelené do oblastí (kľúč 'oblast').
        - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM.
-       - Do poľa 'metrics' vlož VŠETKY tvrdenia. Zmeň dlhé tvrdenia na krátke frázy (max 4-6 slov).
+       - Do poľa 'metrics' vlož VŠETKY tvrdenia. PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach (neskracuj ich, nemeň slová!).
        - 'score' = priemer hodnôt pre daný tím a tvrdenie. Zopakuj to pre všetky tímy.
 
     2. ÚČASŤ (teamEngagement):
