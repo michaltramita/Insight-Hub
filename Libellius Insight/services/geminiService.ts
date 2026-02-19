@@ -103,9 +103,7 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
-            // --- NOVÉ: Pridané do hlavného objektu ---
             openQuestions: openQuestionsSchema,
-            
             card1: cardSchema,
             card2: cardSchema,
             card3: cardSchema,
@@ -119,7 +117,7 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU (Upravené pre texty) ---
+// --- 2. PARSOVANIE EXCELU (Opravené - bez odrezávania textu) ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -130,20 +128,18 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // ZMENA: Používame JSON namiesto CSV pre lepšiu kontrolu nad stĺpcami
         const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
         
-        // Mapujeme len relevantné stĺpce (aby sme šetrili tokeny a boli presní)
         const simplifiedData = jsonData.map(row => ({
           skupina: row['skupina'] || row['Skupina'],
           otazka: row['otazka'] || row['Otazka'],
-          hodnota: row['hodnota'],          // Čísla pre grafy
-          text: row['text_odpovede'],       // Texty pre otvorené otázky (z tvojho excelu)
-          oblast: row['oblast'] || row['typ'] // Pre rozdelenie do kariet
+          hodnota: row['hodnota'],
+          text: row['text_odpovede'], 
+          oblast: row['oblast'] || row['typ']
         }));
 
-        // Limitujeme dĺžku stringu pre istotu
-        resolve(JSON.stringify(simplifiedData).slice(0, 400000));
+        // ZMENA: Posielame celý súbor bez obmedzenia, model Flash to zvládne.
+        resolve(JSON.stringify(simplifiedData));
       } catch (err) {
         reject(new Error("Nepodarilo sa prečítať Excel súbor."));
       }
@@ -175,7 +171,7 @@ export const analyzeDocument = async (
        - Hľadaj záznamy, kde je vyplnený kľúč 'text' (text_odpovede).
        - Tieto záznamy priraď do poľa 'openQuestions'.
        - Zoskup ich podľa 'skupina' (teamName) a 'otazka'.
-       - Všetky texty vlož do poľa 'answers'.
+       - Všetky texty vlož do poľa 'answers'. DÔLEŽITÉ: NEVYNECHAJ ANI JEDNU ODPOVEĎ! Nesmieš ich skracovať ani sumarizovať. Vypíš ich všetky tak, ako sú v dátach, pre každý jeden tím.
 
     3. ÚČASŤ:
        - V 'teamEngagement' extrahuj počty pre všetky tímy.
@@ -185,11 +181,9 @@ export const analyzeDocument = async (
   try {
     const basePrompt = mode === '360_FEEDBACK' ? "Analyzuj 360-stupňovú spätnú väzbu." : promptSatisfaction;
     
-    // Ak je to Excel, posielame JSON string ako text. Ak PDF, tak inlineData.
     const parts = [{ text: isExcel ? `${basePrompt}\n\nDÁTA NA ANALÝZU:\n${inputData}` : basePrompt }];
 
     if (!isExcel && inputData) {
-      // Pre PDF a iné binary súbory
       parts.push({ inlineData: { data: inputData, mimeType: "application/pdf" } } as any);
     }
 
