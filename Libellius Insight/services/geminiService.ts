@@ -2,7 +2,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// --- 1. SCHÉMA PRE AI ---
 const getSchema = (mode: AnalysisMode) => {
   const schemaType = Type;
   if (mode === '360_FEEDBACK') {
@@ -58,6 +57,27 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
+    // SCHÉMA PRE OTÁZKY - Teraz pýtame odporúčania, nie surové odpovede!
+    const openQuestionsSchema = {
+      type: schemaType.ARRAY,
+      items: {
+        type: schemaType.OBJECT,
+        properties: {
+          teamName: { type: schemaType.STRING },
+          questions: {
+            type: schemaType.ARRAY,
+            items: {
+              type: schemaType.OBJECT,
+              properties: {
+                questionText: { type: schemaType.STRING },
+                recommendations: { type: schemaType.ARRAY, items: { type: schemaType.STRING } }
+              }
+            }
+          }
+        }
+      }
+    };
+
     return {
       type: schemaType.OBJECT,
       properties: {
@@ -82,12 +102,13 @@ const getSchema = (mode: AnalysisMode) => {
                 required: ["name", "count"]
               }
             },
+            openQuestions: openQuestionsSchema,
             card1: cardSchema,
             card2: cardSchema,
             card3: cardSchema,
             card4: cardSchema
           },
-          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "card1", "card2", "card3", "card4"]
+          required: ["clientName", "totalSent", "totalReceived", "successRate", "teamEngagement", "openQuestions", "card1", "card2", "card3", "card4"]
         }
       },
       required: ["mode", "reportMetadata", "satisfaction"]
@@ -95,7 +116,6 @@ const getSchema = (mode: AnalysisMode) => {
   }
 };
 
-// --- 2. PARSOVANIE EXCELU ---
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -126,14 +146,13 @@ export const parseExcelFile = async (file: File): Promise<string> => {
   });
 };
 
-// --- 3. HLAVNÁ ANALÝZA S HYBRIDNÝM PRÍSTUPOM ---
 export const analyzeDocument = async (
   inputData: string, 
   mode: AnalysisMode,
   isExcel: boolean = false
 ): Promise<FeedbackAnalysisResult> => {
 
-  let extractedOpenQuestions: any[] = [];
+  let rawOpenQuestionsForAI: any[] = [];
   let aiInputData = inputData;
   let teamsListString = "";
 
@@ -167,7 +186,7 @@ export const analyzeDocument = async (
 
       teamsListString = Array.from(uniqueTeams).join(", ");
 
-      extractedOpenQuestions = Object.entries(openQsMap).map(([teamName, qs]) => ({
+      rawOpenQuestionsForAI = Object.entries(openQsMap).map(([teamName, qs]) => ({
         teamName,
         questions: Object.entries(qs).map(([questionText, answers]) => ({
           questionText,
@@ -184,24 +203,27 @@ export const analyzeDocument = async (
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
-    Si HR analytik. Spracuj priložené dáta (JSON format) z prieskumu spokojnosti.
-    Dáta obsahujú číselné metriky (tvrdenia a ich hodnotenie).
+    Si HR analytik. Spracuj priložené dáta z prieskumu spokojnosti.
 
     DÔLEŽITÉ - ZOZNAM TÍMOV V DÁTACH:
     ${teamsListString}
+
+    TEXTOVÉ ODPOVEDE NA ANALÝZU ODPORÚČANÍ (JSON):
+    ${JSON.stringify(rawOpenQuestionsForAI)}
     
     1. METRIKY (KARTY 1-4):
-       - Dáta sú rozdelené do oblastí (kľúč 'oblast'). Prvú oblasť daj do card1, druhú do card2 atď. (do 'title' daj názov oblasti).
-       - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM z vyššie uvedeného zoznamu.
-       - ZÁSADNÉ PRAVIDLO: Pre daný tím NEPOČÍTAJ jeden celkový priemer! V grafe chceme vidieť všetky tvrdenia samostatne.
-       - Do poľa 'metrics' vlož VŠETKY tvrdenia (z kľúča 'otazka'), ktoré do danej oblasti patria.
-       - 'category' = text tvrdenia. Vzhľadom na to, že tvrdenia sú dlhé vety, inteligentne a trefne ich SKRÁŤ na 4 až 6 slov, aby sa zmestili na os grafu (napr. "Viem, čo sa odo mňa očakáva" zmeň na "Jasné pracovné očakávania").
-       - 'score' = presná 'hodnota' priradená k tomuto tvrdeniu a tomuto tímu v dátach.
-       - Zopakuj to pre všetky tímy, nesmieš ani jeden vynechať.
+       - Dáta sú rozdelené do oblastí (kľúč 'oblast').
+       - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM.
+       - Do poľa 'metrics' vlož VŠETKY tvrdenia. Zmeň dlhé tvrdenia na krátke frázy (max 4-6 slov).
+       - 'score' = priemer hodnôt pre daný tím a tvrdenie. Zopakuj to pre všetky tímy.
 
     2. ÚČASŤ (teamEngagement):
-       - Vytvor záznam v poli teamEngagement pre každý jeden tím z vyššie uvedeného zoznamu.
-       - 'totalSent', 'totalReceived' a 'successRate' vytiahni zo skupiny 'Celkom'.
+       - Vytvor záznam pre každý tím. 'totalSent', 'totalReceived', 'successRate' vytiahni zo skupiny 'Celkom'.
+
+    3. VOĽNÉ OTÁZKY - ODPORÚČANIA (openQuestions):
+       - Pozorne si prečítaj odpovede zamestnancov, ktoré som ti poslal vyššie v bloku TEXTOVÉ ODPOVEDE.
+       - Pre KAŽDÝ TÍM a pre KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA vychádzajúce z toho, čo zamestnanci napísali.
+       - Odporúčania musia byť jasné, stručné kroky (nie citácie!). Vlož ich do poľa 'recommendations' (bude to pole 3 textových stringov).
   `;
 
   try {
@@ -225,13 +247,7 @@ export const analyzeDocument = async (
 
     const text = response.text || "";
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    const finalResult = JSON.parse(cleanJson) as FeedbackAnalysisResult;
-
-    if (mode === 'ZAMESTNANECKA_SPOKOJNOST' && finalResult.satisfaction) {
-      finalResult.satisfaction.openQuestions = extractedOpenQuestions;
-    }
-
-    return finalResult;
+    return JSON.parse(cleanJson) as FeedbackAnalysisResult;
 
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
@@ -246,4 +262,4 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
   });
-};
+};;
