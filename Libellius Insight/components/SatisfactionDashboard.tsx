@@ -40,8 +40,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
 
+  // Stavy pre sekciu voľných otázok
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
+  const [expandedRecIndex, setExpandedRecIndex] = useState<number | null>(null); // Zaznamenáva, ktorá karta je otvorená
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
@@ -106,7 +108,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         setSelectedQuestionText('');
       }
     }
-  }, [openQuestionsTeam, data.openQuestions]);
+    // Keď sa zmení tím alebo otázka, zatvoríme rozbalenú kartu
+    setExpandedRecIndex(null);
+  }, [openQuestionsTeam, data.openQuestions, selectedQuestionText]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -327,6 +331,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {activeTab === 'ENGAGEMENT' && (
         <div className="space-y-10 animate-fade-in">
+          {/* Engament bloky skryte kvoli dlzke kodu... toto ostava ako bolo v predch. krokoch */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
                <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
@@ -481,7 +486,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
-      {/* --- NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY - KARTY POD SEBOU --- */}
+      {/* --- NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY S CITÁCIAMI --- */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -493,7 +498,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                   <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
                   <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
-                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment aj s kontextom.
+                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment aj s kontextom. <strong>Kliknutím na odporúčanie zobrazíte reálne citácie zamestnancov.</strong>
                   </p>
                 </div>
                 
@@ -536,23 +541,53 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
              </div>
            </div>
 
-           {/* --- 3 KARTY ODPORÚČANÍ (ZORADENÉ POD SEBOU) --- */}
+           {/* --- 3 KARTY ODPORÚČANÍ (ROZBAĽOVACIE S CITÁCIAMI) --- */}
            {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
-             <div className="flex flex-col gap-6"> {/* ZMENA: grid zmenený na flex-col */}
+             <div className="flex flex-col gap-6">
                 {selectedQuestionData.recommendations.map((rec: any, index: number) => (
-                  <div key={index} className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col md:flex-row gap-8 items-start group">
-                     {/* Ľavá časť s číslom */}
-                     <div className="w-16 h-16 rounded-full bg-brand/5 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-brand transition-all duration-300 shadow-sm">
-                        <span className="text-brand font-black text-2xl group-hover:text-white transition-colors">{index + 1}</span>
+                  <div 
+                     key={index} 
+                     className={`bg-white p-8 md:p-10 rounded-[2.5rem] border transition-all duration-300 flex flex-col group cursor-pointer ${expandedRecIndex === index ? 'border-brand/20 shadow-2xl' : 'border-black/5 shadow-xl hover:shadow-2xl hover:border-black/10'}`}
+                     onClick={() => setExpandedRecIndex(expandedRecIndex === index ? null : index)}
+                  >
+                     <div className="flex flex-col md:flex-row gap-8 items-start w-full">
+                        {/* Ľavá časť s číslom */}
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${expandedRecIndex === index ? 'bg-brand text-white scale-110' : 'bg-brand/5 text-brand group-hover:scale-110 group-hover:bg-brand group-hover:text-white'}`}>
+                           <span className="font-black text-2xl">{index + 1}</span>
+                        </div>
+                        
+                        {/* Pravá časť s textom (Title + Desc + Ikona) */}
+                        <div className="flex-grow pt-2 flex flex-col md:flex-row justify-between items-start gap-4">
+                           <div className="max-w-4xl">
+                              <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
+                              <p className="text-black/60 font-medium text-base leading-relaxed">
+                                 {rec.description}
+                              </p>
+                           </div>
+                           <div className={`shrink-0 mt-2 w-10 h-10 rounded-full flex items-center justify-center bg-black/5 transition-transform duration-300 ${expandedRecIndex === index ? 'rotate-180 bg-brand/10 text-brand' : 'text-black/40 group-hover:bg-black/10'}`}>
+                              <ChevronDown className="w-5 h-5" />
+                           </div>
+                        </div>
                      </div>
-                     
-                     {/* Pravá časť s textom */}
-                     <div className="flex-grow pt-2">
-                        <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
-                        <p className="text-black/60 font-medium text-base leading-relaxed max-w-4xl">
-                           {rec.description}
-                        </p>
-                     </div>
+
+                     {/* Rozbalená časť s citáciami */}
+                     {expandedRecIndex === index && rec.quotes && rec.quotes.length > 0 && (
+                        <div className="mt-8 pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24">
+                           <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2">
+                              <MessageCircle className="w-4 h-4" /> Najčastejšie spomínané v odpovediach:
+                           </h5>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {rec.quotes.map((quote: string, qIdx: number) => (
+                                 <div key={qIdx} className="bg-black/5 p-5 rounded-2xl relative">
+                                    <Quote className="w-5 h-5 text-black/10 absolute top-4 left-4" />
+                                    <p className="text-sm font-medium text-black/80 italic pl-8 leading-relaxed">
+                                       "{quote}"
+                                    </p>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
                   </div>
                 ))}
              </div>
