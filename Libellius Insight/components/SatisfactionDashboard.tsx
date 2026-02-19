@@ -6,7 +6,7 @@ import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
-  MessageSquare, Quote, MessageCircle, Filter, Hash
+  MessageSquare, Quote, MessageCircle, Filter, Lightbulb
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
@@ -25,9 +25,6 @@ type SortDirection = 'asc' | 'desc' | null;
 
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
-// Zoznam slov, ktoré chceme vo Word Cloude ignorovať (slovná vata)
-const STOP_WORDS = new Set(['a', 'v', 'na', 'že', 'som', 'by', 'sa', 'je', 'to', 's', 'z', 'o', 'k', 'do', 'pre', 'ako', 'ale', 'len', 'alebo', 'čo', 'mi', 'si', 'tu', 'tam', 'toto', 'tak', 'už', 'nás', 'nám', 'ich', 'tí', 'tie', 'tieto', 'ktoré', 'ktorý', 'ktorá', 'sme', 'ste', 'sú', 'budeme', 'bude', 'aby', 'keď', 'kde', 'pri', 'od', 'po', 'cez', 'za', 'zo', 'so', 'ani', 'iba', 'tiež', 'však', 'až', 'či', 'viac', 'veľmi', 'bol', 'bola', 'boli', 'ma', 'mám', 'byť']);
-
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
@@ -43,7 +40,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
 
+  // Stavy pre sekciu s voľnými otázkami
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
+  const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
@@ -97,6 +96,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
   }, [masterTeams]);
 
+  // Nastavenie prvej otázky po zmene tímu
+  useEffect(() => {
+    if (openQuestionsTeam && data.openQuestions) {
+      const teamQuestions = data.openQuestions.find((t: any) => t.teamName === openQuestionsTeam)?.questions || [];
+      if (teamQuestions.length > 0) {
+        // Ak sa zmenil tím a stará otázka tam nie je, dajme prvú
+        if (!teamQuestions.find((q: any) => q.questionText === selectedQuestionText)) {
+          setSelectedQuestionText(teamQuestions[0].questionText);
+        }
+      } else {
+        setSelectedQuestionText('');
+      }
+    }
+  }, [openQuestionsTeam, data.openQuestions]);
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === 'desc' ? 'asc' : sortDirection === 'asc' ? null : 'desc');
@@ -112,46 +126,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const team = card.teams.find((t: any) => t.teamName === teamName) || card.teams[0];
     return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
-
-  const getOpenQuestionsForTeam = (teamName: string) => {
-    if (!data.openQuestions) return [];
-    const teamData = data.openQuestions.find((t: any) => t.teamName === teamName);
-    return teamData ? teamData.questions : [];
-  };
-
-  // --- LOGIKA PRE WORD CLOUD ---
-  const wordCloudData = useMemo(() => {
-    const questions = getOpenQuestionsForTeam(openQuestionsTeam);
-    if (!questions || questions.length === 0) return [];
-    
-    const wordCounts: Record<string, number> = {};
-    
-    // Zozbierame všetky odpovede
-    questions.forEach((q: any) => {
-      if (q.answers) {
-        q.answers.forEach((ans: string) => {
-          // Očistíme text od interpunkcie a rozdelíme na slová
-          const words = ans.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()""'']/g,"").split(/\s+/);
-          words.forEach(word => {
-            // Berieme len slová dlhšie ako 2 znaky, ktoré nie sú v stop-words zozname
-            if (word.length > 2 && !STOP_WORDS.has(word)) {
-              wordCounts[word] = (wordCounts[word] || 0) + 1;
-            }
-          });
-        });
-      }
-    });
-    
-    // Zoradíme a zoberieme top 40 slov
-    return Object.keys(wordCounts).map(word => ({
-      text: word,
-      value: wordCounts[word]
-    })).sort((a, b) => b.value - a.value).slice(0, 40);
-  }, [data.openQuestions, openQuestionsTeam]);
-
-  // Výpočet pre škálovanie veľkosti písma vo Word Cloude
-  const maxWordCount = wordCloudData.length > 0 ? Math.max(...wordCloudData.map(w => w.value)) : 1;
-  const minWordCount = wordCloudData.length > 0 ? Math.min(...wordCloudData.map(w => w.value)) : 1;
 
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
     const card = data[tab];
@@ -305,6 +279,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   if (!data) return null;
 
+  // Dáta pre sekciu Voľných otázok
+  const openQuestionsTeamData = data.openQuestions?.find((t: any) => t.teamName === openQuestionsTeam);
+  const availableQuestions = openQuestionsTeamData?.questions || [];
+  const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
+
   return (
     <div className="space-y-8 animate-fade-in pb-24 px-4 md:px-0">
       {/* HEADER */}
@@ -338,7 +317,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {[
           { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
-          { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Voľné otázky' },
+          { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
           { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
           { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
           { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
@@ -506,120 +485,83 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
+      {/* --- NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY S VÝBEROM TÍMU A OTÁZKY --- */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-             <div className="flex flex-col lg:flex-row justify-between items-end gap-8">
-                <div className="space-y-6">
+             <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
+                
+                {/* Nadpis sekcie */}
+                <div className="space-y-6 w-full lg:w-1/2">
                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
-                    <MessageSquare className="w-3 h-3" /> Kvalitatívna spätná väzba
+                    <Lightbulb className="w-3 h-3" /> Analýza a odporúčania
                   </div>
-                  <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Odpovede zamestnancov</h2>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
+                  <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
+                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment.
+                  </p>
                 </div>
                 
-                <div className="flex flex-col items-end gap-3 w-full lg:w-auto">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mr-4">VYBRANÝ TÍM / STREDISKO:</span>
-                   <div className="relative w-full lg:w-auto min-w-[340px]">
-                      <select 
-                        value={openQuestionsTeam} 
-                        onChange={(e) => setOpenQuestionsTeam(e.target.value)} 
-                        className="w-full p-7 pr-14 bg-black text-white rounded-[1.5rem] font-black text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
-                      >
-                        {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-white/40 pointer-events-none" />
+                {/* Filtre: Výber tímu a výber otázky */}
+                <div className="flex flex-col gap-4 w-full lg:w-1/2">
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE TÍM:</span>
+                     <div className="relative">
+                        <select 
+                          value={openQuestionsTeam} 
+                          onChange={(e) => setOpenQuestionsTeam(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black text-white rounded-[1.5rem] font-black text-lg outline-none shadow-xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                        >
+                          {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
+                     </div>
+                   </div>
+
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE OTÁZKU:</span>
+                     <div className="relative">
+                        <select 
+                          value={selectedQuestionText} 
+                          onChange={(e) => setSelectedQuestionText(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black/5 text-black rounded-[1.5rem] font-bold text-sm outline-none shadow-sm cursor-pointer border border-black/5 hover:bg-black/10 transition-all appearance-none"
+                          disabled={availableQuestions.length === 0}
+                        >
+                          {availableQuestions.length > 0 ? (
+                            availableQuestions.map((q: any, i: number) => (
+                              <option key={i} value={q.questionText}>{q.questionText}</option>
+                            ))
+                          ) : (
+                            <option value="">Žiadne otázky nie sú k dispozícii</option>
+                          )}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-black/40 pointer-events-none" />
+                     </div>
                    </div>
                 </div>
+
              </div>
            </div>
 
-           {/* --- NOVÝ BLOK: WORD CLOUD --- */}
-           {wordCloudData.length > 0 && (
-              <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-                 <div className="flex items-center gap-3 mb-8">
-                    <div className="bg-brand/10 p-3 rounded-2xl text-brand">
-                       <Hash className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-2xl font-black uppercase tracking-tight">Najčastejšie témy</h3>
-                 </div>
-                 
-                 <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-4 p-8 bg-[#fcfcfc] rounded-3xl border border-black/5 min-h-[200px]">
-                    {wordCloudData.map((word, index) => {
-                       // Logika pre veľkosť a farbu:
-                       // Najčastejšie slovo bude mať cca 48px, najmenej časté 14px
-                       const size = minWordCount === maxWordCount 
-                          ? 24 
-                          : 14 + ((word.value - minWordCount) / (maxWordCount - minWordCount)) * 34;
-                       
-                       // Najčastejšie slová (top 20%) budú brandovo červené, stredné čierne, zvyšok sivé
-                       const ratio = (word.value - minWordCount) / (maxWordCount - minWordCount || 1);
-                       let color = '#7F7F7F'; // sivá
-                       let weight = 600;
-                       
-                       if (ratio > 0.7) { color = '#B81547'; weight = 900; } // brandová
-                       else if (ratio > 0.3) { color = '#000000'; weight = 800; } // čierna
-
-                       return (
-                          <div key={index} className="relative group inline-block cursor-default transition-transform hover:scale-110">
-                             <span 
-                                style={{ fontSize: `${size}px`, color: color, fontWeight: weight, lineHeight: 1 }}
-                                className="transition-all duration-300 drop-shadow-sm"
-                             >
-                                {word.text}
-                             </span>
-                             {/* TOOLTIP */}
-                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-black text-white text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-xl pointer-events-none">
-                                Počet výskytov: {word.value}x
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
-                             </div>
-                          </div>
-                       );
-                    })}
-                 </div>
-              </div>
-           )}
-           {/* --- KONIEC WORD CLOUD --- */}
-
-           <div className="columns-1 lg:columns-2 gap-8 space-y-8">
-              {getOpenQuestionsForTeam(openQuestionsTeam).length > 0 ? (
-                getOpenQuestionsForTeam(openQuestionsTeam).map((q: any, i: number) => (
-                  <div key={i} className="bg-white p-8 rounded-[2rem] border border-black/5 shadow-xl break-inside-avoid hover:shadow-2xl transition-shadow duration-300">
-                     <div className="flex items-start gap-4 mb-6">
-                        <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
-                          <MessageCircle className="w-6 h-6 text-brand" />
-                        </div>
-                        <h3 className="text-lg font-black uppercase tracking-tight leading-snug pt-1">
-                           {q.questionText}
-                        </h3>
+           {/* --- 3 KARTY ODPORÚČANÍ --- */}
+           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {selectedQuestionData.recommendations.map((rec: string, index: number) => (
+                  <div key={index} className="bg-white p-8 rounded-[2rem] border border-black/5 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col group">
+                     <div className="w-12 h-12 rounded-full bg-brand/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-brand transition-all duration-300">
+                        <span className="text-brand font-black text-xl group-hover:text-white transition-colors">{index + 1}</span>
                      </div>
-                     
-                     <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                        {q.answers && q.answers.length > 0 ? (
-                          q.answers.map((ans: string, j: number) => (
-                            <div key={j} className="relative group">
-                               <div className="absolute left-0 top-4 bottom-4 w-1 bg-black/5 rounded-full group-hover:bg-brand transition-colors"></div>
-                               <div className="pl-6 py-2">
-                                  <Quote className="w-4 h-4 text-black/20 mb-2" />
-                                  <p className="text-sm font-medium text-black/80 leading-relaxed italic">
-                                    "{ans}"
-                                  </p>
-                               </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-black/20 font-bold text-xs uppercase tracking-widest italic pl-4 py-4">
-                            Žiadne odpovede na túto otázku
-                          </div>
-                        )}
-                     </div>
+                     <p className="text-black/80 font-medium text-sm leading-relaxed flex-grow">
+                        {rec}
+                     </p>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
-                  Pre vybrané stredisko nie sú dostupné žiadne textové odpovede
-                </div>
-              )}
-           </div>
+                ))}
+             </div>
+           ) : (
+             <div className="text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
+               Pre túto otázku a stredisko nie sú dostupné žiadne odporúčania.
+             </div>
+           )}
         </div>
       )}
 
