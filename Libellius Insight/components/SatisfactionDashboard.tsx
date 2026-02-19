@@ -6,7 +6,7 @@ import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
-  MessageSquare, Quote, MessageCircle
+  MessageSquare, Quote, MessageCircle, Filter // <--- Pridaný Filter
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
@@ -33,6 +33,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  // --- NOVÉ STAVY PRE FILTROVANIE V TABUĽKE ---
+  const [showTeamFilter, setShowTeamFilter] = useState(false);
+  const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
 
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
 
@@ -125,10 +129,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     });
   };
 
+  // --- UPRAVENÁ LOGIKA PRE FILTROVANIE ---
   const filteredEngagement = useMemo(() => {
-    let teams = [...(data.teamEngagement || [])].filter((t: any) => 
-      t.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let teams = [...(data.teamEngagement || [])];
+
+    // Filter cez vyhľadávanie
+    if (searchTerm) {
+      teams = teams.filter((t: any) => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+
+    // Filter cez vybrané tímy (ak je nejaký vybraný)
+    if (selectedEngagementTeams.length > 0) {
+      teams = teams.filter((t: any) => selectedEngagementTeams.includes(t.name));
+    }
+
+    // Zoradenie
     if (sortKey && sortDirection) {
       teams.sort((a, b) => {
         const valA = sortKey === 'count' ? a.count : a.name.toLowerCase();
@@ -139,7 +154,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       });
     }
     return teams;
-  }, [data.teamEngagement, searchTerm, sortKey, sortDirection]);
+  }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
     const card = data[tab];
@@ -321,11 +336,54 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
-                <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all" />
+              
+              {/* --- NOVÉ TLAČIDLÁ PRE VYHĽADÁVANIE A FILTROVANIE --- */}
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                  <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all" />
+                </div>
+                <button
+                  onClick={() => setShowTeamFilter(!showTeamFilter)}
+                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'}`}
+                >
+                  <Filter className="w-4 h-4" />
+                  Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
+                </button>
               </div>
             </div>
+
+            {/* --- PANEL S VÝBEROM TÍMOV --- */}
+            {showTeamFilter && (
+              <div className="mb-8 p-6 bg-black/5 rounded-3xl border border-black/5 animate-fade-in">
+                <div className="flex flex-wrap gap-2">
+                  {masterTeams.map((team: string) => (
+                    <button
+                      key={team}
+                      onClick={() => {
+                        setSelectedEngagementTeams(prev =>
+                          prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
+                        )
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'}`}
+                    >
+                      {team}
+                    </button>
+                  ))}
+                </div>
+                {selectedEngagementTeams.length > 0 && (
+                  <button
+                    onClick={() => setSelectedEngagementTeams([])}
+                    className="mt-4 text-[10px] uppercase tracking-widest font-black text-brand hover:underline"
+                  >
+                    Vymazať výber
+                  </button>
+                )}
+              </div>
+            )}
+
+            
+
             <div className="overflow-hidden rounded-3xl border border-black/5">
               <table className="w-full text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
@@ -336,7 +394,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 font-black text-xs">
-                  {filteredEngagement.map((team: any, idx: number) => (
+                  {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
                     <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
                       <td className="p-7 group-hover:text-brand transition-colors">{team.name}</td>
                       <td className="p-7 text-center">{team.count}</td>
@@ -349,7 +407,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="p-10 text-center text-black/30 font-black uppercase tracking-widest text-xs">
+                        Žiadne tímy nezodpovedajú filtru
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -357,10 +421,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
-      {/* NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
-           {/* HLAVIČKA S VÝBEROM TÍMU */}
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
              <div className="flex flex-col lg:flex-row justify-between items-end gap-8">
                 <div className="space-y-6">
@@ -386,7 +448,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
              </div>
            </div>
 
-           {/* MASONRY GRID PRE OTÁZKY */}
            <div className="columns-1 lg:columns-2 gap-8 space-y-8">
               {getOpenQuestionsForTeam(openQuestionsTeam).length > 0 ? (
                 getOpenQuestionsForTeam(openQuestionsTeam).map((q: any, i: number) => (
