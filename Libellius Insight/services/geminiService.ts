@@ -57,7 +57,7 @@ const getSchema = (mode: AnalysisMode) => {
       required: ["title", "teams"]
     };
 
-    // SCHÉMA PRE OTÁZKY - Teraz pýtame odporúčania, nie surové odpovede!
+    // SCHÉMA PRE OTÁZKY - Teraz pýtame objekt s titulkom a popisom!
     const openQuestionsSchema = {
       type: schemaType.ARRAY,
       items: {
@@ -70,7 +70,17 @@ const getSchema = (mode: AnalysisMode) => {
               type: schemaType.OBJECT,
               properties: {
                 questionText: { type: schemaType.STRING },
-                recommendations: { type: schemaType.ARRAY, items: { type: schemaType.STRING } }
+                recommendations: { 
+                  type: schemaType.ARRAY, 
+                  items: { 
+                    type: schemaType.OBJECT,
+                    properties: {
+                      title: { type: schemaType.STRING },
+                      description: { type: schemaType.STRING }
+                    },
+                    required: ["title", "description"]
+                  } 
+                }
               }
             }
           }
@@ -223,7 +233,9 @@ export const analyzeDocument = async (
     3. VOĽNÉ OTÁZKY - ODPORÚČANIA (openQuestions):
        - Pozorne si prečítaj odpovede zamestnancov, ktoré som ti poslal vyššie v bloku TEXTOVÉ ODPOVEDE.
        - Pre KAŽDÝ TÍM a pre KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA vychádzajúce z toho, čo zamestnanci napísali.
-       - Odporúčania musia byť jasné, stručné kroky (nie citácie!). Vlož ich do poľa 'recommendations' (bude to pole 3 textových stringov).
+       - Každé odporúčanie musí obsahovať 2 časti:
+         a) 'title': Krátky, úderný názov odporúčania (max 5-7 slov).
+         b) 'description': Detailný popis (2-3 vety). Tu vysvetli, PREČO sa toto odporúča. Uveď kontext z odpovedí (napríklad: "Viacero zamestnancov nezávisle od seba spomenulo, že...", "Z odpovedí jasne vyplýva potreba...", "Zamestnanci sa často sťažovali na...").
   `;
 
   try {
@@ -241,7 +253,7 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.1
+        temperature: 0.2 // Jemne zvýšená teplota, aby boli popisy pestrejšie
       }
     });
 
