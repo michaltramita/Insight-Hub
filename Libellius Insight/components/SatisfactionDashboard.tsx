@@ -6,10 +6,11 @@ import LZString from 'lz-string';
 import { 
   RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
-  MessageSquare, Quote, MessageCircle, Filter // <--- Pridaný Filter
+  MessageSquare, Quote, MessageCircle, Filter
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
+  PieChart, Pie, Legend // <--- NOVÉ IMPORTY PRE KOLÁČOVÝ GRAF
 } from 'recharts';
 
 interface Props {
@@ -21,6 +22,9 @@ type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | 'card1' | 'card2' | 'card3' | '
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
+
+// Paleta farieb pre koláčový graf (od brandovej cez čiernu a sivé odtiene)
+const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
@@ -34,7 +38,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  // --- NOVÉ STAVY PRE FILTROVANIE V TABUĽKE ---
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
 
@@ -129,21 +132,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     });
   };
 
-  // --- UPRAVENÁ LOGIKA PRE FILTROVANIE ---
   const filteredEngagement = useMemo(() => {
     let teams = [...(data.teamEngagement || [])];
 
-    // Filter cez vyhľadávanie
     if (searchTerm) {
       teams = teams.filter((t: any) => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
 
-    // Filter cez vybrané tímy (ak je nejaký vybraný)
     if (selectedEngagementTeams.length > 0) {
       teams = teams.filter((t: any) => selectedEngagementTeams.includes(t.name));
     }
 
-    // Zoradenie
     if (sortKey && sortDirection) {
       teams.sort((a, b) => {
         const valA = sortKey === 'count' ? a.count : a.name.toLowerCase();
@@ -155,6 +154,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
     return teams;
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
+
+  // Pomocný výpočet pre koláčový graf
+  const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
 
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
     const card = data[tab];
@@ -337,7 +339,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
               <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
               
-              {/* --- NOVÉ TLAČIDLÁ PRE VYHĽADÁVANIE A FILTROVANIE --- */}
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <div className="relative flex-1 md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
@@ -353,7 +354,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </div>
             </div>
 
-            {/* --- PANEL S VÝBEROM TÍMOV --- */}
             {showTeamFilter && (
               <div className="mb-8 p-6 bg-black/5 rounded-3xl border border-black/5 animate-fade-in">
                 <div className="flex flex-wrap gap-2">
@@ -381,8 +381,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 )}
               </div>
             )}
-
-            
 
             <div className="overflow-hidden rounded-3xl border border-black/5">
               <table className="w-full text-left">
@@ -418,6 +416,53 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </table>
             </div>
           </div>
+
+          {/* --- NOVÝ BLOK: KOLÁČOVÝ GRAF --- */}
+          {filteredEngagement.length > 0 && (
+            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 text-center mb-8">
+                {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
+              </p>
+              
+              <div className="h-[400px] w-full max-w-2xl">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={filteredEngagement}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={140}
+                      paddingAngle={3}
+                      dataKey="count"
+                      nameKey="name"
+                      stroke="none"
+                    >
+                      {filteredEngagement.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        const count = Number(value);
+                        const percentage = ((count / totalFilteredCount) * 100).toFixed(1);
+                        return [`${count} osôb (${percentage}%)`, name];
+                      }}
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ fontWeight: 900, color: '#000' }}
+                    />
+                    <Legend 
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: '12px', fontWeight: 700 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          {/* --- KONIEC NOVÉHO BLOKU --- */}
+
         </div>
       )}
 
