@@ -40,7 +40,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
 
-  // Stavy pre sekciu s voľnými otázkami
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
 
@@ -96,12 +95,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
   }, [masterTeams]);
 
-  // Nastavenie prvej otázky po zmene tímu
   useEffect(() => {
     if (openQuestionsTeam && data.openQuestions) {
       const teamQuestions = data.openQuestions.find((t: any) => t.teamName === openQuestionsTeam)?.questions || [];
       if (teamQuestions.length > 0) {
-        // Ak sa zmenil tím a stará otázka tam nie je, dajme prvú
         if (!teamQuestions.find((q: any) => q.questionText === selectedQuestionText)) {
           setSelectedQuestionText(teamQuestions[0].questionText);
         }
@@ -279,7 +276,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   if (!data) return null;
 
-  // Dáta pre sekciu Voľných otázok
   const openQuestionsTeamData = data.openQuestions?.find((t: any) => t.teamName === openQuestionsTeam);
   const availableQuestions = openQuestionsTeamData?.questions || [];
   const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
@@ -485,24 +481,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
-      {/* --- NOVÝ DIZAJN PRE VOĽNÉ OTÁZKY S VÝBEROM TÍMU A OTÁZKY --- */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
              <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
                 
-                {/* Nadpis sekcie */}
                 <div className="space-y-6 w-full lg:w-1/2">
                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
                     <Lightbulb className="w-3 h-3" /> Analýza a odporúčania
                   </div>
                   <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
                   <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
-                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment.
+                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment aj s kontextom.
                   </p>
                 </div>
                 
-                {/* Filtre: Výber tímu a výber otázky */}
                 <div className="flex flex-col gap-4 w-full lg:w-1/2">
                    <div className="w-full">
                      <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE TÍM:</span>
@@ -539,20 +532,20 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                      </div>
                    </div>
                 </div>
-
              </div>
            </div>
 
-           {/* --- 3 KARTY ODPORÚČANÍ --- */}
+           {/* --- 3 KARTY ODPORÚČANÍ (UPRAVENÉ PRE TITLE + DESCRIPTION) --- */}
            {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {selectedQuestionData.recommendations.map((rec: string, index: number) => (
+                {selectedQuestionData.recommendations.map((rec: any, index: number) => (
                   <div key={index} className="bg-white p-8 rounded-[2rem] border border-black/5 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col group">
-                     <div className="w-12 h-12 rounded-full bg-brand/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-brand transition-all duration-300">
+                     <div className="w-12 h-12 rounded-full bg-brand/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-brand transition-all duration-300 shrink-0">
                         <span className="text-brand font-black text-xl group-hover:text-white transition-colors">{index + 1}</span>
                      </div>
-                     <p className="text-black/80 font-medium text-sm leading-relaxed flex-grow">
-                        {rec}
+                     <h4 className="text-xl font-black text-black mb-3 leading-tight">{rec.title}</h4>
+                     <p className="text-black/60 font-medium text-sm leading-relaxed flex-grow">
+                        {rec.description}
                      </p>
                   </div>
                 ))}
