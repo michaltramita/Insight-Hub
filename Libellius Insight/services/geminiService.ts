@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
@@ -91,7 +90,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
           const val = Number(cleanHodnota);
 
           if (!isNaN(val)) {
-            // A. Extrakcia ÚČASTI (Zapojenia)
+            // A. Extrakcia ÚČASTI
             const jeUcast = oblastNorm.includes('zapojenie') ||
                             otazkaTextLower.includes('zapojen') || 
                             otazkaTextLower.includes('ucast') || 
@@ -112,10 +111,10 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
                   teamEngagementMap[team] = val;
                 }
               }
-              return; // Už to nepúšťame do oblastí
+              return; 
             }
 
-            // B. Extrakcia dát pre GRAFY a MATICU (iba Skóre)
+            // B. Extrakcia dát pre GRAFY a MATICU
             if (team && otazkaText && !isCelkom && rowTyp.includes('skore')) {
               if (!quantitativeByOblast[oblast]) {
                 quantitativeByOblast[oblast] = {};
@@ -137,7 +136,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         questions: Object.entries(qs).map(([questionText, answers]) => ({ questionText, answers }))
       }));
 
-      // --- DYNAMICKÉ OBLASTI ---
+      // DYNAMICKÉ OBLASTI
       calculatedAreas = Object.entries(quantitativeByOblast).map(([oblastName, questionsInOblast], index) => {
         return {
           id: `area_${index + 1}`,
@@ -153,7 +152,6 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         };
       });
 
-      // Zostavenie poctov ludi z Excelu
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
         return { name: t, count: teamEngagementMap[t] || 0 };
       });
@@ -163,7 +161,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     }
   }
 
-  // --- FALLBACK (Bez AI) ---
+  // --- FALLBACK (Bez voľných odpovedí) ---
   if (rawOpenQuestionsForAI.length === 0) {
     return {
       mode: 'ZAMESTNANECKA_SPOKOJNOST',
@@ -180,73 +178,25 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     } as FeedbackAnalysisResult;
   }
 
-  // --- AI PRE TEXTOVÉ ODPORÚČANIA ---
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
-  const promptText = `Si HR expert. Prečítaj si tieto voľné odpovede a pre každý tím a otázku vytvor 3 manažérske odporúčania s 3 citáciami.\nTEXTY NA ANALÝZU: ${JSON.stringify(rawOpenQuestionsForAI)}`;
-
+  // --- AI PRE TEXTOVÉ ODPORÚČANIA (cez backend API route Vercelu) ---
   let aiParsed: any = { openQuestions: [] };
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
-      contents: { role: "user", parts: [{ text: promptText }] },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            openQuestions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  teamName: { type: Type.STRING },
-                  questions: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        questionText: { type: Type.STRING },
-                        recommendations: { 
-                          type: Type.ARRAY, 
-                          items: { 
-                            type: Type.OBJECT,
-                            properties: {
-                              title: { type: Type.STRING },
-                              description: { type: Type.STRING },
-                              quotes: { type: Type.ARRAY, items: { type: Type.STRING } }
-                            },
-                            required: ["title", "description", "quotes"] 
-                          } 
-                        }
-                      },
-                      required: ["questionText", "recommendations"]
-                    }
-                  }
-                },
-                required: ["teamName", "questions"]
-              }
-            }
-          },
-          required: ["openQuestions"]
-        },
-        temperature: 0.2
-      }
+    const res = await fetch('/api/analyze-open-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawOpenQuestionsForAI })
     });
 
-    const text = (response.text || "").trim();
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    try {
-      aiParsed = JSON.parse(cleanJson);
-    } catch (parseError) {
-      console.error('AI JSON parse failed');
+    if (!res.ok) {
+      console.error('API route error:', res.status, res.statusText);
       aiParsed = { openQuestions: [] };
+    } else {
+      aiParsed = await res.json();
     }
-
-  } catch (error: any) {
-    console.error("Gemini Request Error:", error);
-    aiParsed = { openQuestions: [] }; 
+  } catch (error) {
+    console.error("API fetch error:", error);
+    aiParsed = { openQuestions: [] };
   }
 
   // --- FINÁLNE ZLÚČENIE ---
