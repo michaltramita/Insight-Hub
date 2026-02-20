@@ -40,7 +40,7 @@ export const parseExcelFile = async (file: File): Promise<string> => {
 
 export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isExcel: boolean = false): Promise<FeedbackAnalysisResult> => {
   let rawOpenQuestionsForAI: any[] = [];
-  let calculatedCards: any = {};
+  let calculatedAreas: any[] = [];
   let calculatedEngagement: any[] = [];
   let totalS = 0, totalR = 0;
   let sucRate = "";
@@ -70,7 +70,6 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         const oblast = String(row.oblast || 'Iné oblasti').trim();
         const oblastNorm = normalize(oblast);
 
-        // Prísna normalizácia typu otázky
         const rawQuestionType = String(row.kategoria_otazky || 'Prierezova').trim();
         const normQType = normalize(rawQuestionType);
         const qType = normQType.includes('specif') ? 'Specificka' : 'Prierezova';
@@ -83,54 +82,53 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
             if (!openQsMap[team][otazkaText]) openQsMap[team][otazkaText] = [];
             openQsMap[team][otazkaText].push(ans);
           }
-          return; // Rýchle ukončenie pre tento riadok
+          return;
         } 
         
-        // 2. Len skóre
-        if (!rowTyp.includes('skore') || row.hodnota === undefined || row.hodnota === null || row.hodnota === "") {
-          return;
-        }
+        // 2. Kvantitatívne údaje
+        if (row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
+          const cleanHodnota = String(row.hodnota).replace(',', '.');
+          const val = Number(cleanHodnota);
 
-        const cleanHodnota = String(row.hodnota).replace(',', '.');
-        const val = Number(cleanHodnota);
-        if (isNaN(val)) return;
+          if (!isNaN(val)) {
+            // A. Extrakcia ÚČASTI (Zapojenia)
+            const jeUcast = oblastNorm.includes('zapojenie') ||
+                            otazkaTextLower.includes('zapojen') || 
+                            otazkaTextLower.includes('ucast') || 
+                            otazkaTextLower.includes('respondent') ||
+                            otazkaTextLower.includes('odpovedal');
 
-        // 3. ŠPECIÁLNE: Zapojenie účastníkov (Vylúčené z bežných kariet)
-        if (oblastNorm.includes('zapojenie') || otazkaTextLower.includes('dotaznik')) {
-          // Celkové čísla
-          if (isCelkom) {
-            if (otazkaTextLower.includes('rozposlan') || otazkaTextLower.includes('osloven')) {
-              totalS = val;
-            } else if (
-              otazkaTextLower.includes('korektne vyplnen') ||
-              otazkaTextLower.includes('zapojen')
-            ) {
-              totalR = val;
-            } else if (otazkaTextLower.includes('navrat')) {
-              sucRate = `${val}%`;
+            if (jeUcast) {
+              if (isCelkom) {
+                if (otazkaTextLower.includes('rozposlan') || otazkaTextLower.includes('osloven')) {
+                  totalS = val;
+                } else if (otazkaTextLower.includes('navrat')) {
+                  sucRate = `${val}%`;
+                } else {
+                  totalR = val;
+                }
+              } else {
+                if (otazkaTextLower.includes('struktura') || otazkaTextLower.includes('vyplnen') || otazkaTextLower.includes('zapojen')) {
+                  teamEngagementMap[team] = val;
+                }
+              }
+              return; // Už to nepúšťame do oblastí
+            }
+
+            // B. Extrakcia dát pre GRAFY a MATICU (iba Skóre)
+            if (team && otazkaText && !isCelkom && rowTyp.includes('skore')) {
+              if (!quantitativeByOblast[oblast]) {
+                quantitativeByOblast[oblast] = {};
+              }
+              if (!quantitativeByOblast[oblast][otazkaText]) {
+                quantitativeByOblast[oblast][otazkaText] = {
+                  questionType: qType,
+                  scores: {}
+                };
+              }
+              quantitativeByOblast[oblast][otazkaText].scores[team] = val;
             }
           }
-
-          // Počet zapojených za tím (štruktúra korektne vyplnených)
-          if (!isCelkom && (otazkaTextLower.includes('struktura') || otazkaTextLower.includes('vyplnen') || otazkaTextLower.includes('zapojen'))) {
-            teamEngagementMap[team] = val;
-          }
-
-          return; // Dôležité: Už to nepúšťaj ďalej do kariet a grafov!
-        }
-
-        // 4. Všetky ostatné skóre patria do kariet/matíc
-        if (team && otazkaText && !isCelkom) {
-          if (!quantitativeByOblast[oblast]) {
-            quantitativeByOblast[oblast] = {};
-          }
-          if (!quantitativeByOblast[oblast][otazkaText]) {
-            quantitativeByOblast[oblast][otazkaText] = {
-              questionType: qType,
-              scores: {}
-            };
-          }
-          quantitativeByOblast[oblast][otazkaText].scores[team] = val;
         }
       });
 
@@ -139,43 +137,23 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         questions: Object.entries(qs).map(([questionText, answers]) => ({ questionText, answers }))
       }));
 
-      const oblastNames = Object.keys(quantitativeByOblast);
-      const allCards = [
-        { id: 'card1', title: oblastNames[0] || 'Oblasť 1', metrics: [] as any[] },
-        { id: 'card2', title: oblastNames[1] || 'Oblasť 2', metrics: [] as any[] },
-        { id: 'card3', title: oblastNames[2] || 'Oblasť 3', metrics: [] as any[] },
-        { id: 'card4', title: oblastNames.length > 4 ? 'Ostatné oblasti' : (oblastNames[3] || 'Oblasť 4'), metrics: [] as any[] },
-      ];
-
-      oblastNames.forEach((oblastName, index) => {
-        const cardIndex = index < 3 ? index : 3; 
-        const questionsInOblast = quantitativeByOblast[oblastName];
-        
-        Object.entries(questionsInOblast).forEach(([qText, qData]) => {
-            allCards[cardIndex].metrics.push({
+      // --- DYNAMICKÉ OBLASTI ---
+      calculatedAreas = Object.entries(quantitativeByOblast).map(([oblastName, questionsInOblast], index) => {
+        return {
+          id: `area_${index + 1}`,
+          title: oblastName,
+          teams: Array.from(uniqueTeams).map(teamName => ({
+            teamName,
+            metrics: Object.entries(questionsInOblast).map(([qText, qData]) => ({
               category: qText,
-              scores: qData.scores,
-              questionType: qData.questionType 
-            });
-        });
-      });
-
-      allCards.forEach((card, i) => {
-        const cardKey = `card${i+1}`;
-        calculatedCards[cardKey] = {
-            title: card.title,
-            teams: Array.from(uniqueTeams).map(teamName => ({
-                teamName: teamName,
-                metrics: card.metrics.map(m => ({
-                  category: m.category,
-                  score: m.scores[teamName] || 0,
-                  questionType: m.questionType
-                }))
+              score: qData.scores[teamName] || 0,
+              questionType: qData.questionType
             }))
+          }))
         };
       });
 
-      // Zostavenie poctov ludi z Excelu do poľa pre Engagement tab
+      // Zostavenie poctov ludi z Excelu
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
         return { name: t, count: teamEngagementMap[t] || 0 };
       });
@@ -185,7 +163,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     }
   }
 
-  // --- FALLBACK (Bez AI a bez umelých čísel 150/120) ---
+  // --- FALLBACK (Bez AI) ---
   if (rawOpenQuestionsForAI.length === 0) {
     return {
       mode: 'ZAMESTNANECKA_SPOKOJNOST',
@@ -197,10 +175,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         successRate: sucRate || "0%",
         teamEngagement: calculatedEngagement,
         openQuestions: [],
-        card1: calculatedCards.card1 || { title: "Karta 1", teams: [] },
-        card2: calculatedCards.card2 || { title: "Karta 2", teams: [] },
-        card3: calculatedCards.card3 || { title: "Karta 3", teams: [] },
-        card4: calculatedCards.card4 || { title: "Karta 4", teams: [] }
+        areas: calculatedAreas || []
       }
     } as FeedbackAnalysisResult;
   }
@@ -274,7 +249,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     aiParsed = { openQuestions: [] }; 
   }
 
-  // --- FINÁLNE ZLÚČENIE (tiež bez umelých čísel) ---
+  // --- FINÁLNE ZLÚČENIE ---
   return {
     mode: 'ZAMESTNANECKA_SPOKOJNOST',
     reportMetadata: { date: new Date().getFullYear().toString(), scaleMax: 6 },
@@ -285,10 +260,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
       successRate: sucRate || "0%",
       teamEngagement: calculatedEngagement,
       openQuestions: aiParsed.openQuestions || [],
-      card1: calculatedCards.card1 || { title: "Karta 1", teams: [] },
-      card2: calculatedCards.card2 || { title: "Karta 2", teams: [] },
-      card3: calculatedCards.card3 || { title: "Karta 3", teams: [] },
-      card4: calculatedCards.card4 || { title: "Karta 4", teams: [] }
+      areas: calculatedAreas || []
     }
   } as FeedbackAnalysisResult;
 };
