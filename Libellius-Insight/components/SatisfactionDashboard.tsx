@@ -570,7 +570,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       align="right"
                       iconType="circle"
                       wrapperStyle={{ 
-                        fontSize: '16px', 
+                        fontSize: '28px', 
                         fontWeight: 700, 
                         lineHeight: '36px',
                         paddingLeft: '40px'
