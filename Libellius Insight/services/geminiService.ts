@@ -45,8 +45,12 @@ const getSchema = (mode: AnalysisMode) => {
                 type: schemaType.ARRAY,
                 items: {
                   type: schemaType.OBJECT,
-                  properties: { category: { type: schemaType.STRING }, score: { type: schemaType.NUMBER } },
-                  required: ["category", "score"]
+                  properties: { 
+                    category: { type: schemaType.STRING }, 
+                    score: { type: schemaType.NUMBER },
+                    questionType: { type: schemaType.STRING } // Pridaný typ otázky (Prierezova/Specificka)
+                  },
+                  required: ["category", "score", "questionType"]
                 }
               }
             },
@@ -143,7 +147,8 @@ export const parseExcelFile = async (file: File): Promise<string> => {
           otazka: row['otazka'] || row['Otazka'],
           hodnota: row['hodnota'],
           text: row['text_odpovede'], 
-          oblast: row['oblast'] || row['typ']
+          oblast: row['oblast'] || row['typ'],
+          kategoria_otazky: row['kategoria_otazky'] || row['Kategoria_otazky'] || 'Prierezova' // Čítame nový stĺpec
         }));
 
         resolve(JSON.stringify(simplifiedData));
@@ -224,19 +229,15 @@ export const analyzeDocument = async (
     1. METRIKY (KARTY 1-4):
        - Dáta sú rozdelené do oblastí (kľúč 'oblast').
        - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM.
-       - Do poľa 'metrics' vlož VŠETKY tvrdenia. PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach (neskracuj ich, nemeň slová!).
+       - Do poľa 'metrics' vlož VŠETKY tvrdenia. PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach.
        - 'score' = priemer hodnôt pre daný tím a tvrdenie. Zopakuj to pre všetky tímy.
+       - 'questionType' = Priraď hodnotu zo stĺpca 'kategoria_otazky'. Zabezpeč, aby táto hodnota bola vo formáte 'Prierezova' alebo 'Specificka' presne podľa toho, ako je to v dátach.
 
     2. ÚČASŤ (teamEngagement):
        - Vytvor záznam pre každý tím. 'totalSent', 'totalReceived', 'successRate' vytiahni zo skupiny 'Celkom'.
 
     3. VOĽNÉ OTÁZKY - ODPORÚČANIA A CITÁCIE (openQuestions):
-       - Pozorne si prečítaj odpovede zamestnancov, ktoré som ti poslal vyššie v bloku TEXTOVÉ ODPOVEDE.
-       - Pre KAŽDÝ TÍM a pre KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA vychádzajúce z toho, čo zamestnanci napísali.
-       - Každé odporúčanie musí obsahovať 3 časti:
-         a) 'title': Krátky, úderný názov odporúčania (max 5-7 slov).
-         b) 'description': Detailný popis (2-3 vety). Tu vysvetli, PREČO sa toto odporúča.
-         c) 'quotes': Vyber 5 až 10 REÁLNYCH CITÁCIÍ (doslovných odpovedí od zamestnancov), ktoré najviac podporujú toto odporúčanie. Tieto citácie vlož do poľa ako samostatné stringy. Neskresľuj ich, použi pôvodný text.
+       - Pozorne si prečítaj odpovede zamestnancov a pre KAŽDÝ TÍM a KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA s popisom a citáciami (rovnako ako doteraz).
   `;
 
   try {
