@@ -484,3 +484,169 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       stroke="none"
                     >
                       {filteredEngagement.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        const count = Number(value);
+                        const percentage = ((count / totalFilteredCount) * 100).toFixed(1);
+                        return [`${count} osôb (${percentage}%)`, name];
+                      }}
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ fontWeight: 900, color: '#000' }}
+                    />
+                    <Legend 
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      iconType="circle"
+                      wrapperStyle={{ 
+                        fontSize: '16px', 
+                        fontWeight: 700, 
+                        lineHeight: '36px',
+                        paddingLeft: '40px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* OPEN QUESTIONS TAB */}
+      {activeTab === 'OPEN_QUESTIONS' && (
+        <div className="space-y-10 animate-fade-in">
+           <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
+             <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
+                
+                <div className="space-y-6 w-full lg:w-1/2">
+                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
+                    <Lightbulb className="w-3 h-3" /> Analýza a odporúčania
+                  </div>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
+                  <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
+                    Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala 3 kľúčové odporúčania pre manažment aj s kontextom. <strong>Kliknutím na odporúčanie zobrazíte reálne citácie zamestnancov.</strong>
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-4 w-full lg:w-1/2">
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE TÍM:</span>
+                     <div className="relative">
+                        <select 
+                          value={openQuestionsTeam} 
+                          onChange={(e) => setOpenQuestionsTeam(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black text-white rounded-[1.5rem] font-black text-lg outline-none shadow-xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                        >
+                          {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
+                     </div>
+                   </div>
+
+                   <div className="w-full">
+                     <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE OTÁZKU:</span>
+                     <div className="relative">
+                        <select 
+                          value={selectedQuestionText} 
+                          onChange={(e) => setSelectedQuestionText(e.target.value)} 
+                          className="w-full p-5 pr-12 bg-black/5 text-black rounded-[1.5rem] font-bold text-sm outline-none shadow-sm cursor-pointer border border-black/5 hover:bg-black/10 transition-all appearance-none"
+                          disabled={availableQuestions.length === 0}
+                        >
+                          {availableQuestions.length > 0 ? (
+                            availableQuestions.map((q: any, i: number) => (
+                              <option key={i} value={q.questionText}>{q.questionText}</option>
+                            ))
+                          ) : (
+                            <option value="">Žiadne otázky nie sú k dispozícii</option>
+                          )}
+                        </select>
+                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-black/40 pointer-events-none" />
+                     </div>
+                   </div>
+                </div>
+             </div>
+           </div>
+
+           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
+             <div className="flex flex-col gap-6">
+                {selectedQuestionData.recommendations.map((rec: any, index: number) => (
+                  <div 
+                     key={index} 
+                     className={`bg-white p-8 md:p-10 rounded-[2.5rem] border transition-all duration-300 flex flex-col group cursor-pointer ${expandedRecIndex === index ? 'border-brand/20 shadow-2xl' : 'border-black/5 shadow-xl hover:shadow-2xl hover:border-black/10'}`}
+                     onClick={() => setExpandedRecIndex(expandedRecIndex === index ? null : index)}
+                  >
+                     <div className="flex flex-col md:flex-row gap-8 items-start w-full">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${expandedRecIndex === index ? 'bg-brand text-white scale-110' : 'bg-brand/5 text-brand group-hover:scale-110 group-hover:bg-brand group-hover:text-white'}`}>
+                           <span className="font-black text-2xl">{index + 1}</span>
+                        </div>
+                        
+                        <div className="flex-grow pt-2 flex flex-col md:flex-row justify-between items-start gap-4">
+                           <div className="max-w-4xl">
+                              <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
+                              <p className="text-black/60 font-medium text-base leading-relaxed">
+                                 {rec.description}
+                              </p>
+                           </div>
+                           <div className={`shrink-0 mt-2 w-10 h-10 rounded-full flex items-center justify-center bg-black/5 transition-transform duration-300 ${expandedRecIndex === index ? 'rotate-180 bg-brand/10 text-brand' : 'text-black/40 group-hover:bg-black/10'}`}>
+                              <ChevronDown className="w-5 h-5" />
+                           </div>
+                        </div>
+                     </div>
+
+                     {expandedRecIndex === index && rec.quotes && rec.quotes.length > 0 && (
+                        <div className="mt-8 pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24">
+                           <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2">
+                              <MessageCircle className="w-4 h-4" /> Najčastejšie spomínané v odpovediach:
+                           </h5>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {rec.quotes.map((quote: string, qIdx: number) => (
+                                 <div key={qIdx} className="bg-black/5 p-5 rounded-2xl relative">
+                                    <Quote className="w-5 h-5 text-black/10 absolute top-4 left-4" />
+                                    <p className="text-sm font-medium text-black/80 italic pl-8 leading-relaxed">
+                                       "{quote}"
+                                    </p>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+                  </div>
+                ))}
+             </div>
+           ) : (
+             <div className="text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
+               Pre túto otázku a stredisko nie sú dostupné žiadne odporúčania.
+             </div>
+           )}
+        </div>
+      )}
+
+      {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
+
+      {/* --- PÄTIČKA (FOOTER) --- */}
+      <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-brand rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-brand/20">
+            L
+          </div>
+          <div>
+            <h4 className="font-black text-black uppercase tracking-widest text-sm">Libellius</h4>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Insight Hub</p>
+          </div>
+        </div>
+        
+        <div className="text-center md:text-right">
+          <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+export default SatisfactionDashboard;
