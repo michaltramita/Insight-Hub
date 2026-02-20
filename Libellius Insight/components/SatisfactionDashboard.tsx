@@ -4,8 +4,8 @@ import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import LZString from 'lz-string';
 import { 
-  RefreshCw, Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
-  Building2, Star, Target, Download, Link as LinkIcon, Check, SearchX, ArrowUpDown, ChevronDown, 
+  Users, Search, BarChart4, ClipboardCheck, MapPin, UserCheck,
+  Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown, 
   MessageSquare, Quote, MessageCircle, Filter, Lightbulb, BarChart as BarChartIcon
 } from 'lucide-react';
 import {
@@ -22,7 +22,7 @@ type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | 'card1' | 'card2' | 'card3' | '
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
-type ComparisonFilterType = 'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'; // --- NOVÝ TYP FILTRA ---
+type ComparisonFilterType = 'ALL' | 'PRIEREZOVA' | 'SPECIFICKA';
 
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
@@ -52,7 +52,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [comparisonFilter, setComparisonFilter] = useState<ComparisonFilterType>('ALL'); // --- STAV FILTRA ---
+  const [comparisonFilter, setComparisonFilter] = useState<ComparisonFilterType>('ALL');
 
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
@@ -139,35 +139,37 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const getActiveData = (tab: 'card1' | 'card2' | 'card3' | 'card4', teamName: string) => {
     const card = data[tab];
     if (!card) return [];
-    const team = card.teams.find((t: any) => t.teamName === teamName) || card.teams[0];
-    return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
+    const team = card.teams?.find((t: any) => t.teamName === teamName) || card.teams?.[0];
+    return team && Array.isArray(team.metrics) ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
 
-  // --- UPRAVENÁ FUNKCIA NA FILTROVANIE DÁT MATICE ---
+  // --- BEZPEČNÁ VERZIA getComparisonData (Guards a Array checky) ---
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
-    const card = data[tab];
-    if (!card) return [];
-    const categories = Array.from(new Set(card.teams.flatMap((t: any) => t.metrics.map((m: any) => m.category))));
-    
-    const rows = categories.map(cat => {
-      const row: any = { category: cat };
-      let qType = 'Prierezova'; 
+    const card = data?.[tab];
+    const cardTeams = Array.isArray(card?.teams) ? card.teams : [];
+    if (!cardTeams.length) return [];
 
-      selectedNames.forEach(tName => {
-        const team = card.teams.find((t: any) => t.teamName === tName);
-        const metric = team?.metrics.find((m: any) => m.category === cat);
-        row[tName] = metric?.score || 0;
-        
-        if (metric?.questionType) {
-          qType = metric.questionType;
-        }
+    const categories = Array.from(
+      new Set(cardTeams.flatMap((t: any) => (Array.isArray(t.metrics) ? t.metrics.map((m: any) => m.category) : [])))
+    );
+
+    const rows = categories.map((cat) => {
+      const row: any = { category: cat };
+      let qType = 'Prierezova';
+
+      selectedNames.forEach((tName) => {
+        const team = cardTeams.find((t: any) => t.teamName === tName);
+        const metric = team?.metrics?.find((m: any) => m.category === cat);
+        row[tName] = Number(metric?.score ?? 0);
+
+        if (metric?.questionType) qType = metric.questionType;
       });
-      
+
       row.questionType = qType;
       return row;
     });
 
-    return rows.filter(row => {
+    return rows.filter((row) => {
       if (comparisonFilter === 'ALL') return true;
       const typeStr = String(row.questionType || '').toLowerCase();
       if (comparisonFilter === 'PRIEREZOVA') return typeStr.includes('prierez');
@@ -200,6 +202,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
   const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
+  
+  // --- OCHRANA PRED DELENÍM NULOU ---
+  const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
 
   const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
     const card = data[tab];
@@ -253,7 +258,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
               />
               
-              {/* --- NOVÉ UI TLAČIDLÁ PRE FILTER MATICE --- */}
               <div className="flex flex-col md:flex-row items-center gap-2 bg-black/5 p-2 rounded-2xl w-fit">
                 <button 
                   onClick={() => setComparisonFilter('ALL')} 
@@ -406,7 +410,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {activeTab === 'ENGAGEMENT' && (
         <div className="space-y-10 animate-fade-in">
-          {/* ... (Kód tabu ENGAGEMENT zostáva nezmenený) ... */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
                <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
@@ -433,8 +436,41 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
                   <input type="text" placeholder="Hľadať..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all" />
                 </div>
+                <button
+                  onClick={() => setShowTeamFilter(!showTeamFilter)}
+                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'}`}
+                >
+                  <Filter className="w-4 h-4" />
+                  Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
+                </button>
               </div>
             </div>
+
+            {showTeamFilter && (
+              <div className="mb-8 p-6 bg-black/5 rounded-3xl border border-black/5 animate-fade-in">
+                <div className="flex flex-wrap gap-2">
+                  {masterTeams.map((team: string) => (
+                    <button
+                      key={team}
+                      onClick={() => {
+                        setSelectedEngagementTeams(prev =>
+                          prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
+                        )
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'}`}
+                    >
+                      {team}
+                    </button>
+                  ))}
+                </div>
+                {selectedEngagementTeams.length > 0 && (
+                  <button onClick={() => setSelectedEngagementTeams([])} className="mt-4 text-[10px] uppercase tracking-widest font-black text-brand hover:underline">
+                    Vymazať výber
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="overflow-hidden rounded-3xl border border-black/5">
               <table className="w-full text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
@@ -452,9 +488,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       <td className="p-7">
                         <div className="flex items-center justify-center gap-5">
                           <div className="w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]" style={{ width: `${(team.count / data.totalReceived) * 100}%` }} />
+                            <div className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]" style={{ width: `${(team.count / safeTotalReceived) * 100}%` }} />
                           </div>
-                          <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / data.totalReceived) * 100).toFixed(1)}%</span>
+                          <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / safeTotalReceived) * 100).toFixed(1)}%</span>
                         </div>
                       </td>
                     </tr>
@@ -469,13 +505,64 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </table>
             </div>
           </div>
+
+          {filteredEngagement.length > 0 && (
+            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 text-center mb-8">
+                {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
+              </p>
+              
+              <div className="h-[550px] w-full max-w-5xl">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={filteredEngagement}
+                      cx="40%"
+                      cy="50%"
+                      innerRadius={140}
+                      outerRadius={220}
+                      paddingAngle={3}
+                      dataKey="count"
+                      nameKey="name"
+                      stroke="none"
+                    >
+                      {filteredEngagement.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        const count = Number(value);
+                        const percentage = ((count / totalFilteredCount) * 100).toFixed(1);
+                        return [`${count} osôb (${percentage}%)`, name];
+                      }}
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ fontWeight: 900, color: '#000' }}
+                    />
+                    <Legend 
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      iconType="circle"
+                      wrapperStyle={{ 
+                        fontSize: '16px', 
+                        fontWeight: 700, 
+                        lineHeight: '36px',
+                        paddingLeft: '40px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* OPEN QUESTIONS TAB */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
-           {/* ... (Kód tabu OPEN_QUESTIONS zostáva nezmenený) ... */}
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
              <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
                 <div className="space-y-6 w-full lg:w-1/2">
@@ -556,7 +643,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
 
-      {/* --- PÄTIČKA (FOOTER) --- */}
+      {/* --- PÄTIČKA --- */}
       <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-brand rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-brand/20">L</div>
