@@ -43,7 +43,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
   let calculatedCards: any = {};
   let calculatedEngagement: any[] = [];
   let totalS = 0, totalR = 0;
-  let sucRate = "0%";
+  let sucRate = "";
 
   if (isExcel && mode === 'ZAMESTNANECKA_SPOKOJNOST') {
     try {
@@ -56,20 +56,21 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
       > = {};
       
       const uniqueTeams = new Set<string>();
-      // --- OPRAVA: Pamäť pre reálne počty zapojených v tímoch ---
       const teamEngagementMap: Record<string, number> = {};
 
       rawData.forEach((row: any) => {
         const team = String(row.skupina || '').trim();
-        const isCelkom = normalize(team) === 'celkom'; // Robustné ošetrenie Celkom
+        const isCelkom = normalize(team) === 'celkom';
         
         if (team && !isCelkom) uniqueTeams.add(team);
 
         const rowTyp = normalize(String(row.typ || '')); 
         const otazkaText = String(row.otazka || '').trim();
         const otazkaTextLower = normalize(otazkaText); 
+        const oblast = String(row.oblast || 'Iné oblasti').trim();
+        const oblastNorm = normalize(oblast);
 
-        // Prísna normalizácia typu otázky (odstráni chaos z Excelu)
+        // Prísna normalizácia typu otázky
         const rawQuestionType = String(row.kategoria_otazky || 'Prierezova').trim();
         const normQType = normalize(rawQuestionType);
         const qType = normQType.includes('specif') ? 'Specificka' : 'Prierezova';
@@ -82,38 +83,54 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
             if (!openQsMap[team][otazkaText]) openQsMap[team][otazkaText] = [];
             openQsMap[team][otazkaText].push(ans);
           }
+          return; // Rýchle ukončenie pre tento riadok
         } 
-        // 2. Kvantitatívne skóre
-        else if (rowTyp.includes('skore') && row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
-          const oblast = row.oblast || 'Iné oblasti';
-          const cleanHodnota = String(row.hodnota).replace(',', '.');
-          const val = Number(cleanHodnota);
+        
+        // 2. Len skóre
+        if (!rowTyp.includes('skore') || row.hodnota === undefined || row.hodnota === null || row.hodnota === "") {
+          return;
+        }
 
-          if (!isNaN(val)) {
-            // Účasť pre "Celkom"
-            if (isCelkom && otazkaTextLower.includes('osloven')) totalS = val;
-            if (isCelkom && otazkaTextLower.includes('zapojen')) totalR = val;
-            if (isCelkom && otazkaTextLower.includes('navrat')) sucRate = `${val}%`;
+        const cleanHodnota = String(row.hodnota).replace(',', '.');
+        const val = Number(cleanHodnota);
+        if (isNaN(val)) return;
 
-            // --- OPRAVA: Účasť (počet zapojených) pre konkrétne tímy ---
-            if (!isCelkom && otazkaTextLower.includes('zapojen')) {
-              teamEngagementMap[team] = val;
-            }
-
-            // Dáta pre maticu a grafy
-            if (team && otazkaText && !isCelkom) {
-              if (!quantitativeByOblast[oblast]) {
-                quantitativeByOblast[oblast] = {};
-              }
-              if (!quantitativeByOblast[oblast][otazkaText]) {
-                quantitativeByOblast[oblast][otazkaText] = {
-                  questionType: qType,
-                  scores: {}
-                };
-              }
-              quantitativeByOblast[oblast][otazkaText].scores[team] = val;
+        // 3. ŠPECIÁLNE: Zapojenie účastníkov (Vylúčené z bežných kariet)
+        if (oblastNorm.includes('zapojenie') || otazkaTextLower.includes('dotaznik')) {
+          // Celkové čísla
+          if (isCelkom) {
+            if (otazkaTextLower.includes('rozposlan') || otazkaTextLower.includes('osloven')) {
+              totalS = val;
+            } else if (
+              otazkaTextLower.includes('korektne vyplnen') ||
+              otazkaTextLower.includes('zapojen')
+            ) {
+              totalR = val;
+            } else if (otazkaTextLower.includes('navrat')) {
+              sucRate = `${val}%`;
             }
           }
+
+          // Počet zapojených za tím (štruktúra korektne vyplnených)
+          if (!isCelkom && (otazkaTextLower.includes('struktura') || otazkaTextLower.includes('vyplnen') || otazkaTextLower.includes('zapojen'))) {
+            teamEngagementMap[team] = val;
+          }
+
+          return; // Dôležité: Už to nepúšťaj ďalej do kariet a grafov!
+        }
+
+        // 4. Všetky ostatné skóre patria do kariet/matíc
+        if (team && otazkaText && !isCelkom) {
+          if (!quantitativeByOblast[oblast]) {
+            quantitativeByOblast[oblast] = {};
+          }
+          if (!quantitativeByOblast[oblast][otazkaText]) {
+            quantitativeByOblast[oblast][otazkaText] = {
+              questionType: qType,
+              scores: {}
+            };
+          }
+          quantitativeByOblast[oblast][otazkaText].scores[team] = val;
         }
       });
 
@@ -158,12 +175,9 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         };
       });
 
-      // --- OPRAVA: Prečítanie skutočných čísiel z teamEngagementMap ---
+      // Zostavenie poctov ludi z Excelu do poľa pre Engagement tab
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
-        return { 
-          name: t, 
-          count: teamEngagementMap[t] || 0 // Reálne číslo z Excelu
-        };
+        return { name: t, count: teamEngagementMap[t] || 0 };
       });
 
     } catch (e) {
@@ -171,16 +185,16 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     }
   }
 
-  // --- FALLBACK (Bez AI) ---
+  // --- FALLBACK (Bez AI a bez umelých čísel 150/120) ---
   if (rawOpenQuestionsForAI.length === 0) {
     return {
       mode: 'ZAMESTNANECKA_SPOKOJNOST',
       reportMetadata: { date: new Date().getFullYear().toString(), scaleMax: 6 },
       satisfaction: {
         clientName: "Report z prieskumu",
-        totalSent: totalS || 150,
-        totalReceived: totalR || 120,
-        successRate: sucRate || "80%",
+        totalSent: totalS,
+        totalReceived: totalR,
+        successRate: sucRate || "0%",
         teamEngagement: calculatedEngagement,
         openQuestions: [],
         card1: calculatedCards.card1 || { title: "Karta 1", teams: [] },
@@ -260,14 +274,15 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     aiParsed = { openQuestions: [] }; 
   }
 
+  // --- FINÁLNE ZLÚČENIE (tiež bez umelých čísel) ---
   return {
     mode: 'ZAMESTNANECKA_SPOKOJNOST',
     reportMetadata: { date: new Date().getFullYear().toString(), scaleMax: 6 },
     satisfaction: {
       clientName: "Report z prieskumu",
-      totalSent: totalS || 150,
-      totalReceived: totalR || 120,
-      successRate: sucRate || "80%",
+      totalSent: totalS,
+      totalReceived: totalR,
+      successRate: sucRate || "0%",
       teamEngagement: calculatedEngagement,
       openQuestions: aiParsed.openQuestions || [],
       card1: calculatedCards.card1 || { title: "Karta 1", teams: [] },
