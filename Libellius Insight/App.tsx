@@ -206,7 +206,7 @@ const App: React.FC = () => {
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
               {/* Zmeň si /logo.png na názov tvojho reálneho obrázka z public zložky */}
-              <img src="/logo.png" alt="Libellius" className="h-10 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
+              <img src="/logo.png" alt="Libellius" className="h-24 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
             </div>
             
             <div className="text-center md:text-right">
