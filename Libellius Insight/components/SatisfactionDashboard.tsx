@@ -647,7 +647,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       {/* --- PÄTIČKA --- */}
       <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-brand rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-brand/20">L</div>
+          <img src="/Libelius_logo_color_HQ-01.png" alt="Libellius" className="h-12 w-auto object-contain" />
           <div>
             <h4 className="font-black text-black uppercase tracking-widest text-sm">Libellius</h4>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Insight Hub</p>
