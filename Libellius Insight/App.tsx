@@ -121,16 +121,18 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans relative">
+    // ZMENA: Pridaný flex a flex-col, aby sa pätička dala potlačiť dole
+    <div className="min-h-screen bg-white text-black font-sans relative flex flex-col">
       {needsKey && (
         <button onClick={handleOpenKeyDialog} className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[60] text-[10px] md:text-xs font-bold text-brand bg-white border border-brand/20 px-3 py-2 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-brand/5">
           <Key className="w-3 h-3 md:w-4 h-4" /> NASTAVIŤ API KĽÚČ
         </button>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20">
+      {/* ZMENA: Pridaný flex-grow a flex-col na main kontajner */}
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 flex-grow w-full flex flex-col">
         {status === AppStatus.HOME && (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] text-center animate-fade-in">
+          <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 h-4" /> Next-gen Analytics
             </div>
@@ -144,7 +146,7 @@ const App: React.FC = () => {
             </h1>
             
             <p className="text-lg md:text-2xl text-black/50 mb-16 max-w-2xl font-medium px-4">
-              Vizualizujte výsledky. Jasne. Prehľadne.
+              PREHĽADNÁ VIZUALIZÁCIA VAŠICH VÝSLEDKOV.
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-5xl px-2">
@@ -174,7 +176,7 @@ const App: React.FC = () => {
         )}
 
         {status === AppStatus.READY_TO_UPLOAD && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in px-4">
+          <div className="flex flex-col items-center justify-center flex-grow animate-fade-in px-4">
              <button onClick={handleBackToMode} className="mb-10 flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors">
                <ChevronLeft className="w-4 h-4" /> Späť na výber módu
              </button>
@@ -182,7 +184,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status === AppStatus.ANALYZING && <div className="flex flex-col items-center justify-center min-h-[60vh]"><FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} /></div>}
+        {status === AppStatus.ANALYZING && <div className="flex flex-col items-center justify-center flex-grow"><FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} /></div>}
 
         {status === AppStatus.SUCCESS && result && (
           <div className="px-2 md:px-0">
@@ -191,11 +193,26 @@ const App: React.FC = () => {
         )}
 
         {status === AppStatus.ERROR && (
-          <div className="flex flex-col items-center justify-center min-h-[40vh] gap-6 text-center px-6">
+          <div className="flex flex-col items-center justify-center flex-grow gap-6 text-center px-6">
             <AlertCircle className="w-20 h-20 text-brand" />
             <h3 className="text-3xl font-black uppercase tracking-tighter">Chyba analýzy</h3>
             <p className="text-black/50 font-medium max-w-md">{error}</p>
             <button onClick={handleReset} className="px-12 py-4 bg-black text-white rounded-full font-bold uppercase tracking-widest text-sm">Skúsiť znova</button>
+          </div>
+        )}
+
+        {/* --- GLOBÁLNA PÄTIČKA PRE ÚVODNÉ OBRAZOVKY --- */}
+        {status !== AppStatus.SUCCESS && (
+          <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
+            <div className="flex items-center gap-4">
+              {/* Zmeň si /logo.png na názov tvojho reálneho obrázka z public zložky */}
+              <img src="/logo.png" alt="Libellius" className="h-10 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
+            </div>
+            
+            <div className="text-center md:text-right">
+              <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
+            </div>
           </div>
         )}
       </main>
