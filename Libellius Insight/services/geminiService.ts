@@ -14,7 +14,6 @@ export const parseExcelFile = async (file: File): Promise<string> => {
         
         const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
         
-        // BOD 1: Oddelené a bezpečné parsovanie
         const simplifiedData = jsonData.map(row => ({
           skupina: row['skupina'] || row['Skupina'] || '',
           otazka: row['otazka'] || row['Otazka'] || '',
@@ -22,6 +21,7 @@ export const parseExcelFile = async (file: File): Promise<string> => {
           text: row['text_odpovede'] || row['Text_odpovede'] || '',
           oblast: row['oblast'] || row['Oblast'] || 'Nezaradené',
           typ: row['typ'] || row['Typ'] || '',
+          // Extrakcia kategórie hneď pri parsovaní
           kategoria_otazky: row['kategoria_otazky'] || row['Kategoria_otazky'] || 'Prierezova'
         }));
 
@@ -46,7 +46,13 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     try {
       const rawData = JSON.parse(inputData);
       const openQsMap: Record<string, Record<string, string[]>> = {};
-      const quantitativeByOblast: Record<string, Record<string, { scores: Record<string, number>}>> = {};
+      
+      // VRÁTENÝ questionType DO ŠTRUKTÚRY
+      const quantitativeByOblast: Record<
+        string, 
+        Record<string, { questionType: string; scores: Record<string, number> }>
+      > = {};
+      
       const uniqueTeams = new Set<string>();
 
       rawData.forEach((row: any) => {
@@ -54,10 +60,11 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
 
         const rowTyp = String(row.typ || '').toLowerCase();
         const otazkaText = String(row.otazka || '');
-        const otazkaTextLower = otazkaText.toLowerCase(); // BOD 3: Bezpečné toLowerCase
+        const otazkaTextLower = otazkaText.toLowerCase(); 
         const team = String(row.skupina || '');
+        const qType = String(row.kategoria_otazky || 'Prierezova'); // Zachytenie typu otázky
 
-        // BOD 2: Presné rozhodovanie text vs hodnota podľa 'typ'
+        // Kvalitatívne dáta (Texty)
         if (rowTyp.includes('volna') && row.text?.toString().trim() !== "") {
           const ans = row.text.toString().trim();
           if (team && otazkaText && team !== 'Celkom') {
@@ -66,21 +73,26 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
             openQsMap[team][otazkaText].push(ans);
           }
         } 
+        // Kvantitatívne dáta (Skóre)
         else if (rowTyp.includes('skore') && row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
           const oblast = row.oblast || 'Iné oblasti';
           const cleanHodnota = String(row.hodnota).replace(',', '.');
           const val = Number(cleanHodnota);
 
           if (!isNaN(val)) {
-            // Celkové štatistiky účasti z tímu 'Celkom' (BOD 3 - opravené includes)
+            // Účasť
             if (team === 'Celkom' && otazkaTextLower.includes('osloven')) totalS = val;
             if (team === 'Celkom' && otazkaTextLower.includes('zapojen')) totalR = val;
             if (team === 'Celkom' && otazkaTextLower.includes('návrat')) sucRate = `${val}%`;
 
-            // Dáta do matice a grafov
+            // Dáta pre grafy a maticu s questionType
             if (team && otazkaText && team !== 'Celkom') {
-              if (!quantitativeByOblast[oblast]) quantitativeByOblast[oblast] = {};
-              if (!quantitativeByOblast[oblast][otazkaText]) quantitativeByOblast[oblast][otazkaText] = { scores: {} };
+              if (!quantitativeByOblast[oblast]) {
+                quantitativeByOblast[oblast] = {};
+              }
+              if (!quantitativeByOblast[oblast][otazkaText]) {
+                quantitativeByOblast[oblast][otazkaText] = { questionType: qType, scores: {} };
+              }
               quantitativeByOblast[oblast][otazkaText].scores[team] = val;
             }
           }
@@ -92,6 +104,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         questions: Object.entries(qs).map(([questionText, answers]) => ({ questionText, answers }))
       }));
 
+      // Mapovanie do kariet
       const oblastNames = Object.keys(quantitativeByOblast);
       const allCards = [
         { id: 'card1', title: oblastNames[0] || 'Oblasť 1', metrics: [] as any[] },
@@ -105,10 +118,15 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         const questionsInOblast = quantitativeByOblast[oblastName];
         
         Object.entries(questionsInOblast).forEach(([qText, qData]) => {
-            allCards[cardIndex].metrics.push({ category: qText, scores: qData.scores });
+            allCards[cardIndex].metrics.push({ 
+              category: qText, 
+              scores: qData.scores,
+              questionType: qData.questionType // POSÚVANIE TYPU DO KARIET
+            });
         });
       });
 
+      // Finálne skladanie tímu
       allCards.forEach((card, i) => {
         const cardKey = `card${i+1}`;
         calculatedCards[cardKey] = {
@@ -117,16 +135,17 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
                 teamName: teamName,
                 metrics: card.metrics.map(m => ({
                     category: m.category,
-                    score: m.scores[teamName] || 0
+                    score: m.scores[teamName] || 0,
+                    questionType: m.questionType // FINÁLNE PRIDANIE TYPU PRE DASHBOARD
                 }))
             }))
         };
       });
 
-      // BOD 6: Stabilný pseudo-random z názvu tímu
+      // Stabilný pseudo-random pre zapojenie
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
         const hash = t.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const stableCount = (hash % 40) + 15; // Vygeneruje vždy rovnaké číslo od 15 do 54 pre daný názov
+        const stableCount = (hash % 40) + 15; 
         return { name: t, count: stableCount };
       });
 
@@ -170,7 +189,6 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
       contents: { role: "user", parts: [{ text: promptText }] },
       config: {
         responseMimeType: "application/json",
-        // BOD 5: Prísna schéma s `required` na všetkých úrovniach
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -216,19 +234,16 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     const text = (response.text || "").trim();
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
-    // BOD 4: Bezpečný try-catch priamo na JSON.parse
     try {
       aiParsed = JSON.parse(cleanJson);
     } catch (parseError) {
       console.error('AI JSON parse failed');
-      console.error('Output length:', cleanJson.length);
-      console.error('Output tail:', cleanJson.slice(-1000));
       aiParsed = { openQuestions: [] };
     }
 
   } catch (error: any) {
     console.error("Gemini Request Error:", error);
-    aiParsed = { openQuestions: [] }; // Ochrana proti pádu samotného requestu
+    aiParsed = { openQuestions: [] }; 
   }
 
   // FINÁLNE ZLÚČENIE
