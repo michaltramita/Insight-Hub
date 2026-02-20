@@ -424,9 +424,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       </div>
 
       {/* TABS */}
-      <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
+      <div className="flex bg-black/5 p-2 rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {allTabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`shrik-0 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
         ))}
