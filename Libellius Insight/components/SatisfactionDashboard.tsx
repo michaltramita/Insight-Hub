@@ -671,7 +671,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       {/* --- PÄTIČKA --- */}
       <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
         <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="Libellius" className="h-12 w-auto object-contain" />
+          <img src="/logo.png" alt="Libellius" className="h-24 w-auto object-contain" />
         </div>
         <div className="text-center md:text-right">
           <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
