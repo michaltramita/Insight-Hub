@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LayoutGrid } from 'lucide-react';
 
@@ -52,9 +51,9 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }
                 <td className="p-6 text-xs font-bold text-black sticky left-0 z-10 bg-white border-r border-black/5 group-hover:bg-[#fcfcfc]">
                   <div className="flex flex-col gap-2 items-start">
                     <span>{row.category}</span>
-                    {/* --- NOVÝ ŠTÍTOK (Badge) pre typ otázky --- */}
+                    {/* --- ZOBRAZENIE ŠTÍTKU --- */}
                     {row.questionType && (
-                      <span className={`text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-md ${row.questionType.toLowerCase().includes('prierez') ? 'bg-black/5 text-black/60' : 'bg-brand/10 text-brand'}`}>
+                      <span className={`text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-md mt-1 w-fit ${String(row.questionType).toLowerCase().includes('prierez') ? 'bg-black/5 text-black/60' : 'bg-brand/10 text-brand'}`}>
                         {row.questionType}
                       </span>
                     )}
