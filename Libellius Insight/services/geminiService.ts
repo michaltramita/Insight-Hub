@@ -170,13 +170,16 @@ export const analyzeDocument = async (
   let rawOpenQuestionsForAI: any[] = [];
   let aiInputData = inputData;
   let teamsListString = "";
+  let totalQCount = 0;
 
   if (isExcel && mode === 'ZAMESTNANECKA_SPOKOJNOST') {
     try {
       const rawData = JSON.parse(inputData);
       const openQsMap: Record<string, Record<string, string[]>> = {};
-      const filteredForAi: any[] = [];
       const uniqueTeams = new Set<string>();
+      
+      // Zoskupenie kvantitatívnych dát priamo v kóde (aby ich AI nemusela lúštiť z poľa)
+      const quantitativeByOblast: Record<string, Record<string, { type: string, scores: Record<string, number>}>> = {};
 
       rawData.forEach((row: any) => {
         if (row.skupina && row.skupina !== 'Celkom') {
@@ -195,7 +198,17 @@ export const analyzeDocument = async (
           }
         } 
         else if (row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
-          filteredForAi.push(row);
+          const oblast = row.oblast || 'Nezaradená oblasť';
+          const otazka = row.otazka;
+          const kategoria = row.kategoria_otazky || row.Kategoria_otazky || 'Prierezova';
+          const team = row.skupina;
+          const val = Number(row.hodnota);
+
+          if (team && otazka) {
+            if (!quantitativeByOblast[oblast]) quantitativeByOblast[oblast] = {};
+            if (!quantitativeByOblast[oblast][otazka]) quantitativeByOblast[oblast][otazka] = { type: kategoria, scores: {} };
+            quantitativeByOblast[oblast][otazka].scores[team] = val;
+          }
         }
       });
 
@@ -209,7 +222,18 @@ export const analyzeDocument = async (
         }))
       }));
 
-      aiInputData = JSON.stringify(filteredForAi);
+      // Vygenerovanie absolútne blbovzdorného stringu pre AI
+      let structuredQuantitativeData = "=== KVANTITATÍVNE DÁTA ===\n";
+      for (const [oblast, otazky] of Object.entries(quantitativeByOblast)) {
+         structuredQuantitativeData += `\nOBLASŤ: "${oblast}"\n`;
+         for (const [otazka, data] of Object.entries(otazky)) {
+             totalQCount++;
+             structuredQuantitativeData += `  - Tvrdenie: "${otazka}" (Kategória: ${data.type})\n`;
+             structuredQuantitativeData += `    Hodnotenia tímov: ${Object.entries(data.scores).map(([team, score]) => `${team}: ${score}`).join(', ')}\n`;
+         }
+      }
+
+      aiInputData = structuredQuantitativeData;
     } catch (e) {
       console.warn("Chyba pri manuálnej extrakcii textov", e);
     }
@@ -218,30 +242,31 @@ export const analyzeDocument = async (
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
-    Si precízny HR analytik. Spracuj priložené dáta z prieskumu spokojnosti.
+    Si mimoriadne precízny dátový HR analytik.
 
-    DÔLEŽITÉ - ZOZNAM TÍMOV V DÁTACH:
-    ${teamsListString}
-
-    TEXTOVÉ ODPOVEDE NA ANALÝZU ODPORÚČANÍ (JSON):
-    ${JSON.stringify(rawOpenQuestionsForAI)}
+    ZOZNAM TÍMOV: ${teamsListString}
+    CELKOVÝ POČET TVRDENÍ NA SPRACOVANIE: ${totalQCount}
     
     1. METRIKY (KARTY 1-4):
-       - Dáta sú rozdelené do viacerých oblastí (kľúč 'oblast'). Rozdeľ tieto oblasti logicky do 4 kariet (card1, card2, card3, card4).
-       - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM.
-       - KRITICKÉ: Do poľa 'metrics' musíš vložiť ÚPLNE VŠETKY tvrdenia, ktoré sa nachádzajú v dátach. Nesmieš vynechať ani jedno! 
-       - PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach. Nezkracuj ich!
-       - 'score' = priemer hodnôt pre daný tím a tvrdenie.
-       - 'questionType' = Priraď hodnotu zo stĺpca 'kategoria_otazky' presne tak ako je v dátach ('Prierezova' alebo 'Specificka').
+       - Dáta máš prichystané v bloku 'KVANTITATÍVNE DÁTA'.
+       - Rozdeľ oblasti z dát logicky do 4 kariet (card1, card2, card3, card4) a vymysli im vhodný názov ('title').
+       - V každej karte vytvor objekt pre každý jeden tím.
+       - KRITICKÉ PRAVIDLO: ZAKAZUJEM TI SKRACOVAŤ ZOZNAM OTÁZOK! V dátach je presne ${totalQCount} tvrdení. Musíš vypísať ÚPLNE VŠETKY do polí 'metrics'. Prekontroluj sa na konci, či tvoj výstup obsahuje presne ${totalQCount} metrík.
+       - 'category' = Pôvodný text tvrdenia.
+       - 'score' = Skóre pre daný tím.
+       - 'questionType' = Priraď kategóriu (Prierezova/Specificka) presne podľa vstupu.
 
     2. ÚČASŤ (teamEngagement):
-       - Vytvor záznam pre každý tím. 'totalSent', 'totalReceived', 'successRate' vytiahni zo skupiny 'Celkom'.
+       - Vytvor záznam pre každý tím. Údaje o účasti si odhadni alebo vytiahni zo základných dát.
 
-    3. VOĽNÉ OTÁZKY - ODPORÚČANIA A CITÁCIE (openQuestions):
-       - Pozorne si prečítaj odpovede zamestnancov a pre KAŽDÝ TÍM a KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA s popisom a citáciami.
-       - 'title': Krátky, úderný názov.
+    3. VOĽNÉ OTÁZKY - ODPORÚČANIA A CITÁCIE:
+       - Pozorne si prečítaj odpovede zamestnancov. Pre KAŽDÝ TÍM a KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA.
+       - 'title': Krátky názov.
        - 'description': Detailný popis.
-       - 'quotes': Vyber presne 5-10 reálnych citácií.
+       - 'quotes': Vyber 5-10 reálnych citácií z dát.
+       
+    TEXTOVÉ ODPOVEDE (Otvorené otázky):
+    ${JSON.stringify(rawOpenQuestionsForAI)}
   `;
 
   try {
@@ -259,8 +284,8 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.1, // Znížená teplota pre maximálnu presnosť pri extrakcii
-        maxOutputTokens: 8192 // Extrémne dôležité: Dovolí AI vygenerovať obrovský JSON bez odseknutia
+        temperature: 0.1, // Minimalizujeme kreativitu pri kopírovaní dát
+        maxOutputTokens: 8192 // Dôležité: Dovolí jej to vygenerovať plný, obrovský JSON bez odseknutia
       }
     });
 
