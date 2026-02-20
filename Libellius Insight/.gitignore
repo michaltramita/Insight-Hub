@@ -1,0 +1,13 @@
+# Zložky s knižnicami a buildom (Toto je to najdôležitejšie!)
+node_modules
+dist
+dist-ssr
+
+# Tajné súbory s heslami a API kľúčmi
+.env
+.env.local
+.env.*.local
+
+# Zbytočné systémové súbory
+.DS_Store
+.vscode/
