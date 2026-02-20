@@ -155,7 +155,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
     const rows = categories.map((cat) => {
       const row: any = { category: cat };
-      let qType = 'Prierezova';
+      // ODPORÚČANIE Z CODE REVIEW: Zrušený defaultný typ
+      let qType = ''; 
 
       selectedNames.forEach((tName) => {
         const team = cardTeams.find((t: any) => t.teamName === tName);
