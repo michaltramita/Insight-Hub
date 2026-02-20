@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { GoogleGenAI, Type } from "@google/genai";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -9,7 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { rawOpenQuestionsForAI } = req.body || {};
 
     if (!rawOpenQuestionsForAI || !Array.isArray(rawOpenQuestionsForAI)) {
-      return res.status(400).json({ error: 'Missing rawOpenQuestionsForAI array' });
+      return res.status(400).json({ error: 'Missing or invalid rawOpenQuestionsForAI' });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -17,70 +18,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Missing GEMINI_API_KEY on server' });
     }
 
-    const promptText = `
-Si HR expert. Prečítaj si tieto voľné odpovede a pre každý tím a otázku vytvor 3 manažérske odporúčania s 3 citáciami.
-Vráť odpoveď striktne ako JSON v tvare:
-{
-  "openQuestions": [
-    {
-      "teamName": "string",
-      "questions": [
-        {
-          "questionText": "string",
-          "recommendations": [
-            {
-              "title": "string",
-              "description": "string",
-              "quotes": ["string", "string", "string"]
+    const ai = new GoogleGenAI({ apiKey });
+
+    const promptText = `Si HR expert. Prečítaj si tieto voľné odpovede a pre každý tím a otázku vytvor 3 manažérske odporúčania s 3 citáciami.\nTEXTY NA ANALÝZU: ${JSON.stringify(rawOpenQuestionsForAI)}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: { role: "user", parts: [{ text: promptText }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            openQuestions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  teamName: { type: Type.STRING },
+                  questions: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        questionText: { type: Type.STRING },
+                        recommendations: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              title: { type: Type.STRING },
+                              description: { type: Type.STRING },
+                              quotes: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            },
+                            required: ["title", "description", "quotes"]
+                          }
+                        }
+                      },
+                      required: ["questionText", "recommendations"]
+                    }
+                  }
+                },
+                required: ["teamName", "questions"]
+              }
             }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-TEXTY NA ANALÝZU:
-${JSON.stringify(rawOpenQuestionsForAI)}
-`;
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: 'application/json'
-          }
-        })
+          },
+          required: ["openQuestions"]
+        },
+        temperature: 0.2
       }
-    );
+    });
 
-    const data = await geminiRes.json();
+    const text = (response.text || "").trim();
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    if (!geminiRes.ok) {
-      return res.status(500).json({ error: 'Gemini request failed', details: data });
-    }
-
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      '{"openQuestions": []}';
-
-    let parsed;
+    let parsed: any = { openQuestions: [] };
     try {
-      parsed = JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
+      parsed = JSON.parse(cleanJson);
     } catch {
       parsed = { openQuestions: [] };
     }
 
     return res.status(200).json(parsed);
-  } catch (err: any) {
-    return res.status(500).json({
-      error: 'Server error',
-      details: err?.message || 'Unknown error'
-    });
+  } catch (error: any) {
+    console.error("Serverless Gemini error:", error);
+    return res.status(500).json({ error: 'AI request failed', details: error?.message || 'Unknown error' });
   }
 }
