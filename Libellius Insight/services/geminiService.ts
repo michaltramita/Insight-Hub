@@ -48,7 +48,7 @@ const getSchema = (mode: AnalysisMode) => {
                   properties: { 
                     category: { type: schemaType.STRING }, 
                     score: { type: schemaType.NUMBER },
-                    questionType: { type: schemaType.STRING } // Pridaný typ otázky (Prierezova/Specificka)
+                    questionType: { type: schemaType.STRING } 
                   },
                   required: ["category", "score", "questionType"]
                 }
@@ -148,7 +148,7 @@ export const parseExcelFile = async (file: File): Promise<string> => {
           hodnota: row['hodnota'],
           text: row['text_odpovede'], 
           oblast: row['oblast'] || row['typ'],
-          kategoria_otazky: row['kategoria_otazky'] || row['Kategoria_otazky'] || 'Prierezova' // Čítame nový stĺpec
+          kategoria_otazky: row['kategoria_otazky'] || row['Kategoria_otazky'] || 'Prierezova'
         }));
 
         resolve(JSON.stringify(simplifiedData));
@@ -218,7 +218,7 @@ export const analyzeDocument = async (
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const promptSatisfaction = `
-    Si HR analytik. Spracuj priložené dáta z prieskumu spokojnosti.
+    Si precízny HR analytik. Spracuj priložené dáta z prieskumu spokojnosti.
 
     DÔLEŽITÉ - ZOZNAM TÍMOV V DÁTACH:
     ${teamsListString}
@@ -227,17 +227,21 @@ export const analyzeDocument = async (
     ${JSON.stringify(rawOpenQuestionsForAI)}
     
     1. METRIKY (KARTY 1-4):
-       - Dáta sú rozdelené do oblastí (kľúč 'oblast').
+       - Dáta sú rozdelené do viacerých oblastí (kľúč 'oblast'). Rozdeľ tieto oblasti logicky do 4 kariet (card1, card2, card3, card4).
        - V rámci každej karty vytvor záznam pre KAŽDÝ JEDEN TÍM.
-       - Do poľa 'metrics' vlož VŠETKY tvrdenia. PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach.
-       - 'score' = priemer hodnôt pre daný tím a tvrdenie. Zopakuj to pre všetky tímy.
-       - 'questionType' = Priraď hodnotu zo stĺpca 'kategoria_otazky'. Zabezpeč, aby táto hodnota bola vo formáte 'Prierezova' alebo 'Specificka' presne podľa toho, ako je to v dátach.
+       - KRITICKÉ: Do poľa 'metrics' musíš vložiť ÚPLNE VŠETKY tvrdenia, ktoré sa nachádzajú v dátach. Nesmieš vynechať ani jedno! 
+       - PONECHAJ ICH V ICH PÔVODNOM, PRESNOM ZNENÍ tak, ako sú v dátach. Nezkracuj ich!
+       - 'score' = priemer hodnôt pre daný tím a tvrdenie.
+       - 'questionType' = Priraď hodnotu zo stĺpca 'kategoria_otazky' presne tak ako je v dátach ('Prierezova' alebo 'Specificka').
 
     2. ÚČASŤ (teamEngagement):
        - Vytvor záznam pre každý tím. 'totalSent', 'totalReceived', 'successRate' vytiahni zo skupiny 'Celkom'.
 
     3. VOĽNÉ OTÁZKY - ODPORÚČANIA A CITÁCIE (openQuestions):
-       - Pozorne si prečítaj odpovede zamestnancov a pre KAŽDÝ TÍM a KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA s popisom a citáciami (rovnako ako doteraz).
+       - Pozorne si prečítaj odpovede zamestnancov a pre KAŽDÝ TÍM a KAŽDÚ OTÁZKU sformuluj PRESNE 3 AKČNÉ ODPORÚČANIA s popisom a citáciami.
+       - 'title': Krátky, úderný názov.
+       - 'description': Detailný popis.
+       - 'quotes': Vyber presne 5-10 reálnych citácií.
   `;
 
   try {
@@ -255,7 +259,8 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
-        temperature: 0.2
+        temperature: 0.1, // Znížená teplota pre maximálnu presnosť pri extrakcii
+        maxOutputTokens: 8192 // Extrémne dôležité: Dovolí AI vygenerovať obrovský JSON bez odseknutia
       }
     });
 
