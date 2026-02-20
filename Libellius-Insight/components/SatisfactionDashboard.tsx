@@ -397,31 +397,53 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   return (
     <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
       {/* HEADER */}
-      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-5">
-           <img src="/logo.png" alt="Libellius" className="h-14 w-auto object-contain" />
-           <div>
-             <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">{data.clientName || "Report"}</h1>
-             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date || new Date().getFullYear().toString()}</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {!isSharedView && (
-            <>
-              <button onClick={generateShareLink} className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
-                {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-                {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
-              </button>
-              <button onClick={exportToJson} className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20">
-                <Download className="w-4 h-4" /> Exportovať JSON
-              </button>
-            </>
-          )}
-          <button onClick={onReset} className="px-8 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all">
-            {isSharedView ? 'Zavrieť report' : 'Reset'}
-          </button>
-        </div>
-      </div>
+<div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
+  <div className="flex items-center gap-5">
+    <div>
+      <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">
+        {data.surveyName || "Report z prieskumu"}
+      </h1>
+      <p className="text-black/60 font-bold mt-2">
+        {data.clientName || "Názov firmy"}
+      </p>
+      <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">
+        Dátum: {result.reportMetadata?.date || new Date().getFullYear().toString()}
+      </p>
+    </div>
+  </div>
+
+  <div className="flex items-center gap-3">
+    {!isSharedView && (
+      <>
+        <button
+          onClick={generateShareLink}
+          className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${
+            copyStatus
+              ? 'bg-green-600 text-white scale-105'
+              : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+          }`}
+        >
+          {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+          {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
+        </button>
+
+        <button
+          onClick={exportToJson}
+          className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
+        >
+          <Download className="w-4 h-4" /> Exportovať JSON
+        </button>
+      </>
+    )}
+
+    <button
+      onClick={onReset}
+      className="px-8 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all"
+    >
+      {isSharedView ? 'Zavrieť report' : 'Reset'}
+    </button>
+  </div>
+</div>
 
       {/* TABS */}
       <div className="flex bg-black/5 p-2 rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
