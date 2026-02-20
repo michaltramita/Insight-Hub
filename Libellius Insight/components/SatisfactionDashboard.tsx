@@ -22,10 +22,10 @@ type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | 'card1' | 'card2' | 'card3' | '
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
+type ComparisonFilterType = 'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'; // Pridaný typ pre filter
 
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
-// --- NOVÝ KOMPONENT: Vlastný Tooltip pre BarChart ---
 const CustomBarTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -59,6 +59,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
   const [expandedRecIndex, setExpandedRecIndex] = useState<number | null>(null);
+
+  // Filter pre porovnávaciu maticu (Nové)
+  const [comparisonFilter, setComparisonFilter] = useState<ComparisonFilterType>('ALL');
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
     card1: '', card2: '', card3: '', card4: ''
@@ -142,18 +145,37 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return team ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
 
+  // Upravená funkcia na extrakciu dát pre maticu s ohľadom na questionType
   const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
     const card = data[tab];
     if (!card) return [];
     const categories = Array.from(new Set(card.teams.flatMap((t: any) => t.metrics.map((m: any) => m.category))));
-    return categories.map(cat => {
+    
+    const rows = categories.map(cat => {
       const row: any = { category: cat };
+      let qType = 'Prierezova'; // Default
+
       selectedNames.forEach(tName => {
         const team = card.teams.find((t: any) => t.teamName === tName);
         const metric = team?.metrics.find((m: any) => m.category === cat);
         row[tName] = metric?.score || 0;
+        
+        // Získanie typu otázky (stačí z jedného tímu, lebo otázka je rovnaká)
+        if (metric?.questionType) {
+          qType = metric.questionType;
+        }
       });
+      
+      row.questionType = qType;
       return row;
+    });
+
+    // Aplikovanie filtra
+    return rows.filter(row => {
+      if (comparisonFilter === 'ALL') return true;
+      if (comparisonFilter === 'PRIEREZOVA') return row.questionType?.toLowerCase().includes('prierez');
+      if (comparisonFilter === 'SPECIFICKA') return row.questionType?.toLowerCase().includes('specif') || row.questionType?.toLowerCase().includes('špecif');
+      return true;
     });
   };
 
@@ -223,7 +245,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {viewMode === 'COMPARISON' && (
-            <div className="mt-8 border-t border-black/5 pt-8">
+            <div className="mt-8 border-t border-black/5 pt-8 space-y-6">
               <TeamSelectorGrid 
                 availableTeams={masterTeams} 
                 selectedTeams={comparisonSelection[tab]} 
@@ -233,6 +255,30 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 }}
                 onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
               />
+              
+              {/* --- NOVÝ FILTER TLAČIDIEL PRE POROVNÁVACIU MATICU --- */}
+              <div className="flex flex-col md:flex-row items-center gap-2 bg-black/5 p-2 rounded-2xl w-fit">
+                <button 
+                  onClick={() => setComparisonFilter('ALL')} 
+                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${comparisonFilter === 'ALL' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                >
+                  Všetky tvrdenia
+                </button>
+                <button 
+                  onClick={() => setComparisonFilter('PRIEREZOVA')} 
+                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${comparisonFilter === 'PRIEREZOVA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${comparisonFilter === 'PRIEREZOVA' ? 'bg-brand' : 'bg-transparent'}`}></div>
+                  Prierezové
+                </button>
+                <button 
+                  onClick={() => setComparisonFilter('SPECIFICKA')} 
+                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${comparisonFilter === 'SPECIFICKA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${comparisonFilter === 'SPECIFICKA' ? 'bg-brand' : 'bg-transparent'}`}></div>
+                  Špecifické
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -254,16 +300,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, top: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                     <XAxis type="number" domain={[0, scaleMax]} hide />
-                    {/* ZMYSluplné orezanie dlhého textu pre os Y */}
                     <YAxis 
                       dataKey="category" 
                       type="category" 
                       width={380} 
                       tick={{ fontSize: 12, fontWeight: 800, fill: '#000' }} 
                       interval={0} 
-                      tickFormatter={(val) => val.length > 55 ? val.substring(0, 55) + '...' : val}
+                      tickFormatter={(val: string) => val.length > 55 ? val.substring(0, 55) + '...' : val}
                     />
-                    {/* Vlastný Tooltip zobrazí celý text */}
                     <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
                     <Bar dataKey="score" radius={[0, 15, 15, 0]} barSize={32}>
                       {activeMetrics.map((entry: any, index: number) => <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />)}
@@ -283,7 +327,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <div className="space-y-4">
                     {top.map((m, i) => (
                       <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg group relative cursor-help">
-                        {/* Zobrazenie max 2 riadkov, originál vidno po ukázaní myšou */}
                         <span className="font-bold text-xs pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                         <span className="text-4xl font-black shrink-0">{m.score.toFixed(2)}</span>
                       </div>
@@ -298,7 +341,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <div className="space-y-4">
                     {bottom.length > 0 ? bottom.map((m, i) => (
                       <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-black text-white shadow-lg group relative cursor-help">
-                        {/* Zobrazenie max 2 riadkov, originál vidno po ukázaní myšou */}
                         <span className="font-bold text-xs pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                         <span className="text-4xl font-black text-brand shrink-0">{m.score.toFixed(2)}</span>
                       </div>
@@ -321,7 +363,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
 
   return (
-    <div className="space-y-8 animate-fade-in pb-24 px-4 md:px-0">
+    <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
       {/* HEADER */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
@@ -521,7 +563,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
-      {/* --- VOĽNÉ OTÁZKY S CITÁCIAMI --- */}
+      {/* OPEN QUESTIONS TAB */}
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-10 animate-fade-in">
            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -631,6 +673,25 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       )}
 
       {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
+
+      {/* --- PÄTIČKA (FOOTER) --- */}
+      <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-brand rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-brand/20">
+            L
+          </div>
+          <div>
+            <h4 className="font-black text-black uppercase tracking-widest text-sm">Libellius</h4>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Insight Hub</p>
+          </div>
+        </div>
+        
+        <div className="text-center md:text-right">
+          <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
+        </div>
+      </div>
+
     </div>
   );
 };
