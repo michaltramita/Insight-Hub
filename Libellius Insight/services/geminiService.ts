@@ -285,7 +285,7 @@ export const analyzeDocument = async (
         responseMimeType: "application/json",
         responseSchema: getSchema(mode),
         temperature: 0.1, // Minimalizujeme kreativitu pri kopírovaní dát
-        maxOutputTokens: 8192 // Dôležité: Dovolí jej to vygenerovať plný, obrovský JSON bez odseknutia
+        maxOutputTokens: 16384 // Dôležité: Dovolí jej to vygenerovať plný, obrovský JSON bez odseknutia
       }
     });
 
