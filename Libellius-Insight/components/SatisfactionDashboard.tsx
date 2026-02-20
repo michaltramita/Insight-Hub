@@ -400,14 +400,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
   <div className="flex items-center gap-5">
     <div>
+      {/* Názov prieskumu */}
       <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">
-        {data.surveyName || "Report z prieskumu"}
+        {data.surveyName || "Prieskum spokojnosti"}
       </h1>
-      <p className="text-black/60 font-bold mt-2">
+
+      {/* Názov firmy */}
+      <p className="text-black/50 font-bold tracking-wide text-sm mt-2">
         {data.clientName || "Názov firmy"}
-      </p>
-      <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">
-        Dátum: {result.reportMetadata?.date || new Date().getFullYear().toString()}
       </p>
     </div>
   </div>
