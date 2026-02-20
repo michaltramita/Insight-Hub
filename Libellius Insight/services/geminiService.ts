@@ -50,9 +50,8 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
       const rawData = JSON.parse(inputData);
       const openQsMap: Record<string, Record<string, string[]>> = {};
       
-      // Bezpečné ukladanie questionType už na prvej úrovni
       const quantitativeByOblast: Record<
-        string, 
+        string,
         Record<string, { questionType: string; scores: Record<string, number> }>
       > = {};
       
@@ -60,39 +59,50 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
 
       rawData.forEach((row: any) => {
         const team = String(row.skupina || '').trim();
-        if (team && team !== 'Celkom') uniqueTeams.add(team);
+        const isCelkom = normalize(team) === 'celkom'; // Robustné ošetrenie Celkom
+        
+        if (team && !isCelkom) uniqueTeams.add(team);
 
-        const rowTyp = normalize(String(row.typ || '')); // Normalizované (skore, volna odpoved)
+        const rowTyp = normalize(String(row.typ || '')); 
         const otazkaText = String(row.otazka || '').trim();
         const otazkaTextLower = normalize(otazkaText); 
-        const qType = String(row.kategoria_otazky || 'Prierezova').trim(); 
 
-        // 1. Textové odpovede (Presná kontrola typu)
+        // Prísna normalizácia typu otázky (odstráni chaos z Excelu)
+        const rawQuestionType = String(row.kategoria_otazky || 'Prierezova').trim();
+        const normQType = normalize(rawQuestionType);
+        const qType = normQType.includes('specif') ? 'Specificka' : 'Prierezova';
+
+        // 1. Voľné odpovede
         if (rowTyp.includes('volna') && row.text?.toString().trim() !== "") {
           const ans = row.text.toString().trim();
-          if (team && otazkaText && team !== 'Celkom') {
+          if (team && otazkaText && !isCelkom) {
             if (!openQsMap[team]) openQsMap[team] = {};
             if (!openQsMap[team][otazkaText]) openQsMap[team][otazkaText] = [];
             openQsMap[team][otazkaText].push(ans);
           }
         } 
-        // 2. Skóre
+        // 2. Kvantitatívne skóre
         else if (rowTyp.includes('skore') && row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
           const oblast = row.oblast || 'Iné oblasti';
           const cleanHodnota = String(row.hodnota).replace(',', '.');
           const val = Number(cleanHodnota);
 
           if (!isNaN(val)) {
-            // Účasť (bezpečný normalize)
-            if (team === 'Celkom' && otazkaTextLower.includes('osloven')) totalS = val;
-            if (team === 'Celkom' && otazkaTextLower.includes('zapojen')) totalR = val;
-            if (team === 'Celkom' && otazkaTextLower.includes('navrat')) sucRate = `${val}%`;
+            // Účasť
+            if (isCelkom && otazkaTextLower.includes('osloven')) totalS = val;
+            if (isCelkom && otazkaTextLower.includes('zapojen')) totalR = val;
+            if (isCelkom && otazkaTextLower.includes('navrat')) sucRate = `${val}%`;
 
-            // Dáta pre maticu a grafy s kategóriou
-            if (team && otazkaText && team !== 'Celkom') {
-              if (!quantitativeByOblast[oblast]) quantitativeByOblast[oblast] = {};
+            // Dáta pre maticu a grafy
+            if (team && otazkaText && !isCelkom) {
+              if (!quantitativeByOblast[oblast]) {
+                quantitativeByOblast[oblast] = {};
+              }
               if (!quantitativeByOblast[oblast][otazkaText]) {
-                quantitativeByOblast[oblast][otazkaText] = { questionType: qType, scores: {} };
+                quantitativeByOblast[oblast][otazkaText] = {
+                  questionType: qType,
+                  scores: {}
+                };
               }
               quantitativeByOblast[oblast][otazkaText].scores[team] = val;
             }
@@ -105,7 +115,6 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         questions: Object.entries(qs).map(([questionText, answers]) => ({ questionText, answers }))
       }));
 
-      // Rozdelenie do 4 kariet a prenos questionType
       const oblastNames = Object.keys(quantitativeByOblast);
       const allCards = [
         { id: 'card1', title: oblastNames[0] || 'Oblasť 1', metrics: [] as any[] },
@@ -119,15 +128,14 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         const questionsInOblast = quantitativeByOblast[oblastName];
         
         Object.entries(questionsInOblast).forEach(([qText, qData]) => {
-            allCards[cardIndex].metrics.push({ 
-              category: qText, 
+            allCards[cardIndex].metrics.push({
+              category: qText,
               scores: qData.scores,
-              questionType: qData.questionType // POSÚVANIE ĎALEJ
+              questionType: qData.questionType 
             });
         });
       });
 
-      // Finálne skladanie pre UI
       allCards.forEach((card, i) => {
         const cardKey = `card${i+1}`;
         calculatedCards[cardKey] = {
@@ -135,15 +143,15 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
             teams: Array.from(uniqueTeams).map(teamName => ({
                 teamName: teamName,
                 metrics: card.metrics.map(m => ({
-                    category: m.category,
-                    score: m.scores[teamName] || 0,
-                    questionType: m.questionType // KONEČNÝ ZÁPIS PRE UI
+                  category: m.category,
+                  score: m.scores[teamName] || 0,
+                  questionType: m.questionType
                 }))
             }))
         };
       });
 
-      // Stabilný pseudo-random z názvu tímu
+      // Pseudo-random engagement calculation
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
         const hash = t.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         return { name: t, count: (hash % 40) + 15 };
@@ -154,7 +162,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     }
   }
 
-  // FALLBACK (Bez textov)
+  // --- FALLBACK (Bez AI) ---
   if (rawOpenQuestionsForAI.length === 0) {
     return {
       mode: 'ZAMESTNANECKA_SPOKOJNOST',
@@ -174,7 +182,7 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
     } as FeedbackAnalysisResult;
   }
 
-  // AI PRE TEXTY
+  // --- AI PRE TEXTOVÉ ODPORÚČANIA ---
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
   const promptText = `Si HR expert. Prečítaj si tieto voľné odpovede a pre každý tím a otázku vytvor 3 manažérske odporúčania s 3 citáciami.\nTEXTY NA ANALÝZU: ${JSON.stringify(rawOpenQuestionsForAI)}`;
 
