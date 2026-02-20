@@ -31,19 +31,23 @@ export interface EngagementTeam {
   count: number;
 }
 
+// --- NOVÉ/UPRAVENÉ TYPY PRE ZAMESTNANECKÚ SPOKOJNOSŤ ---
+
 export interface SatisfactionMetric {
   category: string;
   score: number;
+  questionType?: string; // Pridané pre filter (Prierezova / Specificka)
 }
 
-export interface TeamWorkSituation {
+export interface SatisfactionTeam {
   teamName: string;
   metrics: SatisfactionMetric[];
 }
 
-export interface SatisfactionCard {
+export interface SatisfactionArea {
+  id: string;
   title: string;
-  teams: TeamWorkSituation[];
+  teams: SatisfactionTeam[];
 }
 
 export interface EmployeeSatisfactionData {
@@ -52,11 +56,11 @@ export interface EmployeeSatisfactionData {
   totalReceived: number;
   successRate: string;
   teamEngagement: EngagementTeam[];
-  card1: SatisfactionCard;
-  card2: SatisfactionCard;
-  card3: SatisfactionCard;
-  card4: SatisfactionCard;
+  openQuestions: any[]; // Pridané pre otvorené otázky od AI
+  areas: SatisfactionArea[]; // Dynamické oblasti namiesto fixných card1, card2...
 }
+
+// --- SPOLOČNÉ TYPY ---
 
 export type AnalysisMode = '360_FEEDBACK' | 'ZAMESTNANECKA_SPOKOJNOST';
 
