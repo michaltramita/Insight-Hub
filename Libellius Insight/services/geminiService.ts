@@ -56,6 +56,8 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
       > = {};
       
       const uniqueTeams = new Set<string>();
+      // --- OPRAVA: Pamäť pre reálne počty zapojených v tímoch ---
+      const teamEngagementMap: Record<string, number> = {};
 
       rawData.forEach((row: any) => {
         const team = String(row.skupina || '').trim();
@@ -88,10 +90,15 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
           const val = Number(cleanHodnota);
 
           if (!isNaN(val)) {
-            // Účasť
+            // Účasť pre "Celkom"
             if (isCelkom && otazkaTextLower.includes('osloven')) totalS = val;
             if (isCelkom && otazkaTextLower.includes('zapojen')) totalR = val;
             if (isCelkom && otazkaTextLower.includes('navrat')) sucRate = `${val}%`;
+
+            // --- OPRAVA: Účasť (počet zapojených) pre konkrétne tímy ---
+            if (!isCelkom && otazkaTextLower.includes('zapojen')) {
+              teamEngagementMap[team] = val;
+            }
 
             // Dáta pre maticu a grafy
             if (team && otazkaText && !isCelkom) {
@@ -151,10 +158,12 @@ export const analyzeDocument = async (inputData: string, mode: AnalysisMode, isE
         };
       });
 
-      // Pseudo-random engagement calculation
+      // --- OPRAVA: Prečítanie skutočných čísiel z teamEngagementMap ---
       calculatedEngagement = Array.from(uniqueTeams).map(t => {
-        const hash = t.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return { name: t, count: (hash % 40) + 15 };
+        return { 
+          name: t, 
+          count: teamEngagementMap[t] || 0 // Reálne číslo z Excelu
+        };
       });
 
     } catch (e) {
