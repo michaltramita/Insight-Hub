@@ -50,7 +50,15 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }
             {matrixData.map((row, idx) => (
               <tr key={idx} className="hover:bg-black/[0.02] transition-colors group">
                 <td className="p-6 text-xs font-bold text-black sticky left-0 z-10 bg-white border-r border-black/5 group-hover:bg-[#fcfcfc]">
-                  {row.category}
+                  <div className="flex flex-col gap-2 items-start">
+                    <span>{row.category}</span>
+                    {/* --- NOVÝ ŠTÍTOK (Badge) pre typ otázky --- */}
+                    {row.questionType && (
+                      <span className={`text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-md ${row.questionType.toLowerCase().includes('prierez') ? 'bg-black/5 text-black/60' : 'bg-brand/10 text-brand'}`}>
+                        {row.questionType}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 {teams.map(team => (
                   <td key={team} className="p-0 border-l border-black/5">
