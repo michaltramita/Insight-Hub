@@ -18,7 +18,8 @@ interface Props {
   onReset: () => void;
 }
 
-type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | 'card1' | 'card2' | 'card3' | 'card4';
+// Dynamický TabType
+type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | string;
 type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
@@ -61,13 +62,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
   const [expandedRecIndex, setExpandedRecIndex] = useState<number | null>(null);
 
-  const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({
-    card1: '', card2: '', card3: '', card4: ''
-  });
-
-  const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({
-    card1: [], card2: [], card3: [] , card4: []
-  });
+  // Dynamické stavy pre oblasti
+  const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({});
+  const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({});
 
   const generateShareLink = () => {
     try {
@@ -101,17 +98,32 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       });
   }, [data]);
 
+  // Dynamická inicializácia stavov
   useEffect(() => {
-    if (masterTeams.length > 0) {
-      const initial = masterTeams.find((t: string) => t.toLowerCase().includes('priemer')) || masterTeams[0];
-      if (!selectedTeams.card1) {
-        setSelectedTeams({ card1: initial, card2: initial, card3: initial, card4: initial });
-      }
-      if (!openQuestionsTeam) {
-        setOpenQuestionsTeam(initial);
-      }
+    if (masterTeams.length === 0) return;
+
+    const initialTeam = masterTeams.find((t: string) => t.toLowerCase().includes('priemer')) || masterTeams[0];
+
+    if (!openQuestionsTeam) {
+      setOpenQuestionsTeam(initialTeam);
     }
-  }, [masterTeams]);
+
+    setSelectedTeams(prev => {
+      const next = { ...prev };
+      (data.areas || []).forEach((area: any) => {
+        if (!next[area.id]) next[area.id] = initialTeam;
+      });
+      return next;
+    });
+
+    setComparisonSelection(prev => {
+      const next = { ...prev };
+      (data.areas || []).forEach((area: any) => {
+        if (!next[area.id]) next[area.id] = [];
+      });
+      return next;
+    });
+  }, [masterTeams, data.areas, openQuestionsTeam]);
 
   useEffect(() => {
     if (openQuestionsTeam && data.openQuestions) {
@@ -136,17 +148,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
   };
 
-  const getActiveData = (tab: 'card1' | 'card2' | 'card3' | 'card4', teamName: string) => {
-    const card = data[tab];
-    if (!card) return [];
-    const team = card.teams?.find((t: any) => t.teamName === teamName) || card.teams?.[0];
+  // Helper na hľadanie oblasti
+  const getAreaById = (areaId: string) => {
+    return (data.areas || []).find((a: any) => a.id === areaId);
+  };
+
+  const getActiveData = (areaId: string, teamName: string) => {
+    const area = getAreaById(areaId);
+    if (!area) return [];
+    const team = area.teams?.find((t: any) => t.teamName === teamName) || area.teams?.[0];
     return team && Array.isArray(team.metrics) ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
 
-  // --- BEZPEČNÁ VERZIA getComparisonData (Guards a Array checky) ---
-  const getComparisonData = (tab: 'card1' | 'card2' | 'card3' | 'card4', selectedNames: string[]) => {
-    const card = data?.[tab];
-    const cardTeams = Array.isArray(card?.teams) ? card.teams : [];
+  const getComparisonData = (areaId: string, selectedNames: string[]) => {
+    const area = getAreaById(areaId);
+    const cardTeams = Array.isArray(area?.teams) ? area.teams : [];
     if (!cardTeams.length) return [];
 
     const categories = Array.from(
@@ -155,8 +171,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
     const rows = categories.map((cat) => {
       const row: any = { category: cat };
-      // ODPORÚČANIE Z CODE REVIEW: Zrušený defaultný typ
-      let qType = ''; 
+      let qType = ''; // Fix pre prázdny typ
 
       selectedNames.forEach((tName) => {
         const team = cardTeams.find((t: any) => t.teamName === tName);
@@ -203,15 +218,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
   const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
-  
-  // --- OCHRANA PRED DELENÍM NULOU ---
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
 
-  const renderSection = (tab: 'card1' | 'card2' | 'card3' | 'card4') => {
-    const card = data[tab];
-    if (!card) return null;
-    const teamValue = selectedTeams[tab];
-    const activeMetrics = getActiveData(tab, teamValue);
+  const renderSection = (areaId: string) => {
+    const area = getAreaById(areaId);
+    if (!area) return null;
+    
+    const teamValue = selectedTeams[areaId] || '';
+    const activeMetrics = getActiveData(areaId, teamValue);
     const top = activeMetrics.slice(0, 3);
     const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
 
@@ -223,7 +237,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
                 <MapPin className="w-3 h-3" /> Konfigurácia reportu
               </div>
-              <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{card.title}</h2>
+              <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{area.title}</h2>
               <div className="flex bg-black/5 p-1 rounded-2xl w-fit border border-black/5">
                 <button onClick={() => setViewMode('DETAIL')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Detail tímu</button>
                 <button onClick={() => setViewMode('COMPARISON')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Porovnanie</button>
@@ -236,7 +250,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <div className="relative w-full lg:w-auto min-w-[340px]">
                   <select 
                     value={teamValue} 
-                    onChange={(e) => setSelectedTeams({...selectedTeams, [tab]: e.target.value})} 
+                    onChange={(e) => setSelectedTeams({...selectedTeams, [areaId]: e.target.value})} 
                     className="w-full p-7 pr-14 bg-black text-white rounded-[1.5rem] font-black text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
                   >
                     {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
@@ -251,12 +265,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             <div className="mt-8 border-t border-black/5 pt-8 space-y-6">
               <TeamSelectorGrid 
                 availableTeams={masterTeams} 
-                selectedTeams={comparisonSelection[tab]} 
+                selectedTeams={comparisonSelection[areaId] || []} 
                 onToggleTeam={(t) => {
-                  const current = comparisonSelection[tab];
-                  setComparisonSelection({...comparisonSelection, [tab]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]});
+                  const current = comparisonSelection[areaId] || [];
+                  setComparisonSelection({...comparisonSelection, [areaId]: current.includes(t) ? current.filter(x => x !== t) : [...current, t]});
                 }}
-                onClear={() => setComparisonSelection({...comparisonSelection, [tab]: []})}
+                onClear={() => setComparisonSelection({...comparisonSelection, [areaId]: []})}
               />
               
               <div className="flex flex-col md:flex-row items-center gap-2 bg-black/5 p-2 rounded-2xl w-fit">
@@ -352,7 +366,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
         ) : (
-          <ComparisonMatrix teams={comparisonSelection[tab]} matrixData={getComparisonData(tab, comparisonSelection[tab])} />
+          <ComparisonMatrix teams={comparisonSelection[areaId] || []} matrixData={getComparisonData(areaId, comparisonSelection[areaId] || [])} />
         )}
       </div>
     );
@@ -364,15 +378,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const availableQuestions = openQuestionsTeamData?.questions || [];
   const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
 
+  // Dynamické vytvorenie tabov
+  const areaTabs = (data.areas || []).map((area: any, idx: number) => {
+    const icons = [BarChart4, UserCheck, Users, Building2];
+    return {
+      id: area.id,
+      icon: icons[idx % icons.length],
+      label: area.title
+    };
+  });
+
+  const allTabs = [
+    { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
+    { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
+    ...areaTabs
+  ];
+
   return (
     <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
       {/* HEADER */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-5">
-           <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center shadow-xl shadow-brand/20"><ClipboardCheck className="text-white w-8 h-8" /></div>
+           <img src="/logo.png" alt="Libellius" className="h-14 w-auto object-contain" />
            <div>
              <h1 className="text-3xl font-black tracking-tighter uppercase leading-none">{data.clientName || "Report"}</h1>
-             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date || '2024'}</p>
+             <p className="text-black/40 font-bold uppercase tracking-widest text-[10px] mt-2">Dátum: {result.reportMetadata?.date || new Date().getFullYear().toString()}</p>
            </div>
         </div>
         <div className="flex items-center gap-3">
@@ -395,14 +425,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {/* TABS */}
       <div className="flex bg-black/5 p-2 rounded-3xl w-full max-w-5xl mx-auto overflow-x-auto no-scrollbar border border-black/5">
-        {[
-          { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
-          { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
-          { id: 'card1', icon: BarChart4, label: data.card1?.title || 'Karta 1' },
-          { id: 'card2', icon: UserCheck, label: data.card2?.title || 'Karta 2' },
-          { id: 'card3', icon: Users, label: data.card3?.title || 'Karta 3' },
-          { id: 'card4', icon: Building2, label: data.card4?.title || 'Karta 4' }
-        ].map(t => (
+        {allTabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`flex-1 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'}`}>
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
@@ -642,12 +665,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       )}
 
-      {['card1', 'card2', 'card3', 'card4'].includes(activeTab) && renderSection(activeTab as any)}
+      {/* DYNAMICKÝ RENDER OBLASTÍ */}
+      {(data.areas || []).some((a: any) => a.id === activeTab) && renderSection(activeTab as string)}
 
       {/* --- PÄTIČKA --- */}
       <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
         <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="Libellius" className="h-16 w-auto object-contain" />
+          <img src="/logo.png" alt="Libellius" className="h-12 w-auto object-contain" />
         </div>
         <div className="text-center md:text-right">
           <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
