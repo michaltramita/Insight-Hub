@@ -404,46 +404,85 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
-      {/* HEADER */}
-      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-5 w-full">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-black tracking-tighter uppercase leading-none break-words">
+      
+      {/* NOVÁ ŠTRUKTÚROVANÁ HLAVIČKA */}
+      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 md:p-12 shadow-2xl flex flex-col md:flex-row justify-between items-start gap-8 relative overflow-hidden">
+        
+        {/* Branding & Info Sekcia */}
+        <div className="flex flex-col gap-6 relative z-10 w-full md:w-auto">
+          
+          {/* 1. Brand Identita */}
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <img src="/logo.png" alt="Libellius" className="h-10 w-auto object-contain" />
+              <h2 className="text-3xl font-black tracking-tighter uppercase">
+                Libellius <span className="text-brand">InsightHub</span>
+              </h2>
+            </div>
+          </div>
+
+          {/* Deliaca čiara */}
+          <div className="w-16 h-1 bg-black/5 rounded-full"></div>
+
+          {/* 2. Názov Reportu */}
+          <div className="space-y-3">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-3xl">
               {data.surveyName || 'Prieskum spokojnosti'}
             </h1>
-            <p className="text-black/50 font-bold tracking-wide text-sm mt-2 break-words">
-              {data.clientName || 'Názov firmy'}
-            </p>
+            <div className="flex flex-wrap items-center gap-4 mt-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5">
+                 <Building2 className="w-4 h-4 text-black/40" />
+                 <span className="text-[11px] font-black uppercase tracking-widest text-black/60">
+                   {data.clientName || 'Názov firmy'}
+                 </span>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">
+                Vydané: {result.reportMetadata?.date || new Date().getFullYear().toString()}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+        {/* Akcie (Zdieľať / Export / Reset) */}
+        <div className="flex flex-wrap items-center gap-3 relative z-10 w-full md:w-auto md:justify-end shrink-0 pt-4 md:pt-0">
           {!isSharedView && (
             <>
               <button
                 onClick={generateShareLink}
-                className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-xl ${
+                  copyStatus 
+                  ? 'bg-green-600 text-white scale-105' 
+                  : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+                }`}
               >
                 {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-                {copyStatus ? 'Odkaz skopírovaný!' : 'Zdieľať odkaz'}
+                {copyStatus ? 'Skopírované!' : 'Zdieľať'}
               </button>
 
               <button
                 onClick={exportToJson}
-                className="flex items-center gap-2 px-6 py-3 bg-brand text-white hover:bg-brand/90 rounded-full font-bold transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-brand/20"
+                className="flex items-center gap-2 px-6 py-4 bg-black text-white hover:bg-brand rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-2xl"
               >
-                <Download className="w-4 h-4" /> Exportovať JSON
+                <Download className="w-4 h-4" /> Export
               </button>
             </>
           )}
 
           <button
             onClick={onReset}
-            className="px-8 py-3 bg-black/5 hover:bg-black hover:text-white rounded-full font-bold text-[10px] uppercase tracking-widest border border-black/5 transition-all"
+            className="flex items-center gap-2 px-6 py-4 bg-black/5 hover:bg-black hover:text-white rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest border border-black/5 group"
           >
-            {isSharedView ? 'Zavrieť report' : 'Reset'}
+            <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
+            {isSharedView ? 'Zavrieť report' : 'Zavrieť'}
           </button>
         </div>
+
+        {/* Dekoratívny blur prvok v pozadí */}
+        <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
       </div>
 
       {/* TABS */}
