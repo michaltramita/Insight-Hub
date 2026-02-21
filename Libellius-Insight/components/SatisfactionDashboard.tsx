@@ -418,7 +418,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
             
             <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Libellius" className="h-10 w-auto object-contain" />
               <h2 className="text-3xl font-black tracking-tighter uppercase">
                 Libellius <span className="text-brand">InsightHub</span>
               </h2>
