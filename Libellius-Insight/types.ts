@@ -31,12 +31,37 @@ export interface EngagementTeam {
   count: number;
 }
 
+// --- NOVÉ TYPY PRE OTVORENÉ OTÁZKY (AI) ---
+
+export interface OpenQuestionThemeCloudItem {
+  theme: string;
+  count: number;
+  percentage: number;
+}
+
+export interface OpenQuestionRecommendation {
+  title: string;
+  description: string;
+  themeCloud: OpenQuestionThemeCloudItem[];
+  quotes: string[];
+}
+
+export interface OpenQuestionItem {
+  questionText: string;
+  recommendations: OpenQuestionRecommendation[];
+}
+
+export interface OpenQuestionTeam {
+  teamName: string;
+  questions: OpenQuestionItem[];
+}
+
 // --- NOVÉ/UPRAVENÉ TYPY PRE ZAMESTNANECKÚ SPOKOJNOSŤ ---
 
 export interface SatisfactionMetric {
   category: string;
   score: number;
-  questionType?: string; // Pridané pre filter (Prierezova / Specificka)
+  questionType?: string; // Prierezova / Specificka
 }
 
 export interface SatisfactionTeam {
@@ -52,12 +77,13 @@ export interface SatisfactionArea {
 
 export interface EmployeeSatisfactionData {
   clientName: string;
+  surveyName: string; // <- doplnené (frontend to používa)
   totalSent: number;
   totalReceived: number;
   successRate: string;
   teamEngagement: EngagementTeam[];
-  openQuestions: any[]; // Pridané pre otvorené otázky od AI
-  areas: SatisfactionArea[]; // Dynamické oblasti namiesto fixných card1, card2...
+  openQuestions: OpenQuestionTeam[]; // <- namiesto any[]
+  areas: SatisfactionArea[];
 }
 
 // --- SPOLOČNÉ TYPY ---
