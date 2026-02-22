@@ -5,6 +5,46 @@ import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+// Normalizácia AI payloadu pre OPEN QUESTIONS (nová štruktúra)
+// themeCloud má byť na úrovni otázky, nie odporúčania
+const normalizeOpenQuestionsPayload = (payload: any) => {
+  const safe = Array.isArray(payload?.openQuestions) ? payload.openQuestions : [];
+
+  return safe.map((team: any) => ({
+    teamName: String(team?.teamName || "").trim(),
+    questions: Array.isArray(team?.questions)
+      ? team.questions.map((q: any) => ({
+          questionText: String(q?.questionText || "").trim(),
+
+          // NOVÁ LOGIKA: themeCloud je na úrovni otázky
+          themeCloud: Array.isArray(q?.themeCloud)
+            ? q.themeCloud
+                .filter((t: any) => t?.theme)
+                .map((t: any) => ({
+                  theme: String(t.theme || "").trim(),
+                  count: Number(t.count) || 0,
+                  percentage: Number(t.percentage) || 0,
+                }))
+                .sort((a: any, b: any) => b.count - a.count)
+            : [],
+
+          recommendations: Array.isArray(q?.recommendations)
+            ? q.recommendations.slice(0, 3).map((rec: any) => ({
+                title: String(rec?.title || "Odporúčanie").trim(),
+                description: String(rec?.description || "").trim(),
+                quotes: Array.isArray(rec?.quotes)
+                  ? rec.quotes
+                      .map((x: any) => String(x || "").trim())
+                      .filter(Boolean)
+                      .slice(0, 5)
+                  : [],
+              }))
+            : [],
+        }))
+      : [],
+  }));
+};
+
 export const parseExcelFile = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -285,6 +325,10 @@ export const analyzeDocument = async (
     aiParsed = { openQuestions: [] };
   }
 
+  // Normalizácia AI dát podľa novej štruktúry:
+  // question.themeCloud + recommendation.quotes
+  const normalizedOpenQuestions = normalizeOpenQuestionsPayload(aiParsed);
+
   // --- FINÁLNE ZLÚČENIE ---
   return {
     mode: "ZAMESTNANECKA_SPOKOJNOST",
@@ -296,7 +340,7 @@ export const analyzeDocument = async (
       totalReceived: totalR,
       successRate: sucRate || "0%",
       teamEngagement: calculatedEngagement,
-      openQuestions: aiParsed.openQuestions || [],
+      openQuestions: normalizedOpenQuestions,
       areas: calculatedAreas || [],
     },
   } as FeedbackAnalysisResult;
