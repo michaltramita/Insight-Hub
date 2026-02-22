@@ -223,10 +223,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
 
-  // --- NOVÉ: helpery pre theme cloud ---
-  const getThemeCloud = (rec: any) => {
-    if (!rec?.themeCloud || !Array.isArray(rec.themeCloud)) return [];
-    return rec.themeCloud
+  // Theme cloud je teraz na úrovni otázky
+  const getThemeCloud = (question: any) => {
+    if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
+    return question.themeCloud
       .filter((t: any) => t?.theme)
       .map((t: any) => ({
         theme: String(t.theme),
@@ -410,6 +410,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const availableQuestions = openQuestionsTeamData?.questions || [];
   const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
 
+  // Theme cloud pre vybranú otázku (samostatný blok)
+  const selectedQuestionThemeCloud = getThemeCloud(selectedQuestionData);
+  const selectedQuestionMaxThemeCount =
+    selectedQuestionThemeCloud.length > 0
+      ? Math.max(...selectedQuestionThemeCloud.map((t: any) => t.count))
+      : 0;
+
   const areaTabs = (data.areas || []).map((area: any, idx: number) => {
     const icons = [BarChart4, UserCheck, Users, Building2];
     return {
@@ -433,8 +440,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         
         {/* Branding & Info Sekcia */}
         <div className="flex flex-col gap-6 relative z-10 w-full md:w-auto">
-          
-          {/* 1. Brand Identita */}
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
@@ -447,10 +452,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
 
-          {/* Deliaca čiara */}
           <div className="w-16 h-1 bg-black/5 rounded-full"></div>
 
-          {/* 2. Názov Reportu */}
           <div className="space-y-3">
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-3xl">
               {data.surveyName || 'Prieskum spokojnosti'}
@@ -469,7 +472,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
         </div>
 
-        {/* Akcie (Zdieľať / Export / Reset) */}
         <div className="flex flex-wrap items-center gap-3 relative z-10 w-full md:w-auto md:justify-end shrink-0 pt-4 md:pt-0">
           {!isSharedView && (
             <>
@@ -503,7 +505,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </button>
         </div>
 
-        {/* Dekoratívny blur prvok v pozadí */}
         <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
       </div>
 
@@ -729,9 +730,41 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
             <div className="flex flex-col gap-6">
+
+              {/* SAMOSTATNÝ THEME CLOUD BLOK PRE OTÁZKU */}
+              {selectedQuestionThemeCloud.length > 0 && (
+                <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-xl">
+                  <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4" /> Tematická mapa odpovedí (otázka)
+                  </h5>
+
+                  <div className="bg-black/5 rounded-2xl p-5 md:p-6 border border-black/5">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                      {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
+                        <span
+                          key={tIdx}
+                          title={`Výskyt: ${theme.count}x • Podiel: ${theme.percentage} % odpovedí`}
+                          className={`
+                            inline-flex items-center rounded-xl px-3 py-1.5
+                            font-black tracking-tight cursor-help select-none
+                            ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
+                            ${getThemeFontSizeClass(theme.count, selectedQuestionMaxThemeCount)}
+                          `}
+                        >
+                          {theme.theme}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 mt-4">
+                      Veľkosť témy zodpovedá frekvencii výskytu
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ODPORÚČANIA */}
               {selectedQuestionData.recommendations.map((rec: any, index: number) => {
-                const themeCloud = getThemeCloud(rec);
-                const maxThemeCount = themeCloud.length > 0 ? Math.max(...themeCloud.map((t: any) => t.count)) : 0;
                 const hasQuotes = Array.isArray(rec?.quotes) && rec.quotes.length > 0;
 
                 return (
@@ -757,41 +790,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
                     {expandedRecIndex === index && (
                       <div className="mt-8 pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24 space-y-8">
-                        
-                        {/* THEME CLOUD */}
-                        {themeCloud.length > 0 && (
-                          <div>
-                            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 flex items-center gap-2">
-                              <Lightbulb className="w-4 h-4" /> Tematická mapa odpovedí
-                            </h5>
-
-                            <div className="bg-black/5 rounded-2xl p-5 md:p-6 border border-black/5">
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                                {themeCloud.map((theme: any, tIdx: number) => (
-                                  <span
-                                    key={tIdx}
-                                    title={`Výskyt: ${theme.count}x • Podiel: ${theme.percentage} % odpovedí`}
-                                    className={`
-                                      inline-flex items-center rounded-xl px-3 py-1.5
-                                      font-black tracking-tight cursor-help select-none
-                                      ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
-                                      ${getThemeFontSizeClass(theme.count, maxThemeCount)}
-                                    `}
-                                  >
-                                    {theme.theme}
-                                  </span>
-                                ))}
-                              </div>
-
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 mt-4">
-                                Veľkosť témy zodpovedá frekvencii výskytu
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* CITÁCIE */}
-                        {hasQuotes && (
+                        {hasQuotes ? (
                           <div>
                             <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2">
                               <MessageCircle className="w-4 h-4" /> Reprezentatívne citácie z odpovedí
@@ -805,11 +804,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                               ))}
                             </div>
                           </div>
-                        )}
-
-                        {!themeCloud.length && !hasQuotes && (
+                        ) : (
                           <div className="bg-black/5 rounded-2xl p-5 text-sm font-bold text-black/50">
-                            Pre toto odporúčanie nie sú dostupné doplňujúce témy ani citácie.
+                            Pre toto odporúčanie nie sú dostupné citácie.
                           </div>
                         )}
                       </div>
@@ -828,7 +825,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {(data.areas || []).some((a: any) => a.id === activeTab) && renderSection(activeTab as string)}
 
-      {/* PÄTIČKA */}
       <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
         <div className="flex items-center gap-4">
           <img src="/logo.png" alt="Libellius" className="h-24 w-auto object-contain" />
