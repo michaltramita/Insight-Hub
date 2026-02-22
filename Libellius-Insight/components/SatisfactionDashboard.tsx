@@ -392,7 +392,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       <YAxis
         dataKey="category"
         type="category"
-        width={420} // bolo 380
+        width={540} // bolo 380
         tick={{ fontSize: 14, fontWeight: 800, fill: '#000' }} // bolo 12
         interval={0}
         tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val} // bolo 55
