@@ -385,17 +385,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     <BarChart
       data={activeMetrics}
       layout="vertical"
-      margin={{ left: 10, right: 55, top: 6, bottom: 6 }}
+      margin={{ left: 30, right: 55, top: 6, bottom: 6 }}
     >
       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
       <XAxis type="number" domain={[0, scaleMax]} hide />
       <YAxis
         dataKey="category"
         type="category"
-        width={480} // bolo 380
-        tick={{ fontSize: 18, fontWeight: 800, fill: '#000' }} // bolo 12
+        width={420} // bolo 380
+        tick={{ fontSize: 14, fontWeight: 800, fill: '#000' }} // bolo 12
         interval={0}
-        tickFormatter={(val: string) => val.length > 42 ? val.substring(0, 42) + '...' : val} // bolo 55
+        tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val} // bolo 55
       />
       <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
       <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}> {/* bolo 32 */}
