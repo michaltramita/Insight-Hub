@@ -16,6 +16,12 @@ type RawTeam = {
   questions: RawQuestion[];
 };
 
+type ThemeStat = {
+  theme: string;
+  count: number;
+  percentage: number;
+};
+
 function normalizeTheme(theme: string): string {
   return String(theme || "").trim();
 }
@@ -31,7 +37,7 @@ function buildThemeStats(answers: Array<string | RawAnswer>) {
     themeMap[tema] = (themeMap[tema] || 0) + 1;
   }
 
-  const stats = Object.entries(themeMap)
+  const stats: ThemeStat[] = Object.entries(themeMap)
     .map(([theme, count]) => ({
       theme,
       count,
@@ -65,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1) Predspracovanie: dopočítame theme stats (spoľahlivo na serveri, nie cez AI)
+    // 1) Predspracovanie: spoľahlivé počty tém na serveri (nie cez AI)
     const enrichedInput: RawTeam[] = (rawOpenQuestionsForAI as RawTeam[]).map((team) => ({
       ...team,
       questions: (team.questions || []).map((q) => {
@@ -75,13 +81,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           _meta: {
             totalAnswers: stats.totalAnswers,
             hasThemes: stats.hasThemes,
-            themeStats: stats.themeStats, // [{theme,count,percentage}]
+            themeStats: stats.themeStats, // [{ theme, count, percentage }]
           },
         } as any;
       }),
     }));
 
-    // 2) Prompt: AI rieši obsah odporúčaní + výber citácií, NIE presné počty tém
+    // 2) Prompt: AI rieši iba odporúčania + citácie. Theme cloud je na úrovni otázky (berie sa zo servera)
     const promptText = `
 Si senior HR/People Analytics expert.
 
@@ -91,12 +97,10 @@ Pre každý tím a každú otázku vytvor presne 3 manažérske odporúčania.
 Dôležité pravidlá:
 1. ODPORÚČANIA musia byť praktické, stručné a použiteľné pre manažment.
 2. AI NESMIE počítať výskyty tém sama. Počty a podiely tém sú už pripravené v "_meta.themeStats".
-3. Ak sú dostupné témy v "_meta.themeStats", ku každému odporúčaniu priraď:
-   - "themeCloud": 3 až 8 najrelevantnejších tém z _meta.themeStats
-   - každá položka musí mať "theme", "count", "percentage"
+3. "themeCloud" NEGENERUJ do odporúčaní. Tematická mapa sa zobrazuje samostatne na úrovni otázky.
 4. "quotes":
    - Ak je odpovedí málo (napr. do 20), uveď 3 až 5 priamych citácií.
-   - Ak je odpovedí veľa, uveď max 5 reprezentatívnych citácií (nie je nutné 3 presne).
+   - Ak je odpovedí veľa, uveď max 5 reprezentatívnych citácií.
    - Citácie musia byť doslovné texty z odpovedí (pole answers[].text alebo string answers[]).
 5. Nepíš žiadne vymyslené dáta, žiadne nové počty, žiadne nové témy.
 6. Výstup iba validné JSON podľa schémy.
@@ -125,6 +129,21 @@ ${JSON.stringify(enrichedInput)}
                       type: Type.OBJECT,
                       properties: {
                         questionText: { type: Type.STRING },
+
+                        // Theme cloud patrí na úroveň otázky
+                        themeCloud: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              theme: { type: Type.STRING },
+                              count: { type: Type.NUMBER },
+                              percentage: { type: Type.NUMBER }
+                            },
+                            required: ["theme", "count", "percentage"]
+                          }
+                        },
+
                         recommendations: {
                           type: Type.ARRAY,
                           items: {
@@ -133,31 +152,17 @@ ${JSON.stringify(enrichedInput)}
                               title: { type: Type.STRING },
                               description: { type: Type.STRING },
 
-                              // Theme cloud pre rozkliknuté odporúčanie
-                              themeCloud: {
-                                type: Type.ARRAY,
-                                items: {
-                                  type: Type.OBJECT,
-                                  properties: {
-                                    theme: { type: Type.STRING },
-                                    count: { type: Type.NUMBER },
-                                    percentage: { type: Type.NUMBER }
-                                  },
-                                  required: ["theme", "count", "percentage"]
-                                }
-                              },
-
-                              // Max 5 reprezentatívnych citácií (nie povinne vždy 3)
+                              // Už len citácie pri odporúčaní
                               quotes: {
                                 type: Type.ARRAY,
                                 items: { type: Type.STRING }
                               }
                             },
-                            required: ["title", "description", "themeCloud", "quotes"]
+                            required: ["title", "description", "quotes"]
                           }
                         }
                       },
-                      required: ["questionText", "recommendations"]
+                      required: ["questionText", "themeCloud", "recommendations"]
                     }
                   }
                 },
@@ -181,9 +186,8 @@ ${JSON.stringify(enrichedInput)}
       parsed = { openQuestions: [] };
     }
 
-    // 3) Bezpečnostný fallback: ak AI nevráti themeCloud, doplníme ho zo serverových dát
-    //    (aspoň top 5 tém) a quotes necháme prázdne ak chýbajú
-    const metaLookup = new Map<string, { totalAnswers: number; themeStats: any[] }>();
+    // 3) Fallback mapa: themeCloud vždy dopočítame zo serverových dát podľa tímu+otázky
+    const metaLookup = new Map<string, { totalAnswers: number; themeStats: ThemeStat[] }>();
 
     for (const team of enrichedInput as any[]) {
       for (const q of team.questions || []) {
@@ -197,36 +201,41 @@ ${JSON.stringify(enrichedInput)}
 
     if (Array.isArray(parsed.openQuestions)) {
       parsed.openQuestions = parsed.openQuestions.map((team: any) => ({
-        ...team,
-        questions: (team.questions || []).map((q: any) => {
-          const key = `${team.teamName}|||${q.questionText}`;
+        teamName: String(team?.teamName || "").trim(),
+        questions: (team?.questions || []).map((q: any) => {
+          const key = `${String(team?.teamName || "").trim()}|||${String(q?.questionText || "").trim()}`;
           const meta = metaLookup.get(key);
 
-          return {
-            ...q,
-            recommendations: (q.recommendations || []).slice(0, 3).map((rec: any) => ({
+          const normalizedThemeCloud =
+            Array.isArray(meta?.themeStats) && meta!.themeStats.length > 0
+              ? meta!.themeStats
+                  .filter((t: any) => t?.theme)
+                  .map((t: any) => ({
+                    theme: String(t.theme).trim(),
+                    count: Number(t.count) || 0,
+                    percentage: Number(t.percentage) || 0,
+                  }))
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 8)
+              : [];
+
+          const normalizedRecommendations = (q?.recommendations || [])
+            .slice(0, 3)
+            .map((rec: any) => ({
               title: String(rec?.title || "Odporúčanie").trim(),
               description: String(rec?.description || "").trim(),
-
-              themeCloud:
-                Array.isArray(rec?.themeCloud) && rec.themeCloud.length > 0
-                  ? rec.themeCloud
-                      .filter((t: any) => t?.theme)
-                      .map((t: any) => ({
-                        theme: String(t.theme).trim(),
-                        count: Number(t.count) || 0,
-                        percentage: Number(t.percentage) || 0,
-                      }))
-                      .sort((a: any, b: any) => b.count - a.count)
-                  : (meta?.themeStats || []).slice(0, 5),
-
               quotes: Array.isArray(rec?.quotes)
                 ? rec.quotes
                     .map((x: any) => String(x || "").trim())
                     .filter(Boolean)
                     .slice(0, 5)
                 : [],
-            })),
+            }));
+
+          return {
+            questionText: String(q?.questionText || "").trim(),
+            themeCloud: normalizedThemeCloud,
+            recommendations: normalizedRecommendations,
           };
         }),
       }));
