@@ -46,6 +46,19 @@ export const parseExcelFile = async (file: File): Promise<string> => {
               row["Prieskum"] ||
               ""
           ).trim(),
+
+          // TÉMA / LABEL voľnej odpovede (pre theme cloud a počty)
+          tema_odpovede: String(
+            row["tema_odpovede"] ||
+              row["Tema_odpovede"] ||
+              row["téma_odpovede"] ||
+              row["Téma_odpovede"] ||
+              row["label_temy"] ||
+              row["Label_temy"] ||
+              row["tema"] ||
+              row["Tema"] ||
+              ""
+          ).trim(),
         }));
 
         resolve(JSON.stringify(simplifiedData));
@@ -85,7 +98,11 @@ export const analyzeDocument = async (
       clientNameFromExcel = String(firstRowWithMeta.nazov_firmy || "").trim();
       surveyNameFromExcel = String(firstRowWithMeta.nazov_prieskumu || "").trim();
 
-      const openQsMap: Record<string, Record<string, string[]>> = {};
+      // openQsMap[team][question] = [{ text, tema }]
+      const openQsMap: Record<
+        string,
+        Record<string, Array<{ text: string; tema: string }>>
+      > = {};
 
       const quantitativeByOblast: Record<
         string,
@@ -111,13 +128,19 @@ export const analyzeDocument = async (
         const normQType = normalize(rawQuestionType);
         const qType = normQType.includes("specif") ? "Specificka" : "Prierezova";
 
-        // 1. Voľné odpovede
+        // 1. Voľné odpovede (text + tema)
         if (rowTyp.includes("volna") && row.text?.toString().trim() !== "") {
-          const ans = row.text.toString().trim();
+          const ansText = row.text.toString().trim();
+          const ansTema = String(row.tema_odpovede || "").trim();
+
           if (team && otazkaText && !isCelkom) {
             if (!openQsMap[team]) openQsMap[team] = {};
             if (!openQsMap[team][otazkaText]) openQsMap[team][otazkaText] = [];
-            openQsMap[team][otazkaText].push(ans);
+
+            openQsMap[team][otazkaText].push({
+              text: ansText,
+              tema: ansTema,
+            });
           }
           return;
         }
@@ -186,11 +209,12 @@ export const analyzeDocument = async (
         }
       });
 
+      // Dáta pre AI: po tímoch a otázkach, odpovede obsahujú text + tému
       rawOpenQuestionsForAI = Object.entries(openQsMap).map(([teamName, qs]) => ({
         teamName,
         questions: Object.entries(qs).map(([questionText, answers]) => ({
           questionText,
-          answers,
+          answers, // [{ text, tema }]
         })),
       }));
 
