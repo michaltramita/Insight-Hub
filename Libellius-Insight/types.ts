@@ -42,12 +42,12 @@ export interface OpenQuestionThemeCloudItem {
 export interface OpenQuestionRecommendation {
   title: string;
   description: string;
-  themeCloud: OpenQuestionThemeCloudItem[];
-  quotes: string[];
+  quotes: string[]; // themeCloud už nie je tu
 }
 
 export interface OpenQuestionItem {
   questionText: string;
+  themeCloud: OpenQuestionThemeCloudItem[]; // themeCloud je na úrovni otázky
   recommendations: OpenQuestionRecommendation[];
 }
 
@@ -77,12 +77,12 @@ export interface SatisfactionArea {
 
 export interface EmployeeSatisfactionData {
   clientName: string;
-  surveyName: string; // <- doplnené (frontend to používa)
+  surveyName: string;
   totalSent: number;
   totalReceived: number;
   successRate: string;
   teamEngagement: EngagementTeam[];
-  openQuestions: OpenQuestionTeam[]; // <- namiesto any[]
+  openQuestions: OpenQuestionTeam[];
   areas: SatisfactionArea[];
 }
 
