@@ -32,13 +32,15 @@ const App: React.FC = () => {
             setResult(jsonData);
             setStatus(AppStatus.SUCCESS);
           }
-        } catch (e) { console.error("Chyba linku", e); }
+        } catch (e) {
+          console.error('Chyba linku', e);
+        }
       }
     };
 
     handleUrlData();
     window.addEventListener('hashchange', handleUrlData);
-    
+
     // Pôvodná kontrola kľúča
     const checkKey = async () => {
       const aistudio = (window as any).aistudio;
@@ -46,7 +48,9 @@ const App: React.FC = () => {
         try {
           const hasKey = await aistudio.hasSelectedApiKey();
           if (!hasKey) setNeedsKey(true);
-        } catch (e) { console.debug(e); }
+        } catch (e) {
+          console.debug(e);
+        }
       }
     };
     checkKey();
@@ -79,7 +83,7 @@ const App: React.FC = () => {
           setResult(jsonData);
           setStatus(AppStatus.SUCCESS);
         } catch (err) {
-          setError("Chybný formát JSON.");
+          setError('Chybný formát JSON.');
           setStatus(AppStatus.ERROR);
         }
       };
@@ -92,17 +96,17 @@ const App: React.FC = () => {
 
     try {
       const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
-      let processedData = isExcel ? await parseExcelFile(file) : await fileToBase64(file);
+      const processedData = isExcel ? await parseExcelFile(file) : await fileToBase64(file);
       const data = await analyzeDocument(processedData, selectedMode, isExcel);
-      
+
       if (!data || (!data.employees && !data.satisfaction)) {
-        throw new Error("Nepodarilo sa extrahovať dáta.");
+        throw new Error('Nepodarilo sa extrahovať dáta.');
       }
 
       setResult(data);
       setStatus(AppStatus.SUCCESS);
     } catch (err: any) {
-      setError(err.message || "Chyba spracovania.");
+      setError(err.message || 'Chyba spracovania.');
       setStatus(AppStatus.ERROR);
     }
   };
@@ -121,22 +125,24 @@ const App: React.FC = () => {
   };
 
   return (
-    // ZMENA: Pridaný flex a flex-col, aby sa pätička dala potlačiť dole
     <div className="min-h-screen bg-white text-black font-sans relative flex flex-col">
       {needsKey && (
-        <button onClick={handleOpenKeyDialog} className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[60] text-[10px] md:text-xs font-bold text-brand bg-white border border-brand/20 px-3 py-2 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-brand/5">
-          <Key className="w-3 h-3 md:w-4 h-4" /> NASTAVIŤ API KĽÚČ
+        <button
+          onClick={handleOpenKeyDialog}
+          className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[60] text-[10px] md:text-xs font-bold text-brand bg-white border border-brand/20 px-3 py-2 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-brand/5"
+        >
+          <Key className="w-3 h-3 md:w-4 md:h-4" /> NASTAVIŤ API KĽÚČ
         </button>
       )}
 
-      {/* ZMENA: Pridaný flex-grow a flex-col na main kontajner */}
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 flex-grow w-full flex flex-col">
+      {/* Širší wrapper pre dashboard + bezpečné paddingy pre mobil */}
+      <main className="w-full max-w-[1800px] 2xl:max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
         {status === AppStatus.HOME && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
-              <Sparkles className="w-3 h-3 md:w-4 h-4" /> Next-gen Analytics
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
             </div>
-            
+
             <h1 className="text-4xl md:text-7xl font-black mb-6 leading-none tracking-tighter flex flex-col items-center">
               <span className="mb-2">Vitajte v</span>
               <span className="flex items-center gap-4 uppercase tracking-tighter">
@@ -144,32 +150,56 @@ const App: React.FC = () => {
                 <span className="text-brand">InsightHub</span>
               </span>
             </h1>
-            
+
             <p className="text-lg md:text-2xl text-black/50 mb-16 max-w-2xl font-medium px-4">
               PREHĽADNÁ VIZUALIZÁCIA VAŠICH VÝSLEDKOV.
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-5xl px-2">
-              <button onClick={() => selectMode('360_FEEDBACK')} className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]">
+              <button
+                onClick={() => selectMode('360_FEEDBACK')}
+                className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
+              >
                 <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
                   <Users className="w-32 h-32 text-black" />
                 </div>
-                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg"><Users className="w-10 h-10" /></div>
-                <div className="z-10">
-                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">Analýza 360° spätnej väzby</span>
-                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">Vidieť rozdiely. Pochopiť súvislosti. Rozvíjať potenciál.</p>
+                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg">
+                  <Users className="w-10 h-10" />
                 </div>
-                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">VYBRAŤ TENTO MÓD</div>
+                <div className="z-10">
+                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">
+                    Analýza 360° spätnej väzby
+                  </span>
+                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">
+                    Vidieť rozdiely. Pochopiť súvislosti. Rozvíjať potenciál.
+                  </p>
+                </div>
+                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">
+                  VYBRAŤ TENTO MÓD
+                </div>
               </button>
-              
-              <button onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')} className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]">
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 pointer-events-none"><BarChart3 className="w-32 h-32 text-black" /></div>
-                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg"><BarChart3 className="w-10 h-10" /></div>
-                <div className="z-10">
-                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">Analýza spokojnosti zamestnancov</span>
-                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">Vidieť nálady. Pochopiť súvislosti. Zlepšovať prostredie.</p>
+
+              <button
+                onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')}
+                className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
+              >
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
+                  <BarChart3 className="w-32 h-32 text-black" />
                 </div>
-                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">VYBRAŤ TENTO MÓD</div>
+                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg">
+                  <BarChart3 className="w-10 h-10" />
+                </div>
+                <div className="z-10">
+                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">
+                    Analýza spokojnosti zamestnancov
+                  </span>
+                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">
+                    Vidieť nálady. Pochopiť súvislosti. Zlepšovať prostredie.
+                  </p>
+                </div>
+                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">
+                  VYBRAŤ TENTO MÓD
+                </div>
               </button>
             </div>
           </div>
@@ -177,18 +207,29 @@ const App: React.FC = () => {
 
         {status === AppStatus.READY_TO_UPLOAD && (
           <div className="flex flex-col items-center justify-center flex-grow animate-fade-in px-4">
-             <button onClick={handleBackToMode} className="mb-10 flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors">
-               <ChevronLeft className="w-4 h-4" /> Späť na výber módu
-             </button>
-             <FileUpload onFileSelect={handleFileSelect} isAnalyzing={false} mode={selectedMode} />
+            <button
+              onClick={handleBackToMode}
+              className="mb-10 flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" /> Späť na výber módu
+            </button>
+            <FileUpload onFileSelect={handleFileSelect} isAnalyzing={false} mode={selectedMode} />
           </div>
         )}
 
-        {status === AppStatus.ANALYZING && <div className="flex flex-col items-center justify-center flex-grow"><FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} /></div>}
+        {status === AppStatus.ANALYZING && (
+          <div className="flex flex-col items-center justify-center flex-grow">
+            <FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} />
+          </div>
+        )}
 
         {status === AppStatus.SUCCESS && result && (
-          <div className="px-2 md:px-0">
-            {result.mode === '360_FEEDBACK' ? <Dashboard result={result} onReset={handleReset} /> : <SatisfactionDashboard result={result} onReset={handleReset} />}
+          <div className="w-full">
+            {result.mode === '360_FEEDBACK' ? (
+              <Dashboard result={result} onReset={handleReset} />
+            ) : (
+              <SatisfactionDashboard result={result} onReset={handleReset} />
+            )}
           </div>
         )}
 
@@ -197,7 +238,12 @@ const App: React.FC = () => {
             <AlertCircle className="w-20 h-20 text-brand" />
             <h3 className="text-3xl font-black uppercase tracking-tighter">Chyba analýzy</h3>
             <p className="text-black/50 font-medium max-w-md">{error}</p>
-            <button onClick={handleReset} className="px-12 py-4 bg-black text-white rounded-full font-bold uppercase tracking-widest text-sm">Skúsiť znova</button>
+            <button
+              onClick={handleReset}
+              className="px-12 py-4 bg-black text-white rounded-full font-bold uppercase tracking-widest text-sm"
+            >
+              Skúsiť znova
+            </button>
           </div>
         )}
 
@@ -205,13 +251,20 @@ const App: React.FC = () => {
         {status !== AppStatus.SUCCESS && (
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
-              {/* Zmeň si /logo.png na názov tvojho reálneho obrázka z public zložky */}
-              <img src="/logo.png" alt="Libellius" className="h-24 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
+              <img
+                src="/logo.png"
+                alt="Libellius"
+                className="h-24 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
+              />
             </div>
-            
+
             <div className="text-center md:text-right">
-              <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
+              <p className="text-xs font-bold text-black/60">
+                © {new Date().getFullYear()} Libellius. Všetky práva vyhradené.
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-1">
+                Generované pomocou umelej inteligencie
+              </p>
             </div>
           </div>
         )}
