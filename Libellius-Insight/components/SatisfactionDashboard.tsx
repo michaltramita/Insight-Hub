@@ -379,7 +379,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
               </div>
 
-              {/* Mobile/tablet: horizontálny scroll pre chart */}
               <div className="w-full overflow-x-auto">
                 <div className="min-w-[920px] h-[520px] sm:h-[550px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -517,14 +516,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:justify-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
+        {/* FIX 1: buttony pod sebou */}
+        <div className="flex flex-col items-stretch gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
           {!isSharedView && (
             <>
               <button
                 onClick={generateShareLink}
-                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus
-                    ? 'bg-green-600 text-white scale-105'
-                    : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+                className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus
+                  ? 'bg-green-600 text-white scale-105'
+                  : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
                   }`}
               >
                 {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
@@ -533,7 +533,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
               <button
                 onClick={exportToJson}
-                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black text-white hover:bg-brand rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl"
+                className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black text-white hover:bg-brand rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl"
               >
                 <Download className="w-4 h-4" /> Export
               </button>
@@ -542,7 +542,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <button
             onClick={onReset}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group"
+            className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group"
           >
             <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
             {isSharedView ? 'Zavrieť report' : 'Zavrieť'}
@@ -553,15 +553,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       </div>
 
       {/* TABS */}
-      <div className="flex bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
+      {/* FIX 2: na desktope sa buttony roztiahnu cez celu sirku lišty */}
+      <div className="flex gap-2 bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {allTabs.map(t => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as TabType)}
-            className={`shrink-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'
+            className={`shrink-0 xl:shrink xl:flex-1 xl:min-w-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'
               }`}
           >
-            <t.icon className="w-4 h-4" /> {t.label}
+            <t.icon className="w-4 h-4 shrink-0" />
+            <span className="truncate">{t.label}</span>
           </button>
         ))}
       </div>
@@ -641,7 +643,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </div>
             )}
 
-            {/* MOBILE SAFE TABLE */}
             <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5">
               <table className="w-full min-w-[760px] text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
