@@ -136,7 +136,7 @@ const App: React.FC = () => {
       )}
 
       {/* Širší wrapper pre dashboard + bezpečné paddingy pre mobil */}
-      <main className="w-full max-w-[1800px] 2xl:max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
+      <main className="w-full max-w-[1440px] xl:max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
         {status === AppStatus.HOME && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
