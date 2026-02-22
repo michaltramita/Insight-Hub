@@ -29,11 +29,11 @@ const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAA
 const CustomBarTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-black text-white p-5 rounded-2xl shadow-2xl max-w-sm border border-white/10 z-50">
+      <div className="bg-black text-white p-4 sm:p-5 rounded-2xl shadow-2xl max-w-sm border border-white/10 z-50">
         <p className="font-bold text-sm mb-3 leading-snug">{label}</p>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-brand"></div>
-          <p className="font-black text-lg">Skóre: {payload[0].value.toFixed(2)}</p>
+          <p className="font-black text-base sm:text-lg">Skóre: {payload[0].value.toFixed(2)}</p>
         </div>
       </div>
     );
@@ -244,7 +244,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     ? Math.round(totalFilteredCount / engagementChartData.length)
     : 0;
 
-  // Theme cloud je teraz na úrovni otázky
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
     return question.themeCloud
@@ -277,32 +276,46 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
 
     return (
-      <div className="space-y-10 animate-fade-in">
-        <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-          <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-8">
-            <div className="space-y-6 w-full lg:w-auto">
+      <div className="space-y-8 sm:space-y-10 animate-fade-in">
+        <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
+            <div className="space-y-4 sm:space-y-6 w-full lg:w-auto min-w-0">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
                 <MapPin className="w-3 h-3" /> Konfigurácia reportu
               </div>
-              <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{area.title}</h2>
-              <div className="flex bg-black/5 p-1 rounded-2xl w-fit border border-black/5">
-                <button onClick={() => setViewMode('DETAIL')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Detail tímu</button>
-                <button onClick={() => setViewMode('COMPARISON')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}>Porovnanie</button>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none break-words">
+                {area.title}
+              </h2>
+              <div className="flex bg-black/5 p-1 rounded-2xl w-full sm:w-fit border border-black/5 overflow-x-auto no-scrollbar">
+                <button
+                  onClick={() => setViewMode('DETAIL')}
+                  className={`shrink-0 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}
+                >
+                  Detail tímu
+                </button>
+                <button
+                  onClick={() => setViewMode('COMPARISON')}
+                  className={`shrink-0 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'COMPARISON' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}
+                >
+                  Porovnanie
+                </button>
               </div>
             </div>
 
             {viewMode === 'DETAIL' && (
-              <div className="flex flex-col items-end gap-3 w-full lg:w-auto">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mr-4">VYBRANÝ TÍM / STREDISKO:</span>
-                <div className="relative w-full lg:w-auto min-w-[340px]">
+              <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 lg:mr-4">
+                  VYBRANÝ TÍM / STREDISKO:
+                </span>
+                <div className="relative w-full lg:w-auto lg:min-w-[340px]">
                   <select
                     value={teamValue}
                     onChange={(e) => setSelectedTeams({ ...selectedTeams, [areaId]: e.target.value })}
-                    className="w-full p-7 pr-14 bg-black text-white rounded-[1.5rem] font-black text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
+                    className="w-full p-4 sm:p-5 lg:p-7 pr-12 sm:pr-14 bg-black text-white rounded-[1rem] sm:rounded-[1.25rem] lg:rounded-[1.5rem] font-black text-base sm:text-lg lg:text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
                   >
                     {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-white/40 pointer-events-none" />
+                  <ChevronDown className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 w-5 h-5 sm:w-6 sm:h-6 text-white/40 pointer-events-none" />
                 </div>
               </div>
             )}
@@ -323,23 +336,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 onClear={() => setComparisonSelection({ ...comparisonSelection, [areaId]: [] })}
               />
 
-              <div className="flex flex-col md:flex-row items-center gap-2 bg-black/5 p-2 rounded-2xl w-fit">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-black/5 p-2 rounded-2xl w-full md:w-fit">
                 <button
                   onClick={() => setComparisonFilter('ALL')}
-                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${comparisonFilter === 'ALL' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                  className={`px-4 sm:px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${comparisonFilter === 'ALL' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
                 >
                   Všetky tvrdenia
                 </button>
                 <button
                   onClick={() => setComparisonFilter('PRIEREZOVA')}
-                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${comparisonFilter === 'PRIEREZOVA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                  className={`px-4 sm:px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${comparisonFilter === 'PRIEREZOVA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
                 >
                   <div className={`w-2 h-2 rounded-full ${comparisonFilter === 'PRIEREZOVA' ? 'bg-brand' : 'bg-transparent'}`}></div>
                   Prierezové
                 </button>
                 <button
                   onClick={() => setComparisonFilter('SPECIFICKA')}
-                  className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${comparisonFilter === 'SPECIFICKA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                  className={`px-4 sm:px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${comparisonFilter === 'SPECIFICKA' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
                 >
                   <div className={`w-2 h-2 rounded-full ${comparisonFilter === 'SPECIFICKA' ? 'bg-brand' : 'bg-transparent'}`}></div>
                   Špecifické
@@ -350,68 +363,80 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
 
         {viewMode === 'DETAIL' ? (
-          <div className="space-y-10">
-            <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col h-[750px]">
-              <div className="mb-8 flex items-start gap-4">
+          <div className="space-y-8 sm:space-y-10">
+            <div className="bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col">
+              <div className="mb-6 sm:mb-8 flex items-start gap-4">
                 <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
-                  <BarChartIcon className="w-6 h-6 text-brand" />
+                  <BarChartIcon className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black uppercase tracking-tight text-black">Hodnotenie jednotlivých tvrdení</h3>
-                  <p className="text-sm font-bold text-black/40 mt-1">Stredisko: <span className="text-brand">{teamValue}</span></p>
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tight text-black">
+                    Hodnotenie jednotlivých tvrdení
+                  </h3>
+                  <p className="text-xs sm:text-sm font-bold text-black/40 mt-1 break-words">
+                    Stredisko: <span className="text-brand">{teamValue}</span>
+                  </p>
                 </div>
               </div>
-              <div className="w-full h-[550px] min-h-[550px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, top: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-                    <XAxis type="number" domain={[0, scaleMax]} hide />
-                    <YAxis
-                      dataKey="category"
-                      type="category"
-                      width={380}
-                      tick={{ fontSize: 12, fontWeight: 800, fill: '#000' }}
-                      interval={0}
-                      tickFormatter={(val: string) => val.length > 55 ? val.substring(0, 55) + '...' : val}
-                    />
-                    <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
-                    <Bar dataKey="score" radius={[0, 15, 15, 0]} barSize={32}>
-                      {activeMetrics.map((entry: any, index: number) => (
-                        <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
-                      ))}
-                      <LabelList dataKey="score" position="right" style={{ fontWeight: 900, fontSize: '15px', fill: '#000' }} offset={15} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+
+              {/* Mobile/tablet: horizontálny scroll pre chart */}
+              <div className="w-full overflow-x-auto">
+                <div className="min-w-[920px] h-[520px] sm:h-[550px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, top: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+                      <XAxis type="number" domain={[0, scaleMax]} hide />
+                      <YAxis
+                        dataKey="category"
+                        type="category"
+                        width={380}
+                        tick={{ fontSize: 12, fontWeight: 800, fill: '#000' }}
+                        interval={0}
+                        tickFormatter={(val: string) => val.length > 55 ? val.substring(0, 55) + '...' : val}
+                      />
+                      <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
+                      <Bar dataKey="score" radius={[0, 15, 15, 0]} barSize={32}>
+                        {activeMetrics.map((entry: any, index: number) => (
+                          <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
+                        ))}
+                        <LabelList dataKey="score" position="right" style={{ fontWeight: 900, fontSize: '15px', fill: '#000' }} offset={15} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-                <div className="flex items-center gap-4 mb-10 text-brand">
-                  <Star className="w-8 h-8" />
-                  <h4 className="text-2xl font-black uppercase tracking-tighter text-black">Silné stránky</h4>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
+              <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8 lg:mb-10 text-brand">
+                  <Star className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" />
+                  <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-black">Silné stránky</h4>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {top.map((m, i) => (
-                    <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-brand text-white shadow-lg group relative cursor-help">
-                      <span className="font-bold text-xs pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
-                      <span className="text-4xl font-black shrink-0">{m.score.toFixed(2)}</span>
+                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-brand text-white shadow-lg group relative cursor-help">
+                      <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>
+                        {m.category}
+                      </span>
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-black shrink-0">{m.score.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-                <div className="flex items-center gap-4 mb-10 text-black">
-                  <Target className="w-8 h-8" />
-                  <h4 className="text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
+              <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8 lg:mb-10 text-black">
+                  <Target className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" />
+                  <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {bottom.length > 0 ? bottom.map((m, i) => (
-                    <div key={i} className="p-7 rounded-3xl flex justify-between items-center bg-black text-white shadow-lg group relative cursor-help">
-                      <span className="font-bold text-xs pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
-                      <span className="text-4xl font-black text-brand shrink-0">{m.score.toFixed(2)}</span>
+                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-black text-white shadow-lg group relative cursor-help">
+                      <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>
+                        {m.category}
+                      </span>
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-brand shrink-0">{m.score.toFixed(2)}</span>
                     </div>
                   )) : <p className="text-center py-10 text-black/20 font-black uppercase tracking-widest text-[10px]">Žiadne kritické body</p>}
                 </div>
@@ -431,7 +456,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const availableQuestions = openQuestionsTeamData?.questions || [];
   const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
 
-  // Theme cloud pre vybranú otázku (samostatný blok)
   const selectedQuestionThemeCloud = getThemeCloud(selectedQuestionData);
   const selectedQuestionMaxThemeCount =
     selectedQuestionThemeCloud.length > 0
@@ -454,20 +478,20 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12 sm:pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] 2xl:max-w-[1800px] mx-auto">
 
       {/* NOVÁ ŠTRUKTÚROVANÁ HLAVIČKA */}
-      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 md:p-12 shadow-2xl flex flex-col md:flex-row justify-between items-start gap-8 relative overflow-hidden">
+      <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden">
 
         {/* Branding & Info Sekcia */}
-        <div className="flex flex-col gap-6 relative z-10 w-full md:w-auto">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
+        <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
             </div>
 
             <div className="flex items-center gap-4">
-              <h2 className="text-3xl font-black tracking-tighter uppercase">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter uppercase">
                 Libellius <span className="text-brand">InsightHub</span>
               </h2>
             </div>
@@ -475,30 +499,30 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <div className="w-16 h-1 bg-black/5 rounded-full"></div>
 
-          <div className="space-y-3">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-3xl">
+          <div className="space-y-2 sm:space-y-3 min-w-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl xl:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-4xl">
               {data.surveyName || 'Prieskum spokojnosti'}
             </h1>
-            <div className="flex flex-wrap items-center gap-4 mt-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5">
-                <Building2 className="w-4 h-4 text-black/40" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-black/60">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5 min-w-0">
+                <Building2 className="w-4 h-4 text-black/40 shrink-0" />
+                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/60 truncate">
                   {data.clientName || 'Názov firmy'}
                 </span>
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-black/30">
                 Vydané: {result.reportMetadata?.date || new Date().getFullYear().toString()}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10 w-full md:w-auto md:justify-end shrink-0 pt-4 md:pt-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:justify-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
           {!isSharedView && (
             <>
               <button
                 onClick={generateShareLink}
-                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-xl ${copyStatus
+                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus
                     ? 'bg-green-600 text-white scale-105'
                     : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
                   }`}
@@ -509,7 +533,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
               <button
                 onClick={exportToJson}
-                className="flex items-center gap-2 px-6 py-4 bg-black text-white hover:bg-brand rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-2xl"
+                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black text-white hover:bg-brand rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl"
               >
                 <Download className="w-4 h-4" /> Export
               </button>
@@ -518,23 +542,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <button
             onClick={onReset}
-            className="flex items-center gap-2 px-6 py-4 bg-black/5 hover:bg-black hover:text-white rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest border border-black/5 group"
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group"
           >
             <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
             {isSharedView ? 'Zavrieť report' : 'Zavrieť'}
           </button>
         </div>
 
-        <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
+        <div className="absolute top-[-20%] right-[-10%] w-72 sm:w-96 h-72 sm:h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
       </div>
 
       {/* TABS */}
-      <div className="flex bg-black/5 p-2 rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
+      <div className="flex bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {allTabs.map(t => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as TabType)}
-            className={`shrink-0 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'
+            className={`shrink-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'
               }`}
           >
             <t.icon className="w-4 h-4" /> {t.label}
@@ -543,42 +567,46 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       </div>
 
       {activeTab === 'ENGAGEMENT' && (
-        <div className="space-y-10 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-black text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
-              <span className="block text-[10px] font-black uppercase opacity-50 mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
-              <span className="text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
+        <div className="space-y-8 sm:space-y-10 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="bg-black text-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+              <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-50 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
+              <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
             </div>
-            <div className="bg-brand text-white p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
-              <span className="block text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
-              <span className="text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
+            <div className="bg-brand text-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+              <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-60 mb-2 sm:mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+              <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
             </div>
-            <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
-              <span className="block text-[10px] font-black uppercase text-black/40 mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+            <div className="bg-white border border-black/5 p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+              <span className="block text-[9px] sm:text-[10px] font-black uppercase text-black/40 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-7xl font-black text-black tracking-tighter leading-none">{String(data.successRate || '0').replace('%', '')}</span>
-                <span className="text-4xl font-black text-black/10 tracking-tighter">%</span>
+                <span className="text-5xl sm:text-6xl xl:text-7xl font-black text-black tracking-tighter leading-none">
+                  {String(data.successRate || '0').replace('%', '')}
+                </span>
+                <span className="text-2xl sm:text-3xl xl:text-4xl font-black text-black/10 tracking-tighter">%</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="relative flex-1 md:w-64">
+          <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
+              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full sm:flex-1 md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
                   <input
                     type="text"
                     placeholder="Hľadať..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all"
+                    className="w-full pl-11 pr-4 py-3 sm:py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all"
                   />
                 </div>
+
                 <button
                   onClick={() => setShowTeamFilter(!showTeamFilter)}
-                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'
+                  className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 whitespace-nowrap ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'
                     }`}
                 >
                   <Filter className="w-4 h-4" />
@@ -588,7 +616,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             {showTeamFilter && (
-              <div className="mb-8 p-6 bg-black/5 rounded-3xl border border-black/5 animate-fade-in">
+              <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 animate-fade-in">
                 <div className="flex flex-wrap gap-2">
                   {masterTeams.map((team: string) => (
                     <button
@@ -598,7 +626,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                           prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
                         );
                       }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'
+                      className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'
                         }`}
                     >
                       {team}
@@ -613,27 +641,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </div>
             )}
 
-            <div className="overflow-hidden rounded-3xl border border-black/5">
-              <table className="w-full text-left">
+            {/* MOBILE SAFE TABLE */}
+            <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5">
+              <table className="w-full min-w-[760px] text-left">
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
                   <tr>
-                    <th className="p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
+                    <th className="p-4 sm:p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
                       <div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div>
                     </th>
-                    <th className="p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
+                    <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
                       <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div>
                     </th>
-                    <th className="p-6 text-center">Podiel</th>
+                    <th className="p-4 sm:p-6 text-center">Podiel</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 font-black text-xs">
                   {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
                     <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
-                      <td className="p-7 group-hover:text-brand transition-colors">{team.name}</td>
-                      <td className="p-7 text-center">{team.count}</td>
-                      <td className="p-7">
-                        <div className="flex items-center justify-center gap-5">
-                          <div className="w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
+                      <td className="p-4 sm:p-7 group-hover:text-brand transition-colors">{team.name}</td>
+                      <td className="p-4 sm:p-7 text-center">{team.count}</td>
+                      <td className="p-4 sm:p-7">
+                        <div className="flex items-center justify-center gap-4 sm:gap-5">
+                          <div className="w-28 sm:w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]"
                               style={{ width: `${(team.count / safeTotalReceived) * 100}%` }}
@@ -645,7 +674,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={3} className="p-10 text-center text-black/30 font-black uppercase tracking-widest text-xs">
+                      <td colSpan={3} className="p-8 sm:p-10 text-center text-black/30 font-black uppercase tracking-widest text-xs">
                         Žiadne tímy nezodpovedajú filtru
                       </td>
                     </tr>
@@ -656,26 +685,26 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {filteredEngagement.length > 0 && (
-            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
-              <div className="flex flex-col gap-8">
-                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
+              <div className="flex flex-col gap-6 sm:gap-8">
+                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
                   <div>
-                    <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Vizualizácia zapojenia</h3>
+                    <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Vizualizácia zapojenia</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mt-2">
                       {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[150px]">
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
                       <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Počet tímov</p>
-                      <p className="text-2xl font-black tracking-tight">{engagementChartData.length}</p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tight">{engagementChartData.length}</p>
                     </div>
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[150px]">
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
                       <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Zapojených spolu</p>
-                      <p className="text-2xl font-black tracking-tight">{totalFilteredCount}</p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tight">{totalFilteredCount}</p>
                     </div>
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[180px]">
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[180px]">
                       <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Top tím</p>
                       <p className="text-sm font-black tracking-tight truncate">
                         {topEngagementTeam ? `${topEngagementTeam.name} (${topEngagementTeam.percentage}%)` : '-'}
@@ -684,16 +713,16 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-center">
-                  <div className="xl:col-span-7 h-[420px] w-full">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
+                  <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={engagementChartData}
-                          cx="42%"
+                          cx="50%"
                           cy="50%"
-                          innerRadius={95}
-                          outerRadius={155}
+                          innerRadius={70}
+                          outerRadius={120}
                           paddingAngle={3}
                           dataKey="count"
                           nameKey="name"
@@ -720,30 +749,30 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         />
 
                         <text
-                          x="42%"
-                          y="47%"
+                          x="50%"
+                          y="46%"
                           textAnchor="middle"
                           dominantBaseline="middle"
                           className="fill-black"
-                          style={{ fontSize: '40px', fontWeight: 900 }}
+                          style={{ fontSize: '30px', fontWeight: 900 }}
                         >
                           {totalFilteredCount}
                         </text>
                         <text
-                          x="42%"
-                          y="56%"
+                          x="50%"
+                          y="55%"
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '11px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
+                          style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
                         >
                           zapojených osôb
                         </text>
                         <text
-                          x="42%"
-                          y="63%"
+                          x="50%"
+                          y="62%"
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '10px', fontWeight: 700 }}
+                          style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
                         >
                           Priemer na tím: {averagePerTeam}
                         </text>
@@ -751,10 +780,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     </ResponsiveContainer>
                   </div>
 
-                  <div className="xl:col-span-5">
-                    <div className="bg-black/5 rounded-3xl border border-black/5 p-4 md:p-5">
+                  <div className="xl:col-span-5 w-full">
+                    <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
+                        <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
                           Rozdelenie podľa tímov
                         </h4>
                       </div>
@@ -766,7 +795,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                           .map((team: any, idx: number) => (
                             <div
                               key={`${team.name}-${idx}`}
-                              className={`rounded-2xl border p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
+                              className={`rounded-2xl border p-3 sm:p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
                             >
                               <div className="flex items-center justify-between gap-3 mb-2">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -774,11 +803,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                                     className="w-3 h-3 rounded-full shrink-0"
                                     style={{ backgroundColor: team.color }}
                                   />
-                                  <span className="font-black text-sm text-black truncate">{team.name}</span>
+                                  <span className="font-black text-xs sm:text-sm text-black truncate">{team.name}</span>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <p className="text-sm font-black leading-none">{team.count}</p>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-brand mt-1">
+                                  <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
+                                  <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
                                     {team.percentage}%
                                   </p>
                                 </div>
@@ -806,14 +835,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       )}
 
       {activeTab === 'OPEN_QUESTIONS' && (
-        <div className="space-y-10 animate-fade-in">
-          <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl">
-            <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
-              <div className="space-y-6 w-full lg:w-1/2">
+        <div className="space-y-8 sm:space-y-10 animate-fade-in">
+          <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-6 sm:gap-8">
+              <div className="space-y-4 sm:space-y-6 w-full lg:w-1/2 min-w-0">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
                   <Lightbulb className="w-3 h-3" /> Analýza a odporúčania
                 </div>
-                <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">Otvorené otázky</h2>
                 <p className="text-sm font-medium text-black/50 leading-relaxed max-w-md">
                   Umelá inteligencia zosumarizovala odpovede zamestnancov a pre každú otázku vygenerovala kľúčové odporúčania pre manažment.
                 </p>
@@ -822,7 +851,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <div className="w-full">
                   <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE TÍM:</span>
                   <div className="relative">
-                    <select value={openQuestionsTeam} onChange={(e) => setOpenQuestionsTeam(e.target.value)} className="w-full p-5 pr-12 bg-black text-white rounded-[1.5rem] font-black text-lg outline-none shadow-xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight">
+                    <select value={openQuestionsTeam} onChange={(e) => setOpenQuestionsTeam(e.target.value)} className="w-full p-4 sm:p-5 pr-12 bg-black text-white rounded-[1rem] sm:rounded-[1.5rem] font-black text-base sm:text-lg outline-none shadow-xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight">
                       {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
@@ -831,7 +860,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <div className="w-full">
                   <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-black/20 mb-2">VYBERTE OTÁZKU:</span>
                   <div className="relative">
-                    <select value={selectedQuestionText} onChange={(e) => setSelectedQuestionText(e.target.value)} className="w-full p-5 pr-12 bg-black/5 text-black rounded-[1.5rem] font-bold text-sm outline-none shadow-sm cursor-pointer border border-black/5 hover:bg-black/10 transition-all appearance-none" disabled={availableQuestions.length === 0}>
+                    <select value={selectedQuestionText} onChange={(e) => setSelectedQuestionText(e.target.value)} className="w-full p-4 sm:p-5 pr-12 bg-black/5 text-black rounded-[1rem] sm:rounded-[1.5rem] font-bold text-sm outline-none shadow-sm cursor-pointer border border-black/5 hover:bg-black/10 transition-all appearance-none" disabled={availableQuestions.length === 0}>
                       {availableQuestions.length > 0 ? availableQuestions.map((q: any, i: number) => <option key={i} value={q.questionText}>{q.questionText}</option>) : <option value="">Žiadne otázky nie sú k dispozícii</option>}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-black/40 pointer-events-none" />
@@ -842,16 +871,16 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 sm:gap-6">
 
               {selectedQuestionThemeCloud.length > 0 && (
-                <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-xl">
+                <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-xl">
                   <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 flex items-center gap-2">
                     <Lightbulb className="w-4 h-4" /> Tematická mapa odpovedí (otázka)
                   </h5>
 
-                  <div className="bg-black/5 rounded-2xl p-5 md:p-6 border border-black/5">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                  <div className="bg-black/5 rounded-2xl p-4 sm:p-5 md:p-6 border border-black/5">
+                    <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
                       {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
                         <span
                           key={tIdx}
@@ -881,34 +910,34 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 return (
                   <div
                     key={index}
-                    className={`bg-white p-8 md:p-10 rounded-[2.5rem] border transition-all duration-300 flex flex-col group cursor-pointer ${expandedRecIndex === index ? 'border-brand/20 shadow-2xl' : 'border-black/5 shadow-xl hover:shadow-2xl hover:border-black/10'}`}
+                    className={`bg-white p-5 sm:p-6 md:p-8 lg:p-10 rounded-[1.25rem] sm:rounded-[1.75rem] lg:rounded-[2.5rem] border transition-all duration-300 flex flex-col group cursor-pointer ${expandedRecIndex === index ? 'border-brand/20 shadow-2xl' : 'border-black/5 shadow-xl hover:shadow-2xl hover:border-black/10'}`}
                     onClick={() => setExpandedRecIndex(expandedRecIndex === index ? null : index)}
                   >
-                    <div className="flex flex-col md:flex-row gap-8 items-start w-full">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${expandedRecIndex === index ? 'bg-brand text-white scale-110' : 'bg-brand/5 text-brand group-hover:scale-110 group-hover:bg-brand group-hover:text-white'}`}>
-                        <span className="font-black text-2xl">{index + 1}</span>
+                    <div className="flex flex-col md:flex-row gap-4 sm:gap-6 md:gap-8 items-start w-full">
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${expandedRecIndex === index ? 'bg-brand text-white scale-110' : 'bg-brand/5 text-brand group-hover:scale-110 group-hover:bg-brand group-hover:text-white'}`}>
+                        <span className="font-black text-xl sm:text-2xl">{index + 1}</span>
                       </div>
-                      <div className="flex-grow pt-2 flex flex-col md:flex-row justify-between items-start gap-4">
-                        <div className="max-w-4xl">
-                          <h4 className="text-2xl font-black text-black mb-4 leading-tight">{rec.title}</h4>
-                          <p className="text-black/60 font-medium text-base leading-relaxed">{rec.description}</p>
+                      <div className="flex-grow pt-1 sm:pt-2 flex flex-col md:flex-row justify-between items-start gap-4 min-w-0">
+                        <div className="max-w-4xl min-w-0">
+                          <h4 className="text-lg sm:text-xl md:text-2xl font-black text-black mb-2 sm:mb-4 leading-tight break-words">{rec.title}</h4>
+                          <p className="text-sm sm:text-base text-black/60 font-medium leading-relaxed break-words">{rec.description}</p>
                         </div>
-                        <div className={`shrink-0 mt-2 w-10 h-10 rounded-full flex items-center justify-center bg-black/5 transition-transform duration-300 ${expandedRecIndex === index ? 'rotate-180 bg-brand/10 text-brand' : 'text-black/40 group-hover:bg-black/10'}`}>
+                        <div className={`shrink-0 mt-1 md:mt-2 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-black/5 transition-transform duration-300 ${expandedRecIndex === index ? 'rotate-180 bg-brand/10 text-brand' : 'text-black/40 group-hover:bg-black/10'}`}>
                           <ChevronDown className="w-5 h-5" />
                         </div>
                       </div>
                     </div>
 
                     {expandedRecIndex === index && (
-                      <div className="mt-8 pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24 space-y-8">
+                      <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-black/5 animate-fade-in pl-0 md:pl-24 space-y-6 sm:space-y-8">
                         {hasQuotes ? (
                           <div>
-                            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-6 flex items-center gap-2">
+                            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 sm:mb-6 flex items-center gap-2">
                               <MessageCircle className="w-4 h-4" /> Reprezentatívne citácie z odpovedí
                             </h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                               {rec.quotes.map((quote: string, qIdx: number) => (
-                                <div key={qIdx} className="bg-black/5 p-5 rounded-2xl relative">
+                                <div key={qIdx} className="bg-black/5 p-4 sm:p-5 rounded-2xl relative">
                                   <Quote className="w-5 h-5 text-black/10 absolute top-4 left-4" />
                                   <p className="text-sm font-medium text-black/80 italic pl-8 leading-relaxed">"{quote}"</p>
                                 </div>
@@ -916,7 +945,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                             </div>
                           </div>
                         ) : (
-                          <div className="bg-black/5 rounded-2xl p-5 text-sm font-bold text-black/50">
+                          <div className="bg-black/5 rounded-2xl p-4 sm:p-5 text-sm font-bold text-black/50">
                             Pre toto odporúčanie nie sú dostupné citácie.
                           </div>
                         )}
@@ -927,7 +956,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               })}
             </div>
           ) : (
-            <div className="text-center py-20 bg-white rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest">
+            <div className="text-center py-16 sm:py-20 bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 text-black/30 font-black uppercase tracking-widest text-xs sm:text-sm">
               Pre túto otázku a stredisko nie sú dostupné žiadne odporúčania.
             </div>
           )}
@@ -936,9 +965,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {(data.areas || []).some((a: any) => a.id === activeTab) && renderSection(activeTab as string)}
 
-      <div className="mt-16 pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-6">
+      <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6">
         <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="Libellius" className="h-24 w-auto object-contain" />
+          <img src="/logo.png" alt="Libellius" className="h-14 sm:h-20 lg:h-24 w-auto object-contain" />
         </div>
         <div className="text-center md:text-right">
           <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
