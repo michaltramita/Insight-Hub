@@ -380,29 +380,38 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </div>
 
               <div className="w-full overflow-x-auto">
-                <div className="min-w-[920px] h-[520px] sm:h-[550px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeMetrics} layout="vertical" margin={{ left: 20, right: 80, top: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-                      <XAxis type="number" domain={[0, scaleMax]} hide />
-                      <YAxis
-                        dataKey="category"
-                        type="category"
-                        width={380}
-                        tick={{ fontSize: 12, fontWeight: 800, fill: '#000' }}
-                        interval={0}
-                        tickFormatter={(val: string) => val.length > 55 ? val.substring(0, 55) + '...' : val}
-                      />
-                      <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
-                      <Bar dataKey="score" radius={[0, 15, 15, 0]} barSize={32}>
-                        {activeMetrics.map((entry: any, index: number) => (
-                          <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
-                        ))}
-                        <LabelList dataKey="score" position="right" style={{ fontWeight: 900, fontSize: '15px', fill: '#000' }} offset={15} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <div className="min-w-[860px] h-[380px] sm:h-[420px] lg:h-[460px]">
+  <ResponsiveContainer width="100%" height="100%">
+    <BarChart
+      data={activeMetrics}
+      layout="vertical"
+      margin={{ left: 10, right: 55, top: 6, bottom: 6 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+      <XAxis type="number" domain={[0, scaleMax]} hide />
+      <YAxis
+        dataKey="category"
+        type="category"
+        width={300} // bolo 380
+        tick={{ fontSize: 14, fontWeight: 800, fill: '#000' }} // bolo 12
+        interval={0}
+        tickFormatter={(val: string) => val.length > 42 ? val.substring(0, 42) + '...' : val} // bolo 55
+      />
+      <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
+      <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}> {/* bolo 32 */}
+        {activeMetrics.map((entry: any, index: number) => (
+          <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
+        ))}
+        <LabelList
+          dataKey="score"
+          position="right"
+          style={{ fontWeight: 900, fontSize: '14px', fill: '#000' }} // bolo 15px
+          offset={10} // bolo 15
+        />
+      </Bar>
+    </BarChart>
+  </ResponsiveContainer>
+</div>
               </div>
             </div>
 
