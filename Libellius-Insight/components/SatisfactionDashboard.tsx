@@ -393,7 +393,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         dataKey="category"
         type="category"
         width={540} // bolo 380
-        tick={{ fontSize: 14, fontWeight: 800, fill: '#000' }} // bolo 12
+        tick={{ fontSize: 16, fontWeight: 800, fill: '#000' }} // bolo 12
         interval={0}
         tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val} // bolo 55
       />
