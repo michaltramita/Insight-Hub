@@ -3,14 +3,14 @@ import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import LZString from 'lz-string';
-import { 
+import {
   Users, Search, BarChart4, MapPin, UserCheck,
-  Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown, 
+  Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown,
   MessageSquare, Quote, MessageCircle, Filter, Lightbulb, BarChart as BarChartIcon
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
-  PieChart, Pie, Legend
+  PieChart, Pie
 } from 'recharts';
 
 interface Props {
@@ -223,6 +223,27 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
 
+  const engagementChartData = useMemo(() => {
+    return filteredEngagement.map((team: any, index: number) => {
+      const count = Number(team.count) || 0;
+      const percentage = totalFilteredCount > 0 ? Number(((count / totalFilteredCount) * 100).toFixed(1)) : 0;
+      return {
+        ...team,
+        count,
+        percentage,
+        color: PIE_COLORS[index % PIE_COLORS.length],
+      };
+    });
+  }, [filteredEngagement, totalFilteredCount]);
+
+  const topEngagementTeam = engagementChartData.length > 0
+    ? [...engagementChartData].sort((a, b) => b.count - a.count)[0]
+    : null;
+
+  const averagePerTeam = engagementChartData.length > 0
+    ? Math.round(totalFilteredCount / engagementChartData.length)
+    : 0;
+
   // Theme cloud je teraz na úrovni otázky
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
@@ -434,17 +455,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-16 px-4 md:px-0">
-      
+
       {/* NOVÁ ŠTRUKTÚROVANÁ HLAVIČKA */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 md:p-12 shadow-2xl flex flex-col md:flex-row justify-between items-start gap-8 relative overflow-hidden">
-        
+
         {/* Branding & Info Sekcia */}
         <div className="flex flex-col gap-6 relative z-10 w-full md:w-auto">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <h2 className="text-3xl font-black tracking-tighter uppercase">
                 Libellius <span className="text-brand">InsightHub</span>
@@ -460,10 +481,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </h1>
             <div className="flex flex-wrap items-center gap-4 mt-2">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5">
-                 <Building2 className="w-4 h-4 text-black/40" />
-                 <span className="text-[11px] font-black uppercase tracking-widest text-black/60">
-                   {data.clientName || 'Názov firmy'}
-                 </span>
+                <Building2 className="w-4 h-4 text-black/40" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-black/60">
+                  {data.clientName || 'Názov firmy'}
+                </span>
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">
                 Vydané: {result.reportMetadata?.date || new Date().getFullYear().toString()}
@@ -477,11 +498,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             <>
               <button
                 onClick={generateShareLink}
-                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-xl ${
-                  copyStatus 
-                  ? 'bg-green-600 text-white scale-105' 
-                  : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black transition-all text-[11px] uppercase tracking-widest shadow-xl ${copyStatus
+                    ? 'bg-green-600 text-white scale-105'
+                    : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'
+                  }`}
               >
                 {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                 {copyStatus ? 'Skopírované!' : 'Zdieľať'}
@@ -514,9 +534,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as TabType)}
-            className={`shrink-0 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${
-              activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'
-            }`}
+            className={`shrink-0 flex items-center justify-center gap-2 py-5 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg scale-105' : 'text-black/40 hover:text-black'
+              }`}
           >
             <t.icon className="w-4 h-4" /> {t.label}
           </button>
@@ -559,9 +578,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
                 <button
                   onClick={() => setShowTeamFilter(!showTeamFilter)}
-                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${
-                    showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'
-                  }`}
+                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
                   Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
@@ -580,9 +598,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                           prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
                         );
                       }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'
-                      }`}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'
+                        }`}
                     >
                       {team}
                     </button>
@@ -639,53 +656,149 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {filteredEngagement.length > 0 && (
-            <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in flex flex-col items-center">
-              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2 text-center">Vizualizácia zapojenia</h3>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 text-center mb-8">
-                {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
-              </p>
+            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
+              <div className="flex flex-col gap-8">
+                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                  <div>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Vizualizácia zapojenia</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mt-2">
+                      {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
+                    </p>
+                  </div>
 
-              <div className="h-[550px] w-full max-w-5xl">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={filteredEngagement}
-                      cx="40%"
-                      cy="50%"
-                      innerRadius={140}
-                      outerRadius={220}
-                      paddingAngle={3}
-                      dataKey="count"
-                      nameKey="name"
-                      stroke="none"
-                    >
-                      {filteredEngagement.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value, name) => {
-                        const count = Number(value);
-                        const percentage = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : '0.0';
-                        return [`${count} osôb (${percentage}%)`, name];
-                      }}
-                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ fontWeight: 900, color: '#000' }}
-                    />
-                    <Legend
-                      layout="vertical"
-                      verticalAlign="middle"
-                      align="right"
-                      iconType="circle"
-                      wrapperStyle={{
-                        fontSize: '20px',
-                        fontWeight: 700,
-                        lineHeight: '36px',
-                        paddingLeft: '40px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[150px]">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Počet tímov</p>
+                      <p className="text-2xl font-black tracking-tight">{engagementChartData.length}</p>
+                    </div>
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[150px]">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Zapojených spolu</p>
+                      <p className="text-2xl font-black tracking-tight">{totalFilteredCount}</p>
+                    </div>
+                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-[180px]">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Top tím</p>
+                      <p className="text-sm font-black tracking-tight truncate">
+                        {topEngagementTeam ? `${topEngagementTeam.name} (${topEngagementTeam.percentage}%)` : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-center">
+                  <div className="xl:col-span-7 h-[420px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={engagementChartData}
+                          cx="42%"
+                          cy="50%"
+                          innerRadius={95}
+                          outerRadius={155}
+                          paddingAngle={3}
+                          dataKey="count"
+                          nameKey="name"
+                          stroke="none"
+                        >
+                          {engagementChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+
+                        <Tooltip
+                          formatter={(value, name) => {
+                            const count = Number(value);
+                            const percentage = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : '0.0';
+                            return [`${count} osôb (${percentage}%)`, name];
+                          }}
+                          contentStyle={{
+                            borderRadius: '1rem',
+                            border: 'none',
+                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                            fontWeight: 700
+                          }}
+                          itemStyle={{ fontWeight: 900, color: '#000' }}
+                        />
+
+                        <text
+                          x="42%"
+                          y="47%"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          className="fill-black"
+                          style={{ fontSize: '40px', fontWeight: 900 }}
+                        >
+                          {totalFilteredCount}
+                        </text>
+                        <text
+                          x="42%"
+                          y="56%"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '11px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
+                        >
+                          zapojených osôb
+                        </text>
+                        <text
+                          x="42%"
+                          y="63%"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '10px', fontWeight: 700 }}
+                        >
+                          Priemer na tím: {averagePerTeam}
+                        </text>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="xl:col-span-5">
+                    <div className="bg-black/5 rounded-3xl border border-black/5 p-4 md:p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
+                          Rozdelenie podľa tímov
+                        </h4>
+                      </div>
+
+                      <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
+                        {engagementChartData
+                          .slice()
+                          .sort((a, b) => b.count - a.count)
+                          .map((team: any, idx: number) => (
+                            <div
+                              key={`${team.name}-${idx}`}
+                              className={`rounded-2xl border p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
+                            >
+                              <div className="flex items-center justify-between gap-3 mb-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: team.color }}
+                                  />
+                                  <span className="font-black text-sm text-black truncate">{team.name}</span>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-black leading-none">{team.count}</p>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-brand mt-1">
+                                    {team.percentage}%
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${team.percentage}%`,
+                                    backgroundColor: team.color
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -731,7 +844,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
             <div className="flex flex-col gap-6">
 
-              {/* SAMOSTATNÝ THEME CLOUD BLOK PRE OTÁZKU */}
               {selectedQuestionThemeCloud.length > 0 && (
                 <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-black/5 shadow-xl">
                   <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 flex items-center gap-2">
@@ -763,7 +875,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
               )}
 
-              {/* ODPORÚČANIA */}
               {selectedQuestionData.recommendations.map((rec: any, index: number) => {
                 const hasQuotes = Array.isArray(rec?.quotes) && rec.quotes.length > 0;
 
