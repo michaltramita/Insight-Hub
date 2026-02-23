@@ -782,38 +782,20 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-3 w-full lg:w-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
-                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Počet tímov</p>
-                        <p className="text-xl sm:text-2xl font-black tracking-tight">{engagementChartData.length}</p>
-                      </div>
-                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Zapojených spolu</p>
-                        <p className="text-xl sm:text-2xl font-black tracking-tight">{totalFilteredCount}</p>
-                      </div>
-                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[180px]">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Top tím</p>
-                        <p className="text-sm font-black tracking-tight truncate">
-                          {topEngagementTeam ? `${topEngagementTeam.name} (${topEngagementTeam.percentage}%)` : '-'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
-                      <button
-                        onClick={() => setEngagementVisualMode('CARDS')}
-                        className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'CARDS' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
-                      >
-                        Karty
-                      </button>
-                      <button
-                        onClick={() => setEngagementVisualMode('PIE')}
-                        className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'PIE' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
-                      >
-                        Koláč
-                      </button>
-                    </div>
+            <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
+  <button
+    onClick={() => setEngagementVisualMode('CARDS')}
+    className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'CARDS' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+  >
+    Karty
+  </button>
+  <button
+    onClick={() => setEngagementVisualMode('PIE')}
+    className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'PIE' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+  >
+    Koláč
+  </button>
+</div>
                   </div>
                 </div>
 
