@@ -968,7 +968,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   <div className="mt-2 space-y-2.5 animate-fade-in">
     <div className="bg-white rounded-xl border border-black/5 p-3">
       <p className="text-[8px] font-black uppercase tracking-widest text-black/35 mb-1.5">
-        Čo vidíme
+        Čo hovoria čísla?
       </p>
       <p className="text-sm sm:text-[15px] font-medium leading-relaxed text-black/75">
         {team.aiSummary ||
