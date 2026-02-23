@@ -772,283 +772,383 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {filteredEngagement.length > 0 && (
-            <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
-              <div className="flex flex-col gap-6 sm:gap-8">
-                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Vizualizácia zapojenia</h3>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mt-2">
-                      {selectedEngagementTeams.length > 0 ? "Podiel vo vybraných strediskách" : "Podiel na celkovej účasti"}
-                    </p>
+  <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
+    <div className="flex flex-col gap-6 sm:gap-8">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">
+            Vizualizácia zapojenia
+          </h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mt-2">
+            {selectedEngagementTeams.length > 0
+              ? 'Podiel vo vybraných strediskách'
+              : 'Podiel na celkovej účasti'}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full lg:w-auto">
+          {/* INFO BLOKY VPRAVO HORE ODSTRÁNENÉ */}
+
+          <div className="flex items-center gap-3">
+            <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
+              <button
+                onClick={() => setEngagementVisualMode('CARDS')}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  engagementVisualMode === 'CARDS'
+                    ? 'bg-white text-black shadow-md'
+                    : 'text-black/40 hover:text-black'
+                }`}
+              >
+                Karty
+              </button>
+              <button
+                onClick={() => setEngagementVisualMode('PIE')}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  engagementVisualMode === 'PIE'
+                    ? 'bg-white text-black shadow-md'
+                    : 'text-black/40 hover:text-black'
+                }`}
+              >
+                Koláč
+              </button>
+            </div>
+
+            {engagementVisualMode === 'CARDS' && engagementTeamCards.length > 2 && (
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollEngagementCards('left')}
+                  disabled={!canScrollEngagementLeft}
+                  className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-sm transition-all ${
+                    canScrollEngagementLeft
+                      ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white'
+                      : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                  }`}
+                  aria-label="Posunúť doľava"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollEngagementCards('right')}
+                  disabled={!canScrollEngagementRight}
+                  className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-sm transition-all ${
+                    canScrollEngagementRight
+                      ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white'
+                      : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                  }`}
+                  aria-label="Posunúť doprava"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {engagementVisualMode === 'CARDS' ? (
+        <div className="relative">
+          {engagementTeamCards.length > 2 && (
+            <>
+              <div
+                className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${
+                  canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+              <div
+                className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${
+                  canScrollEngagementRight ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+            </>
+          )}
+
+          <div
+            ref={engagementCardsRef}
+            className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
+          >
+            {engagementTeamCards.map((team: any, idx: number) => {
+              const cardId = `${team.name}-${idx}`;
+              const isExpanded = expandedEngagementCard === cardId;
+
+              return (
+                <div
+                  key={cardId}
+                  className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
+                    idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: team.color }}
+                      />
+                      <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
+                        Tím
+                      </p>
+                      <p className="text-base sm:text-lg font-black text-black leading-none mt-1">
+                        #{idx + 1}
+                      </p>
+                    </div>
                   </div>
 
-            <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
-  <button
-    onClick={() => setEngagementVisualMode('CARDS')}
-    className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'CARDS' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
-  >
-    Karty
-  </button>
-  <button
-    onClick={() => setEngagementVisualMode('PIE')}
-    className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'PIE' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
-  >
-    Koláč
-  </button>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                        Počet oslovených
+                      </p>
+                      <p className="text-sm sm:text-base font-black leading-none mt-1">{team.teamSent}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                        Počet odpovedí
+                      </p>
+                      <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responded}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                        Návratnosť v %
+                      </p>
+                      <p className="text-sm sm:text-base font-black leading-none mt-1">
+                        {team.responseRateTeam}%
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                        % podiel na celkovom vyplnení
+                      </p>
+                      <p className="text-sm sm:text-base font-black leading-none mt-1 text-brand">
+                        {team.shareOfAllResponded}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-1.5">
+                    <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)}
+                      className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
+                        {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-black/40 transition-transform ${
+                          isExpanded ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-2 grid grid-cols-1 gap-2.5 animate-fade-in">
+                        <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                            Podiel oslovených v rámci všetkých tímov
+                          </p>
+                          <p className="text-sm sm:text-base font-black leading-none mt-1">
+                            {team.shareOfAllSent}%
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {engagementVisualMode === 'CARDS' ? (
-  <div className="relative">
-    {engagementTeamCards.length > 2 && (
-      <>
-        <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
-        <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
+          {engagementTeamCards.length > 1 && (
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-black/25">
+                Potiahnite do strán pre ďalšie tímy
+              </p>
 
-        <button
-          type="button"
-          onClick={() => scrollEngagementCards('left')}
-          disabled={!canScrollEngagementLeft}
-          className={`hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementLeft ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
+              {engagementTeamCards.length > 2 && (
+                <div className="flex sm:hidden items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => scrollEngagementCards('left')}
+                    disabled={!canScrollEngagementLeft}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
+                      canScrollEngagementLeft
+                        ? 'bg-white border-black/10 text-black'
+                        : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                    }`}
+                    aria-label="Posunúť doľava"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-        <button
-          type="button"
-          onClick={() => scrollEngagementCards('right')}
-          disabled={!canScrollEngagementRight}
-          className={`hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementRight ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </>
-    )}
-
-    <div
-      ref={engagementCardsRef}
-      className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
-    >
-      {engagementTeamCards.map((team: any, idx: number) => {
-        const cardId = `${team.name}-${idx}`;
-        const isExpanded = expandedEngagementCard === cardId;
-
-        return (
-          <div
-            key={cardId}
-            className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
-              idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
-            }`}
-          >
-            {/* Header bez duplicity "Podiel odpovedí" */}
-            <div className="flex items-start justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
-              </div>
-
-              <div className="text-right shrink-0">
-                <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
-                  Tím
-                </p>
-                <p className="text-base sm:text-lg font-black text-black leading-none mt-1">
-                  #{idx + 1}
-                </p>
-              </div>
-            </div>
-
-            {/* 4 požadované metriky */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Počet oslovených</p>
-                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.teamSent}</p>
-              </div>
-
-              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Počet odpovedí</p>
-                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responded}</p>
-              </div>
-
-              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Návratnosť v %</p>
-                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responseRateTeam}%</p>
-              </div>
-
-              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">% podiel na celkovom vyplnení</p>
-                <p className="text-sm sm:text-base font-black leading-none mt-1 text-brand">{team.shareOfAllResponded}%</p>
-              </div>
-            </div>
-
-            {/* progress bar iba vizuálne, bez duplicitného textu */}
-            <div className="mt-3 space-y-1.5">
-              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
-                />
-              </div>
-            </div>
-
-            {/* detail toggle */}
-            <div className="mt-3 pt-2 border-t border-black/5">
-              <button
-                type="button"
-                onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)}
-                className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
-              >
-                <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
-                  {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {isExpanded && (
-                <div className="mt-2 grid grid-cols-1 gap-2.5 animate-fade-in">
-                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
-                      Podiel oslovených v rámci všetkých tímov
-                    </p>
-                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllSent}%</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => scrollEngagementCards('right')}
+                    disabled={!canScrollEngagementRight}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
+                      canScrollEngagementRight
+                        ? 'bg-white border-black/10 text-black'
+                        : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                    }`}
+                    aria-label="Posunúť doprava"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               )}
             </div>
-          </div>
-        );
-      })}
-    </div>
-
-    {engagementTeamCards.length > 1 && (
-      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
-        Potiahnite do strán pre ďalšie tímy
-      </p>
-    )}
-  </div>
-) : (
-                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
-                    <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={engagementChartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={70}
-                            outerRadius={120}
-                            paddingAngle={3}
-                            dataKey="count"
-                            nameKey="name"
-                            stroke="none"
-                          >
-                            {engagementChartData.map((entry: any, index: number) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-
-                          <Tooltip
-                            formatter={(value, name) => {
-                              const count = Number(value);
-                              const percentage = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : '0.0';
-                              return [`${count} osôb (${percentage}%)`, name];
-                            }}
-                            contentStyle={{
-                              borderRadius: '1rem',
-                              border: 'none',
-                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-                              fontWeight: 700
-                            }}
-                            itemStyle={{ fontWeight: 900, color: '#000' }}
-                          />
-
-                          <text
-                            x="50%"
-                            y="46%"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            className="fill-black"
-                            style={{ fontSize: '30px', fontWeight: 900 }}
-                          >
-                            {totalFilteredCount}
-                          </text>
-                          <text
-                            x="50%"
-                            y="55%"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
-                          >
-                            zapojených osôb
-                          </text>
-                          <text
-                            x="50%"
-                            y="62%"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
-                          >
-                            Priemer na tím: {averagePerTeam}
-                          </text>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    <div className="xl:col-span-5 w-full">
-                      <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
-                            Rozdelenie podľa tímov
-                          </h4>
-                        </div>
-
-                        <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
-                          {engagementChartData
-                            .slice()
-                            .sort((a: any, b: any) => b.count - a.count)
-                            .map((team: any, idx: number) => (
-                              <div
-                                key={`${team.name}-${idx}`}
-                                className={`rounded-2xl border p-3 sm:p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
-                              >
-                                <div className="flex items-center justify-between gap-3 mb-2">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                      className="w-3 h-3 rounded-full shrink-0"
-                                      style={{ backgroundColor: team.color }}
-                                    />
-                                    <span className="font-black text-xs sm:text-sm text-black truncate">{team.name}</span>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
-                                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
-                                      {team.percentage}%
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                      width: `${team.percentage}%`,
-                                      backgroundColor: team.color
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           )}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
+          <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={engagementChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={120}
+                  paddingAngle={3}
+                  dataKey="count"
+                  nameKey="name"
+                  stroke="none"
+                >
+                  {engagementChartData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+
+                <Tooltip
+                  formatter={(value, name) => {
+                    const count = Number(value);
+                    const percentage =
+                      totalFilteredCount > 0
+                        ? ((count / totalFilteredCount) * 100).toFixed(1)
+                        : '0.0';
+                    return [`${count} osôb (${percentage}%)`, name];
+                  }}
+                  contentStyle={{
+                    borderRadius: '1rem',
+                    border: 'none',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                    fontWeight: 700
+                  }}
+                  itemStyle={{ fontWeight: 900, color: '#000' }}
+                />
+
+                <text
+                  x="50%"
+                  y="46%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-black"
+                  style={{ fontSize: '30px', fontWeight: 900 }}
+                >
+                  {totalFilteredCount}
+                </text>
+                <text
+                  x="50%"
+                  y="55%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{
+                    fill: 'rgba(0,0,0,0.5)',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase' as any
+                  }}
+                >
+                  zapojených osôb
+                </text>
+                <text
+                  x="50%"
+                  y="62%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
+                >
+                  Priemer na tím: {averagePerTeam}
+                </text>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="xl:col-span-5 w-full">
+            <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
+                  Rozdelenie podľa tímov
+                </h4>
+              </div>
+
+              <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
+                {engagementChartData
+                  .slice()
+                  .sort((a: any, b: any) => b.count - a.count)
+                  .map((team: any, idx: number) => (
+                    <div
+                      key={`${team.name}-${idx}`}
+                      className={`rounded-2xl border p-3 sm:p-4 ${
+                        idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: team.color }}
+                          />
+                          <span className="font-black text-xs sm:text-sm text-black truncate">
+                            {team.name}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
+                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
+                            {team.percentage}%
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${team.percentage}%`,
+                            backgroundColor: team.color
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+    </div>
+  </div>
+)}
 
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-8 sm:space-y-10 animate-fade-in">
