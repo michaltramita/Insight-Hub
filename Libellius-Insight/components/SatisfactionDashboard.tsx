@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
@@ -6,7 +6,8 @@ import LZString from 'lz-string';
 import {
   Users, Search, BarChart4, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown,
-  MessageSquare, Quote, MessageCircle, Filter, Lightbulb, BarChart as BarChartIcon
+  MessageSquare, Quote, MessageCircle, Filter, Lightbulb, BarChart as BarChartIcon,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
@@ -65,6 +66,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({});
   const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({});
+
+  const engagementCardsRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollEngagementLeft, setCanScrollEngagementLeft] = useState(false);
+  const [canScrollEngagementRight, setCanScrollEngagementRight] = useState(false);
 
   const generateShareLink = () => {
     try {
@@ -276,6 +281,47 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const averagePerTeam = engagementChartData.length > 0
     ? Math.round(totalFilteredCount / engagementChartData.length)
     : 0;
+
+  const updateEngagementScrollState = () => {
+    const el = engagementCardsRef.current;
+    if (!el) return;
+    const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+    setCanScrollEngagementLeft(el.scrollLeft > 8);
+    setCanScrollEngagementRight(el.scrollLeft < maxScrollLeft - 8);
+  };
+
+  const scrollEngagementCards = (direction: 'left' | 'right') => {
+    const el = engagementCardsRef.current;
+    if (!el) return;
+    const amount = Math.max(280, Math.round(el.clientWidth * 0.72));
+    el.scrollBy({
+      left: direction === 'right' ? amount : -amount,
+      behavior: 'smooth'
+    });
+  };
+
+  useEffect(() => {
+    if (engagementVisualMode !== 'CARDS') return;
+
+    const el = engagementCardsRef.current;
+    if (!el) return;
+
+    updateEngagementScrollState();
+
+    const onScroll = () => updateEngagementScrollState();
+    const onResize = () => updateEngagementScrollState();
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+
+    const timer = window.setTimeout(updateEngagementScrollState, 50);
+
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      window.clearTimeout(timer);
+    };
+  }, [engagementVisualMode, engagementTeamCards.length]);
 
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
@@ -521,10 +567,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12 sm:pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] 2xl:max-w-[1800px] mx-auto">
 
-      {/* NOVÁ ŠTRUKTÚROVANÁ HLAVIČKA */}
       <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden">
-
-        {/* Branding & Info Sekcia */}
         <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
           <div className="space-y-2 sm:space-y-3">
             <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
@@ -558,7 +601,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
         </div>
 
-        {/* FIX 1: buttony pod sebou */}
         <div className="flex flex-col items-stretch gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
           {!isSharedView && (
             <>
@@ -594,8 +636,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         <div className="absolute top-[-20%] right-[-10%] w-72 sm:w-96 h-72 sm:h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
       </div>
 
-      {/* TABS */}
-      {/* FIX 2: na desktope sa buttony roztiahnu cez celu sirku lišty */}
       <div className="flex gap-2 bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
         {allTabs.map(t => (
           <button
@@ -773,66 +813,100 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                 </div>
 
-      {engagementVisualMode === 'CARDS' ? (
-  <div className="relative">
-    <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar">
-      {engagementTeamCards.map((team: any, idx: number) => (
-        <div
-  key={`${team.name}-${idx}`}
-  className={`snap-start shrink-0 w-[88%] sm:w-[420px] xl:w-[460px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${
-    idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
-  }`}
->
-  <div className="flex items-start justify-between gap-3 mb-4">
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-      <h4 className="font-black text-base sm:text-lg text-black truncate">{team.name}</h4>
-    </div>
-  </div>
+                {engagementVisualMode === 'CARDS' ? (
+                  <div className="relative">
+                    {engagementTeamCards.length > 2 && (
+                      <>
+                        <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
+                        <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
 
-  <div className="grid grid-cols-2 gap-3">
-    <div className="bg-white rounded-xl border border-black/5 p-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
-      <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.teamSent}</p>
-    </div>
+                        <button
+                          type="button"
+                          onClick={() => scrollEngagementCards('left')}
+                          disabled={!canScrollEngagementLeft}
+                          className={`hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementLeft ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
 
-    <div className="bg-white rounded-xl border border-black/5 p-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
-      <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responded}</p>
-    </div>
+                        <button
+                          type="button"
+                          onClick={() => scrollEngagementCards('right')}
+                          disabled={!canScrollEngagementRight}
+                          className={`hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementRight ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
 
-    <div className="bg-white rounded-xl border border-black/5 p-3 col-span-2 sm:col-span-1">
-      <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Návratnosť tímu</p>
-      <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responseRateTeam}%</p>
-    </div>
-  </div>
+                    <div
+                      ref={engagementCardsRef}
+                      className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
+                    >
+                      {engagementTeamCards.map((team: any, idx: number) => (
+                        <div
+                          key={`${team.name}-${idx}`}
+                          className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[320px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${
+                            idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                              <h4 className="font-black text-base sm:text-lg text-black truncate">{team.name}</h4>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Podiel odpovedí</p>
+                              <p className="text-xl sm:text-2xl font-black text-brand leading-none mt-1">{team.shareOfAllResponded}%</p>
+                            </div>
+                          </div>
 
-  <div className="mt-3 flex items-center justify-between text-xs">
-    <span className="font-black uppercase tracking-widest text-black/35">Podiel na oslovení</span>
-    <span className="font-black text-black">{team.shareOfAllSent}%</span>
-  </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-white rounded-xl border border-black/5 p-3">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
+                              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.teamSent}</p>
+                            </div>
 
-  <div className="mt-4 space-y-2">
-    <div className="flex items-center justify-between">
-      <p className="text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení</p>
-      <p className="text-xs font-black text-brand">{team.shareOfAllResponded}%</p>
-    </div>
-    <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
-      />
-    </div>
-  </div>
-</div>
-      ))}
-    </div>
+                            <div className="bg-white rounded-xl border border-black/5 p-3">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
+                              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responded}</p>
+                            </div>
 
-    <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
-      Potiahnite do strán pre ďalšie tímy
-    </p>
-  </div>
-) : (
+                            <div className="bg-white rounded-xl border border-black/5 p-3">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Návratnosť tímu</p>
+                              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responseRateTeam}%</p>
+                            </div>
+
+                            <div className="bg-white rounded-xl border border-black/5 p-3">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Podiel na oslovení</p>
+                              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.shareOfAllSent}%</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení</p>
+                              <p className="text-xs font-black text-brand">{team.shareOfAllResponded}%</p>
+                            </div>
+                            <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {engagementTeamCards.length > 1 && (
+                      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
+                        Potiahnite do strán pre ďalšie tímy
+                      </p>
+                    )}
+                  </div>
+                ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
                     <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
