@@ -955,7 +955,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                                 className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
                               >
                                 <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
-                                 {isExpanded ? 'Skryť AI komentár' : 'AI komentár'}
+                                 {isExpanded ? 'Skryť' : 'Interpretácia dát tímu'}
                                 </span>
                                 <ChevronDown
                                   className={`w-4 h-4 text-black/40 transition-transform ${
