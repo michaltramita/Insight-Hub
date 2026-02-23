@@ -23,6 +23,7 @@ type ViewMode = 'DETAIL' | 'COMPARISON';
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 type ComparisonFilterType = 'ALL' | 'PRIEREZOVA' | 'SPECIFICKA';
+type EngagementVisualMode = 'CARDS' | 'PIE';
 
 const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
 
@@ -53,6 +54,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [comparisonFilter, setComparisonFilter] = useState<ComparisonFilterType>('ALL');
+  const [engagementVisualMode, setEngagementVisualMode] = useState<EngagementVisualMode>('CARDS');
 
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
@@ -220,8 +222,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return teams;
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
-  const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + curr.count, 0);
+  const totalFilteredCount = filteredEngagement.reduce((acc, curr) => acc + (Number(curr.count) || 0), 0);
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
+  const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
   const engagementChartData = useMemo(() => {
     return filteredEngagement.map((team: any, index: number) => {
@@ -235,6 +238,36 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       };
     });
   }, [filteredEngagement, totalFilteredCount]);
+
+  const engagementTeamCards = useMemo(() => {
+    return engagementChartData
+      .slice()
+      .sort((a, b) => b.count - a.count)
+      .map((team: any) => {
+        const responded = Number(team.count) || 0;
+
+        const sentRaw = team.totalSent ?? team.sent ?? team.invited ?? team.osloveni ?? team.total;
+        const teamSent =
+          typeof sentRaw === 'number' && sentRaw > 0
+            ? sentRaw
+            : (responded > 0 && safeTotalReceived > 0)
+              ? Math.round((responded / safeTotalReceived) * safeTotalSent)
+              : 0;
+
+        const responseRateTeam = teamSent > 0 ? Number(((responded / teamSent) * 100).toFixed(1)) : 0;
+        const shareOfAllResponded = safeTotalReceived > 0 ? Number(((responded / safeTotalReceived) * 100).toFixed(1)) : 0;
+        const shareOfAllSent = safeTotalSent > 0 ? Number(((teamSent / safeTotalSent) * 100).toFixed(1)) : 0;
+
+        return {
+          ...team,
+          responded,
+          teamSent,
+          responseRateTeam,
+          shareOfAllResponded,
+          shareOfAllSent,
+        };
+      });
+  }, [engagementChartData, safeTotalReceived, safeTotalSent]);
 
   const topEngagementTeam = engagementChartData.length > 0
     ? [...engagementChartData].sort((a, b) => b.count - a.count)[0]
@@ -381,37 +414,37 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
               <div className="w-full overflow-x-auto">
                 <div className="min-w-[860px] h-[380px] sm:h-[420px] lg:h-[460px]">
-  <ResponsiveContainer width="100%" height="100%">
-    <BarChart
-      data={activeMetrics}
-      layout="vertical"
-      margin={{ left: 30, right: 55, top: 6, bottom: 6 }}
-    >
-      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-      <XAxis type="number" domain={[0, scaleMax]} hide />
-      <YAxis
-        dataKey="category"
-        type="category"
-        width={540} // bolo 380
-        tick={{ fontSize: 16, fontWeight: 800, fill: '#000' }} // bolo 12
-        interval={0}
-        tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val} // bolo 55
-      />
-      <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
-      <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}> {/* bolo 32 */}
-        {activeMetrics.map((entry: any, index: number) => (
-          <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
-        ))}
-        <LabelList
-          dataKey="score"
-          position="right"
-          style={{ fontWeight: 900, fontSize: '14px', fill: '#000' }} // bolo 15px
-          offset={10} // bolo 15
-        />
-      </Bar>
-    </BarChart>
-  </ResponsiveContainer>
-</div>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={activeMetrics}
+                      layout="vertical"
+                      margin={{ left: 30, right: 55, top: 6, bottom: 6 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+                      <XAxis type="number" domain={[0, scaleMax]} hide />
+                      <YAxis
+                        dataKey="category"
+                        type="category"
+                        width={540}
+                        tick={{ fontSize: 16, fontWeight: 800, fill: '#000' }}
+                        interval={0}
+                        tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val}
+                      />
+                      <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
+                      <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
+                        {activeMetrics.map((entry: any, index: number) => (
+                          <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
+                        ))}
+                        <LabelList
+                          dataKey="score"
+                          position="right"
+                          style={{ fontWeight: 900, fontSize: '14px', fill: '#000' }}
+                          offset={10}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
@@ -705,139 +738,213 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Počet tímov</p>
-                      <p className="text-xl sm:text-2xl font-black tracking-tight">{engagementChartData.length}</p>
+                  <div className="flex flex-col gap-3 w-full lg:w-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Počet tímov</p>
+                        <p className="text-xl sm:text-2xl font-black tracking-tight">{engagementChartData.length}</p>
+                      </div>
+                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Zapojených spolu</p>
+                        <p className="text-xl sm:text-2xl font-black tracking-tight">{totalFilteredCount}</p>
+                      </div>
+                      <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[180px]">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Top tím</p>
+                        <p className="text-sm font-black tracking-tight truncate">
+                          {topEngagementTeam ? `${topEngagementTeam.name} (${topEngagementTeam.percentage}%)` : '-'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[150px]">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Zapojených spolu</p>
-                      <p className="text-xl sm:text-2xl font-black tracking-tight">{totalFilteredCount}</p>
-                    </div>
-                    <div className="bg-black/5 rounded-2xl px-4 py-3 border border-black/5 min-w-0 sm:min-w-[180px]">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Top tím</p>
-                      <p className="text-sm font-black tracking-tight truncate">
-                        {topEngagementTeam ? `${topEngagementTeam.name} (${topEngagementTeam.percentage}%)` : '-'}
-                      </p>
+
+                    <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
+                      <button
+                        onClick={() => setEngagementVisualMode('CARDS')}
+                        className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'CARDS' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                      >
+                        Karty
+                      </button>
+                      <button
+                        onClick={() => setEngagementVisualMode('PIE')}
+                        className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engagementVisualMode === 'PIE' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
+                      >
+                        Koláč
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
-                  <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={engagementChartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={70}
-                          outerRadius={120}
-                          paddingAngle={3}
-                          dataKey="count"
-                          nameKey="name"
-                          stroke="none"
-                        >
-                          {engagementChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
+                {engagementVisualMode === 'CARDS' ? (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
+                    {engagementTeamCards.map((team: any, idx: number) => (
+                      <div
+                        key={`${team.name}-${idx}`}
+                        className={`rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'}`}
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                            <h4 className="font-black text-base sm:text-lg text-black truncate">{team.name}</h4>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Podiel odpovedí</p>
+                            <p className="text-lg sm:text-xl font-black text-brand">{team.shareOfAllResponded}%</p>
+                          </div>
+                        </div>
 
-                        <Tooltip
-                          formatter={(value, name) => {
-                            const count = Number(value);
-                            const percentage = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : '0.0';
-                            return [`${count} osôb (${percentage}%)`, name];
-                          }}
-                          contentStyle={{
-                            borderRadius: '1rem',
-                            border: 'none',
-                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-                            fontWeight: 700
-                          }}
-                          itemStyle={{ fontWeight: 900, color: '#000' }}
-                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white rounded-xl border border-black/5 p-3">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
+                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.teamSent}</p>
+                          </div>
 
-                        <text
-                          x="50%"
-                          y="46%"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className="fill-black"
-                          style={{ fontSize: '30px', fontWeight: 900 }}
-                        >
-                          {totalFilteredCount}
-                        </text>
-                        <text
-                          x="50%"
-                          y="55%"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
-                        >
-                          zapojených osôb
-                        </text>
-                        <text
-                          x="50%"
-                          y="62%"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
-                        >
-                          Priemer na tím: {averagePerTeam}
-                        </text>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                          <div className="bg-white rounded-xl border border-black/5 p-3">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
+                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responded}</p>
+                          </div>
 
-                  <div className="xl:col-span-5 w-full">
-                    <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
-                          Rozdelenie podľa tímov
-                        </h4>
-                      </div>
+                          <div className="bg-white rounded-xl border border-black/5 p-3">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Návratnosť tímu</p>
+                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responseRateTeam}%</p>
+                          </div>
 
-                      <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
-                        {engagementChartData
-                          .slice()
-                          .sort((a, b) => b.count - a.count)
-                          .map((team: any, idx: number) => (
+                          <div className="bg-white rounded-xl border border-black/5 p-3">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Podiel na oslovení</p>
+                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.shareOfAllSent}%</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení</p>
+                            <p className="text-xs font-black text-brand">{team.shareOfAllResponded}%</p>
+                          </div>
+                          <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
                             <div
-                              key={`${team.name}-${idx}`}
-                              className={`rounded-2xl border p-3 sm:p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
-                            >
-                              <div className="flex items-center justify-between gap-3 mb-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className="w-3 h-3 rounded-full shrink-0"
-                                    style={{ backgroundColor: team.color }}
-                                  />
-                                  <span className="font-black text-xs sm:text-sm text-black truncate">{team.name}</span>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
-                                  <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
-                                    {team.percentage}%
-                                  </p>
-                                </div>
-                              </div>
+                              className="h-full rounded-full"
+                              style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
+                    <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={engagementChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={120}
+                            paddingAngle={3}
+                            dataKey="count"
+                            nameKey="name"
+                            stroke="none"
+                          >
+                            {engagementChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
 
-                              <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${team.percentage}%`,
-                                    backgroundColor: team.color
-                                  }}
-                                />
+                          <Tooltip
+                            formatter={(value, name) => {
+                              const count = Number(value);
+                              const percentage = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : '0.0';
+                              return [`${count} osôb (${percentage}%)`, name];
+                            }}
+                            contentStyle={{
+                              borderRadius: '1rem',
+                              border: 'none',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                              fontWeight: 700
+                            }}
+                            itemStyle={{ fontWeight: 900, color: '#000' }}
+                          />
+
+                          <text
+                            x="50%"
+                            y="46%"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            className="fill-black"
+                            style={{ fontSize: '30px', fontWeight: 900 }}
+                          >
+                            {totalFilteredCount}
+                          </text>
+                          <text
+                            x="50%"
+                            y="55%"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            style={{ fill: 'rgba(0,0,0,0.5)', fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as any }}
+                          >
+                            zapojených osôb
+                          </text>
+                          <text
+                            x="50%"
+                            y="62%"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
+                          >
+                            Priemer na tím: {averagePerTeam}
+                          </text>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="xl:col-span-5 w-full">
+                      <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40">
+                            Rozdelenie podľa tímov
+                          </h4>
+                        </div>
+
+                        <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
+                          {engagementChartData
+                            .slice()
+                            .sort((a, b) => b.count - a.count)
+                            .map((team: any, idx: number) => (
+                              <div
+                                key={`${team.name}-${idx}`}
+                                className={`rounded-2xl border p-3 sm:p-4 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'}`}
+                              >
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className="w-3 h-3 rounded-full shrink-0"
+                                      style={{ backgroundColor: team.color }}
+                                    />
+                                    <span className="font-black text-xs sm:text-sm text-black truncate">{team.name}</span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
+                                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
+                                      {team.percentage}%
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${team.percentage}%`,
+                                      backgroundColor: team.color
+                                    }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
