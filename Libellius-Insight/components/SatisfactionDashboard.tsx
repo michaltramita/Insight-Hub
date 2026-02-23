@@ -773,62 +773,70 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </div>
                 </div>
 
-                {engagementVisualMode === 'CARDS' ? (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
-                    {engagementTeamCards.map((team: any, idx: number) => (
-                      <div
-                        key={`${team.name}-${idx}`}
-                        className={`rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'}`}
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-4">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                            <h4 className="font-black text-base sm:text-lg text-black truncate">{team.name}</h4>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Podiel odpovedí</p>
-                            <p className="text-lg sm:text-xl font-black text-brand">{team.shareOfAllResponded}%</p>
-                          </div>
-                        </div>
+      {engagementVisualMode === 'CARDS' ? (
+  <div className="relative">
+    <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar">
+      {engagementTeamCards.map((team: any, idx: number) => (
+        <div
+          key={`${team.name}-${idx}`}
+          className={`snap-start shrink-0 w-[320px] sm:w-[360px] lg:w-[400px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${
+            idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+              <h4 className="font-black text-base sm:text-lg text-black truncate">{team.name}</h4>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Podiel odpovedí</p>
+              <p className="text-lg sm:text-xl font-black text-brand">{team.shareOfAllResponded}%</p>
+            </div>
+          </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white rounded-xl border border-black/5 p-3">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
-                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.teamSent}</p>
-                          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-black/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
+              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.teamSent}</p>
+            </div>
 
-                          <div className="bg-white rounded-xl border border-black/5 p-3">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
-                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responded}</p>
-                          </div>
+            <div className="bg-white rounded-xl border border-black/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
+              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responded}</p>
+            </div>
 
-                          <div className="bg-white rounded-xl border border-black/5 p-3">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Návratnosť tímu</p>
-                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responseRateTeam}%</p>
-                          </div>
+            <div className="bg-white rounded-xl border border-black/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Návratnosť tímu</p>
+              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.responseRateTeam}%</p>
+            </div>
 
-                          <div className="bg-white rounded-xl border border-black/5 p-3">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Podiel na oslovení</p>
-                            <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.shareOfAllSent}%</p>
-                          </div>
-                        </div>
+            <div className="bg-white rounded-xl border border-black/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-black/35">Podiel na oslovení</p>
+              <p className="text-lg sm:text-xl font-black leading-none mt-1">{team.shareOfAllSent}%</p>
+            </div>
+          </div>
 
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení</p>
-                            <p className="text-xs font-black text-brand">{team.shareOfAllResponded}%</p>
-                          </div>
-                          <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení</p>
+              <p className="text-xs font-black text-brand">{team.shareOfAllResponded}%</p>
+            </div>
+            <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
+      Potiahnite do strán pre ďalšie tímy
+    </p>
+  </div>
+) : (
                   <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
                     <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
