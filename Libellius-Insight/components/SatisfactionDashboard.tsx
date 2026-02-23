@@ -796,28 +796,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
                   <div className="flex flex-col gap-3 w-full lg:w-auto">
                     <div className="flex items-center gap-3">
-                      <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
-                        <button
-                          onClick={() => setEngagementVisualMode('CARDS')}
-                          className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            engagementVisualMode === 'CARDS'
-                              ? 'bg-white text-black shadow-md'
-                              : 'text-black/40 hover:text-black'
-                          }`}
-                        >
-                          Karty
-                        </button>
-                        <button
-                          onClick={() => setEngagementVisualMode('PIE')}
-                          className={`px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            engagementVisualMode === 'PIE'
-                              ? 'bg-white text-black shadow-md'
-                              : 'text-black/40 hover:text-black'
-                          }`}
-                        >
-                          Koláč
-                        </button>
-                      </div>
+                    <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
+  <button
+    onClick={() => setEngagementVisualMode('CARDS')}
+    className={`flex-1 lg:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center ${
+      engagementVisualMode === 'CARDS'
+        ? 'bg-white text-black shadow-md'
+        : 'text-black/40 hover:text-black'
+    }`}
+  >
+    Karty
+  </button>
+  <button
+    onClick={() => setEngagementVisualMode('PIE')}
+    className={`flex-1 lg:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center ${
+      engagementVisualMode === 'PIE'
+        ? 'bg-white text-black shadow-md'
+        : 'text-black/40 hover:text-black'
+    }`}
+  >
+    Koláč
+  </button>
+</div>
 
                       {engagementVisualMode === 'CARDS' && engagementTeamCards.length > 2 && (
                         <div className="hidden sm:flex items-center gap-2">
