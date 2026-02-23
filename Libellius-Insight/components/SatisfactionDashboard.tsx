@@ -872,17 +872,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     )}
 
                     <div
-                      ref={engagementCardsRef}
-                      className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
-                    >
+  ref={engagementCardsRef}
+  className="flex items-start gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
+>
                       {engagementTeamCards.map((team: any, idx: number) => {
                         const cardId = `${team.name}-${idx}`;
                         const isExpanded = expandedEngagementCard === cardId;
 
                         return (
-                         <div
+                        <div
   key={cardId}
-  className={`snap-start shrink-0 w-full sm:w-[calc(50%-10px)] min-w-0 sm:min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
+  className={`snap-start self-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
     idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
   }`}
 >
