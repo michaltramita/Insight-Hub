@@ -71,6 +71,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [canScrollEngagementLeft, setCanScrollEngagementLeft] = useState(false);
   const [canScrollEngagementRight, setCanScrollEngagementRight] = useState(false);
 
+  // NEW: expand/collapse state for engagement cards
+  const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
+
   const generateShareLink = () => {
     try {
       const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
@@ -323,6 +326,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     };
   }, [engagementVisualMode, engagementTeamCards.length]);
 
+  // NEW: reset opened engagement card when filters/sort/view change
+  useEffect(() => {
+    setExpandedEngagementCard(null);
+  }, [engagementVisualMode, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
+
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
     return question.themeCloud
@@ -352,7 +360,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const teamValue = selectedTeams[areaId] || '';
     const activeMetrics = getActiveData(areaId, teamValue);
     const top = activeMetrics.slice(0, 3);
-    const bottom = [...activeMetrics].filter(m => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
+    const bottom = [...activeMetrics].filter((m: any) => m.score > 0 && m.score < 4.0).sort((a: any, b: any) => a.score - b.score).slice(0, 3);
 
     return (
       <div className="space-y-8 sm:space-y-10 animate-fade-in">
@@ -501,7 +509,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-black">Silné stránky</h4>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  {top.map((m, i) => (
+                  {top.map((m: any, i: number) => (
                     <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-brand text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>
                         {m.category}
@@ -518,7 +526,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  {bottom.length > 0 ? bottom.map((m, i) => (
+                  {bottom.length > 0 ? bottom.map((m: any, i: number) => (
                     <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-black text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>
                         {m.category}
@@ -566,7 +574,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12 sm:pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] 2xl:max-w-[1800px] mx-auto">
-
       <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden">
         <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
           <div className="space-y-2 sm:space-y-3">
@@ -641,8 +648,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as TabType)}
-            className={`shrink-0 xl:shrink xl:flex-1 xl:min-w-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'
-              }`}
+            className={`shrink-0 xl:shrink xl:flex-1 xl:min-w-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}
           >
             <t.icon className="w-4 h-4 shrink-0" />
             <span className="truncate">{t.label}</span>
@@ -690,8 +696,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
                 <button
                   onClick={() => setShowTeamFilter(!showTeamFilter)}
-                  className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 whitespace-nowrap ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'
-                    }`}
+                  className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 whitespace-nowrap ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'}`}
                 >
                   <Filter className="w-4 h-4" />
                   Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
@@ -710,8 +715,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                           prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
                         );
                       }}
-                      className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'
-                        }`}
+                      className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'}`}
                     >
                       {team}
                     </button>
@@ -844,68 +848,103 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       ref={engagementCardsRef}
                       className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
                     >
-                      {engagementTeamCards.map((team: any, idx: number) => (
-                        <div
-  key={`${team.name}-${idx}`}
-  className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
-    idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
-  }`}
->
-  <div className="flex items-start justify-between gap-2 mb-3">
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-      <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
-    </div>
+                      {engagementTeamCards.map((team: any, idx: number) => {
+                        const cardId = `${team.name}-${idx}`;
+                        const isExpanded = expandedEngagementCard === cardId;
 
-    <div className="text-right shrink-0">
-      <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
-        Podiel odpovedí
-      </p>
-      <p className="text-base sm:text-lg font-black text-brand leading-none mt-1">
-        {team.shareOfAllResponded}%
-      </p>
-    </div>
-  </div>
+                        return (
+                          <div
+                            key={cardId}
+                            className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
+                              idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                                <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
+                              </div>
 
-  <div className="grid grid-cols-2 gap-2.5">
-    <div className="bg-white rounded-xl border border-black/5 p-2.5">
-      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
-      <p className="text-base sm:text-lg font-black leading-none mt-1">{team.teamSent}</p>
-    </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
+                                  Podiel odpovedí
+                                </p>
+                                <p className="text-base sm:text-lg font-black text-brand leading-none mt-1">
+                                  {team.shareOfAllResponded}%
+                                </p>
+                              </div>
+                            </div>
 
-    <div className="bg-white rounded-xl border border-black/5 p-2.5">
-      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
-      <p className="text-base sm:text-lg font-black leading-none mt-1">{team.responded}</p>
-    </div>
+                            {/* 3 hlavné metriky */}
+                            <div className="grid grid-cols-3 gap-2.5">
+                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
+                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.teamSent}</p>
+                              </div>
 
-    <div className="bg-white rounded-xl border border-black/5 p-2.5">
-      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Návratnosť</p>
-      <p className="text-base sm:text-lg font-black leading-none mt-1">{team.responseRateTeam}%</p>
-    </div>
+                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
+                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responded}</p>
+                              </div>
 
-    <div className="bg-white rounded-xl border border-black/5 p-2.5">
-      <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Podiel oslovení</p>
-      <p className="text-base sm:text-lg font-black leading-none mt-1">{team.shareOfAllSent}%</p>
-    </div>
-  </div>
+                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Návratnosť</p>
+                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responseRateTeam}%</p>
+                              </div>
+                            </div>
 
-  <div className="mt-3 space-y-1.5">
-    <div className="flex items-center justify-between gap-2">
-      <p className="text-[9px] font-black uppercase tracking-widest text-black/35 truncate">
-        Podiel na celkovom vyplnení
-      </p>
-      <p className="text-[10px] font-black text-brand shrink-0">{team.shareOfAllResponded}%</p>
-    </div>
+                            <div className="mt-3 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-black/35 truncate">
+                                  Podiel na celkovom vyplnení
+                                </p>
+                                <p className="text-[10px] font-black text-brand shrink-0">{team.shareOfAllResponded}%</p>
+                              </div>
 
-    <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
-      />
-    </div>
-  </div>
-</div>
-                      ))}
+                              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* detail toggle */}
+                            <div className="mt-3 pt-2 border-t border-black/5">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)}
+                                className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
+                              >
+                                <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
+                                  {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
+                                </span>
+                                <ChevronDown
+                                  className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                              </button>
+
+                              {isExpanded && (
+                                <div className="mt-2 grid grid-cols-2 gap-2.5 animate-fade-in">
+                                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                                      Podiel oslovení
+                                    </p>
+                                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllSent}%</p>
+                                  </div>
+
+                                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                                      Podiel odpovedí
+                                    </p>
+                                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllResponded}%</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {engagementTeamCards.length > 1 && (
@@ -930,7 +969,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                             nameKey="name"
                             stroke="none"
                           >
-                            {engagementChartData.map((entry, index) => (
+                            {engagementChartData.map((entry: any, index: number) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
@@ -993,7 +1032,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
                           {engagementChartData
                             .slice()
-                            .sort((a, b) => b.count - a.count)
+                            .sort((a: any, b: any) => b.count - a.count)
                             .map((team: any, idx: number) => (
                               <div
                                 key={`${team.name}-${idx}`}
@@ -1075,7 +1114,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           {selectedQuestionData?.recommendations && selectedQuestionData.recommendations.length > 0 ? (
             <div className="flex flex-col gap-4 sm:gap-6">
-
               {selectedQuestionThemeCloud.length > 0 && (
                 <div className="bg-white p-6 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-xl">
                   <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-brand mb-4 flex items-center gap-2">
