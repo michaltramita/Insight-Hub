@@ -795,7 +795,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   >
     Koláč
   </button>
-</div>
                   </div>
                 </div>
 
