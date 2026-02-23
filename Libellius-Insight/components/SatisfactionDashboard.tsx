@@ -880,12 +880,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         const isExpanded = expandedEngagementCard === cardId;
 
                         return (
-                          <div
-                            key={cardId}
-                            className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
-                              idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
-                            }`}
-                          >
+                         <div
+  key={cardId}
+  className={`snap-start shrink-0 w-full sm:w-[calc(50%-10px)] min-w-0 sm:min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
+    idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+  }`}
+>
                             <div className="flex items-start justify-between gap-2 mb-3">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span
