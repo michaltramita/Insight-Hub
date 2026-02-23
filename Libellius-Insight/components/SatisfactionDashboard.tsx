@@ -984,9 +984,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
                     {engagementTeamCards.length > 1 && (
                       <div className="mt-3 flex items-center justify-between gap-3">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/25">
-                          Potiahnite do strán pre ďalšie tímy
-                        </p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-black/25 leading-tight max-w-[60%] sm:max-w-none">
+  Potiahnite do strán pre ďalšie tímy
+</p>
 
                         {engagementTeamCards.length > 2 && (
                           <div className="flex sm:hidden items-center gap-2">
