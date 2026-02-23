@@ -848,7 +848,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       </div>
 
-      {engagementVisualMode === 'CARDS' ? (
+            {engagementVisualMode === 'CARDS' ? (
         <div className="relative">
           {engagementTeamCards.length > 2 && (
             <>
@@ -1148,6 +1148,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       )}
     </div>
   </div>
+</div> {/* <- chýbajúci wrapper pre activeTab === 'ENGAGEMENT' */}
 )}
 
       {activeTab === 'OPEN_QUESTIONS' && (
