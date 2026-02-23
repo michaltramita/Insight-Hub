@@ -5,7 +5,6 @@ import SatisfactionDashboard from './components/SatisfactionDashboard';
 import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
-// Potrebný import pre dekompresiu linku
 import LZString from 'lz-string';
 
 const App: React.FC = () => {
@@ -15,7 +14,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [needsKey, setNeedsKey] = useState<boolean>(false);
 
-  // --- RADAR: Ticho sleduje link v prehliadači ---
   useEffect(() => {
     const handleUrlData = () => {
       const hash = window.location.hash;
@@ -25,7 +23,6 @@ const App: React.FC = () => {
           const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
           if (decompressed) {
             const jsonData = JSON.parse(decompressed);
-            // Poistka pre mód
             if (!jsonData.mode) {
               jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
             }
@@ -41,7 +38,6 @@ const App: React.FC = () => {
     handleUrlData();
     window.addEventListener('hashchange', handleUrlData);
 
-    // Pôvodná kontrola kľúča
     const checkKey = async () => {
       const aistudio = (window as any).aistudio;
       if (aistudio) {
@@ -112,7 +108,7 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    window.location.hash = ''; // Vyčistíme link pri resete
+    window.location.hash = '';
     setStatus(AppStatus.HOME);
     setResult(null);
     setSelectedMode(null);
@@ -135,69 +131,85 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {/* Širší wrapper pre dashboard + bezpečné paddingy pre mobil */}
       <main className="w-full max-w-[1440px] xl:max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
         {status === AppStatus.HOME && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
             </div>
 
-            <h1 className="text-4xl md:text-7xl font-black mb-6 leading-none tracking-tighter flex flex-col items-center">
-              <span className="mb-2">Vitajte v</span>
-              <span className="flex items-center gap-4 uppercase tracking-tighter">
-                <span className="text-black">Libellius</span>
-                <span className="text-brand">InsightHub</span>
-              </span>
-            </h1>
+            <div className="w-full max-w-[360px] sm:max-w-3xl mx-auto px-2">
+              <h1 className="text-center font-black tracking-tight leading-[0.95]">
+                <span className="block text-[clamp(2rem,8vw,4.25rem)] text-black">
+                  Vitajte v
+                </span>
 
-            <p className="text-lg md:text-2xl text-black/50 mb-16 max-w-2xl font-medium px-4">
+                <span className="mt-1 flex flex-wrap justify-center items-baseline gap-x-2 sm:gap-x-3">
+                  <span className="uppercase text-black text-[clamp(2.2rem,9vw,4.8rem)]">
+                    Libellius
+                  </span>
+                  <span className="uppercase text-brand text-[clamp(2.2rem,9vw,4.8rem)]">
+                    InsightHub
+                  </span>
+                </span>
+              </h1>
+            </div>
+
+            <p className="text-base sm:text-lg md:text-2xl text-black/50 mb-10 md:mb-16 mt-6 md:mt-8 max-w-2xl font-medium px-4 leading-relaxed">
               PREHĽADNÁ VIZUALIZÁCIA VAŠICH VÝSLEDKOV.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-5xl px-2">
-              <button
-                onClick={() => selectMode('360_FEEDBACK')}
-                className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-0 sm:px-2">
+              {/* DISABLED KARTA - ANALÝZA 360 */}
+              <div
+                className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] opacity-85 cursor-not-allowed"
+                aria-disabled="true"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
-                  <Users className="w-32 h-32 text-black" />
+                <div className="absolute top-0 right-0 p-6 md:p-8 opacity-5 pointer-events-none">
+                  <Users className="w-24 h-24 md:w-32 md:h-32 text-black" />
                 </div>
-                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg">
-                  <Users className="w-10 h-10" />
+
+                <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg">
+                  <Users className="w-8 h-8 md:w-10 md:h-10" />
                 </div>
+
                 <div className="z-10">
-                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">
+                  <span className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
                     Analýza 360° spätnej väzby
                   </span>
-                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">
+                  <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
                     Vidieť rozdiely. Pochopiť súvislosti. Rozvíjať potenciál.
                   </p>
                 </div>
-                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">
-                  VYBRAŤ TENTO MÓD
-                </div>
-              </button>
 
+                <div className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 bg-black/10 text-black/40 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center border border-black/10">
+                  PRIPRAVUJEME
+                </div>
+              </div>
+
+              {/* AKTÍVNA KARTA - SPOKOJNOSŤ */}
               <button
                 onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')}
-                className="group p-10 border-2 border-black/5 rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
+                className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
-                  <BarChart3 className="w-32 h-32 text-black" />
+                <div className="absolute top-0 right-0 p-6 md:p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
+                  <BarChart3 className="w-24 h-24 md:w-32 md:h-32 text-black" />
                 </div>
-                <div className="p-5 bg-black text-white rounded-[2rem] shadow-lg">
-                  <BarChart3 className="w-10 h-10" />
+
+                <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg">
+                  <BarChart3 className="w-8 h-8 md:w-10 md:h-10" />
                 </div>
+
                 <div className="z-10">
-                  <span className="text-[32px] font-black block mb-4 tracking-tight uppercase leading-tight">
+                  <span className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
                     Analýza spokojnosti zamestnancov
                   </span>
-                  <p className="text-black/50 font-bold text-lg leading-relaxed max-w-xs">
+                  <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
                     Vidieť nálady. Pochopiť súvislosti. Zlepšovať prostredie.
                   </p>
                 </div>
-                <div className="z-10 mt-4 px-10 py-4 bg-brand text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all">
+
+                <div className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 bg-brand text-white rounded-full font-black text-xs sm:text-sm uppercase tracking-widest shadow-lg transform active:scale-95 transition-all text-center">
                   VYBRAŤ TENTO MÓD
                 </div>
               </button>
@@ -247,14 +259,13 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- GLOBÁLNA PÄTIČKA PRE ÚVODNÉ OBRAZOVKY --- */}
         {status !== AppStatus.SUCCESS && (
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
               <img
                 src="/logo.png"
                 alt="Libellius"
-                className="h-24 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
+                className="h-20 md:h-24 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
               />
             </div>
 
