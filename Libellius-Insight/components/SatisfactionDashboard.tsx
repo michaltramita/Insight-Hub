@@ -991,17 +991,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             : 'Návratnosť je nižšia, preto odporúčame preveriť spôsob oslovenia, termín distribúcie a podporu zo strany vedúceho tímu.')}
       </p>
     </div>
-
-    <div className="bg-black/5 rounded-xl border border-black/5 p-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[8px] font-black uppercase tracking-widest text-black/35">
-          Podiel na celkovom vyplnení
-        </span>
-        <span className="text-sm font-black text-brand">
-          {team.shareOfAllResponded}%
-        </span>
-      </div>
-    </div>
   </div>
 )}
                             </div>
