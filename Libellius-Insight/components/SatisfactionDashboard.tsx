@@ -688,7 +688,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
-              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Štruktúra stredísk</h3>
+              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                 <div className="relative w-full sm:flex-1 md:w-64">
@@ -742,12 +742,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
                   <tr>
                     <th className="p-4 sm:p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
-                      <div className="flex items-center gap-2">Stredisko <ArrowUpDown className="w-3 h-3" /></div>
+                      <div className="flex items-center gap-2">Tím <ArrowUpDown className="w-3 h-3" /></div>
                     </th>
                     <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
                       <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div>
                     </th>
-                    <th className="p-4 sm:p-6 text-center">Podiel</th>
+                    <th className="p-4 sm:p-6 text-center">% podiel na celkovom vyplnení</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 font-black text-xs">
@@ -785,12 +785,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">
-                      Vizualizácia zapojenia
+                      Podrobný prehľad tímov
                     </h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mt-2">
                       {selectedEngagementTeams.length > 0
                         ? 'Podiel vo vybraných strediskách'
-                        : 'Podiel na celkovej účasti'}
+                        : 'Výsledky a odporúčania'}
                     </p>
                   </div>
 
