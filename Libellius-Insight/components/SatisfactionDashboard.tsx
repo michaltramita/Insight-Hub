@@ -818,142 +818,135 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
 
                 {engagementVisualMode === 'CARDS' ? (
-                  <div className="relative">
-                    {engagementTeamCards.length > 2 && (
-                      <>
-                        <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
-                        <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
+  <div className="relative">
+    {engagementTeamCards.length > 2 && (
+      <>
+        <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
+        <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
 
-                        <button
-                          type="button"
-                          onClick={() => scrollEngagementCards('left')}
-                          disabled={!canScrollEngagementLeft}
-                          className={`hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementLeft ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
-                        >
-                          <ChevronLeft className="w-5 h-5" />
-                        </button>
+        <button
+          type="button"
+          onClick={() => scrollEngagementCards('left')}
+          disabled={!canScrollEngagementLeft}
+          className={`hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementLeft ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
 
-                        <button
-                          type="button"
-                          onClick={() => scrollEngagementCards('right')}
-                          disabled={!canScrollEngagementRight}
-                          className={`hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementRight ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
+        <button
+          type="button"
+          onClick={() => scrollEngagementCards('right')}
+          disabled={!canScrollEngagementRight}
+          className={`hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 items-center justify-center rounded-full border shadow-lg transition-all ${canScrollEngagementRight ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </>
+    )}
 
-                    <div
-                      ref={engagementCardsRef}
-                      className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
-                    >
-                      {engagementTeamCards.map((team: any, idx: number) => {
-                        const cardId = `${team.name}-${idx}`;
-                        const isExpanded = expandedEngagementCard === cardId;
+    <div
+      ref={engagementCardsRef}
+      className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar"
+    >
+      {engagementTeamCards.map((team: any, idx: number) => {
+        const cardId = `${team.name}-${idx}`;
+        const isExpanded = expandedEngagementCard === cardId;
 
-                        return (
-                          <div
-                            key={cardId}
-                            className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
-                              idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-3">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                                <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
-                              </div>
+        return (
+          <div
+            key={cardId}
+            className={`snap-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[300px] rounded-2xl sm:rounded-3xl border p-3 sm:p-4 ${
+              idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
+            }`}
+          >
+            {/* Header bez duplicity "Podiel odpovedí" */}
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                <h4 className="font-black text-sm sm:text-base text-black truncate">{team.name}</h4>
+              </div>
 
-                              <div className="text-right shrink-0">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
-                                  Podiel odpovedí
-                                </p>
-                                <p className="text-base sm:text-lg font-black text-brand leading-none mt-1">
-                                  {team.shareOfAllResponded}%
-                                </p>
-                              </div>
-                            </div>
+              <div className="text-right shrink-0">
+                <p className="text-[8px] font-black uppercase tracking-widest text-black/35 leading-none">
+                  Tím
+                </p>
+                <p className="text-base sm:text-lg font-black text-black leading-none mt-1">
+                  #{idx + 1}
+                </p>
+              </div>
+            </div>
 
-                            {/* 3 hlavné metriky */}
-                            <div className="grid grid-cols-3 gap-2.5">
-                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Oslovených</p>
-                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.teamSent}</p>
-                              </div>
+            {/* 4 požadované metriky */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Počet oslovených</p>
+                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.teamSent}</p>
+              </div>
 
-                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Vyplnilo</p>
-                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responded}</p>
-                              </div>
+              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Počet odpovedí</p>
+                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responded}</p>
+              </div>
 
-                              <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Návratnosť</p>
-                                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responseRateTeam}%</p>
-                              </div>
-                            </div>
+              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">Návratnosť v %</p>
+                <p className="text-sm sm:text-base font-black leading-none mt-1">{team.responseRateTeam}%</p>
+              </div>
 
-                            <div className="mt-3 space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-black/35 truncate">
-                                  Podiel na celkovom vyplnení
-                                </p>
-                                <p className="text-[10px] font-black text-brand shrink-0">{team.shareOfAllResponded}%</p>
-                              </div>
+              <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-black/35">% podiel na celkovom vyplnení</p>
+                <p className="text-sm sm:text-base font-black leading-none mt-1 text-brand">{team.shareOfAllResponded}%</p>
+              </div>
+            </div>
 
-                              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
-                                />
-                              </div>
-                            </div>
+            {/* progress bar iba vizuálne, bez duplicitného textu */}
+            <div className="mt-3 space-y-1.5">
+              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-black/5">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }}
+                />
+              </div>
+            </div>
 
-                            {/* detail toggle */}
-                            <div className="mt-3 pt-2 border-t border-black/5">
-                              <button
-                                type="button"
-                                onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)}
-                                className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
-                              >
-                                <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
-                                  {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
-                                </span>
-                                <ChevronDown
-                                  className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                />
-                              </button>
+            {/* detail toggle */}
+            <div className="mt-3 pt-2 border-t border-black/5">
+              <button
+                type="button"
+                onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)}
+                className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
+              >
+                <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
+                  {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-                              {isExpanded && (
-                                <div className="mt-2 grid grid-cols-2 gap-2.5 animate-fade-in">
-                                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
-                                      Podiel oslovení
-                                    </p>
-                                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllSent}%</p>
-                                  </div>
-
-                                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
-                                      Podiel odpovedí
-                                    </p>
-                                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllResponded}%</p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {engagementTeamCards.length > 1 && (
-                      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
-                        Potiahnite do strán pre ďalšie tímy
-                      </p>
-                    )}
+              {isExpanded && (
+                <div className="mt-2 grid grid-cols-1 gap-2.5 animate-fade-in">
+                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
+                      Podiel oslovených v rámci všetkých tímov
+                    </p>
+                    <p className="text-sm sm:text-base font-black leading-none mt-1">{team.shareOfAllSent}%</p>
                   </div>
-                ) : (
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    {engagementTeamCards.length > 1 && (
+      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-black/25">
+        Potiahnite do strán pre ďalšie tímy
+      </p>
+    )}
+  </div>
+) : (
                   <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
                     <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
