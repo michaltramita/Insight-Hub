@@ -955,7 +955,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                                 className="w-full flex items-center justify-between rounded-xl px-2 py-2 hover:bg-white/70 transition-colors"
                               >
                                 <span className="text-[10px] font-black uppercase tracking-widest text-black/50">
-                                  {isExpanded ? 'Skryť detail' : 'Zobraziť detail'}
+                                 {isExpanded ? 'Skryť AI komentár' : 'AI komentár'}
                                 </span>
                                 <ChevronDown
                                   className={`w-4 h-4 text-black/40 transition-transform ${
@@ -965,17 +965,45 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                               </button>
 
                               {isExpanded && (
-                                <div className="mt-2 grid grid-cols-1 gap-2.5 animate-fade-in">
-                                  <div className="bg-white rounded-xl border border-black/5 p-2.5">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-black/35">
-                                      Podiel oslovených v rámci všetkých tímov
-                                    </p>
-                                    <p className="text-sm sm:text-base font-black leading-none mt-1">
-                                      {team.shareOfAllSent}%
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
+  <div className="mt-2 space-y-2.5 animate-fade-in">
+    <div className="bg-white rounded-xl border border-black/5 p-3">
+      <p className="text-[8px] font-black uppercase tracking-widest text-black/35 mb-1.5">
+        Čo vidíme
+      </p>
+      <p className="text-sm sm:text-[15px] font-medium leading-relaxed text-black/75">
+        {team.aiSummary ||
+          `${team.name} patrí medzi ${
+            idx < 3 ? 'výraznejšie' : 'stabilné'
+          } tímy z pohľadu zapojenia a aktuálne tvorí ${team.shareOfAllResponded}% z celkového počtu odpovedí.`}
+      </p>
+    </div>
+
+    <div className="bg-brand/5 rounded-xl border border-brand/10 p-3">
+      <p className="text-[8px] font-black uppercase tracking-widest text-brand/70 mb-1.5">
+        Odporúčanie
+      </p>
+      <p className="text-sm sm:text-[15px] font-medium leading-relaxed text-black/75">
+        {team.aiRecommendation ||
+          (team.responseRateTeam >= 70
+            ? 'Tento tím môže slúžiť ako interný benchmark. Oplatí sa porovnať spôsob komunikácie a zapojenia s tímami s nižšou návratnosťou.'
+            : team.responseRateTeam >= 45
+            ? 'Tím má slušný základ, no je priestor na zvýšenie zapojenia. Pomôcť môže presnejšie oslovenie a jasnejšie vysvetlenie cieľa prieskumu.'
+            : 'Návratnosť je nižšia, preto odporúčame preveriť spôsob oslovenia, termín distribúcie a podporu zo strany vedúceho tímu.')}
+      </p>
+    </div>
+
+    <div className="bg-black/5 rounded-xl border border-black/5 p-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[8px] font-black uppercase tracking-widest text-black/35">
+          Podiel na celkovom vyplnení
+        </span>
+        <span className="text-sm font-black text-brand">
+          {team.shareOfAllResponded}%
+        </span>
+      </div>
+    </div>
+  </div>
+)}
                             </div>
                           </div>
                         );
