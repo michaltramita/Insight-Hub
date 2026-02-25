@@ -1,4 +1,4 @@
-// utils/reportCrypto.ts
+/import LZString from 'lz-string';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -46,7 +46,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
 }
 
 /**
- * Zašifruje report objekt do stringu vhodného do URL hash (#sreport=...)
+ * Zašifruje report objekt do stringu vhodného do URL hash (#report=...)
  */
 export async function encryptReportToUrlPayload(report: unknown, password: string): Promise<string> {
   if (!password || password.trim().length < 4) {
@@ -54,22 +54,26 @@ export async function encryptReportToUrlPayload(report: unknown, password: strin
   }
 
   const json = JSON.stringify(report);
+  
+  // VYLEPŠENIE: Silná kompresia pred šifrovaním (zmenší odkaz na zlomok veľkosti)
+  const compressedBytes = LZString.compressToUint8Array(json);
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(password, salt);
 
+  // Šifrujeme skomprimované bajty namiesto celého textu
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    encoder.encode(json)
+    compressedBytes
   );
 
   const cipherBytes = new Uint8Array(encrypted);
 
-  // Formát: v1.salt.iv.ciphertext
+  // Formát v2 pre komprimované dáta
   return [
-    'v1',
+    'v2',
     toBase64Url(salt),
     toBase64Url(iv),
     toBase64Url(cipherBytes),
@@ -83,11 +87,14 @@ export async function decryptReportFromUrlPayload(payload: string, password: str
   if (!payload) throw new Error('Chýba šifrovaný payload.');
   if (!password) throw new Error('Chýba heslo.');
 
+  console.log("Dĺžka prijatého šifrovaného odkazu:", payload.length);
+
   const parts = payload.split('.');
-  if (parts.length !== 4 || parts[0] !== 'v1') {
+  if (parts.length !== 4 || (parts[0] !== 'v1' && parts[0] !== 'v2')) {
     throw new Error('Neplatný formát odkazu.');
   }
 
+  const version = parts[0];
   const [, saltB64, ivB64, cipherB64] = parts;
 
   const salt = fromBase64Url(saltB64);
@@ -103,9 +110,20 @@ export async function decryptReportFromUrlPayload(payload: string, password: str
       cipherBytes
     );
 
-    const json = decoder.decode(decrypted);
-    return JSON.parse(json);
-  } catch {
-    throw new Error('Nesprávne heslo alebo poškodený odkaz.');
+    // Ak ide o nový odkaz, najprv ho po dešifrovaní dekomprimujeme
+    if (version === 'v2') {
+      const decompressedJson = LZString.decompressFromUint8Array(new Uint8Array(decrypted));
+      return JSON.parse(decompressedJson);
+    } 
+    // Spätná kompatibilita pre staré nekomprimované (v1) odkazy
+    else {
+      const json = decoder.decode(decrypted);
+      return JSON.parse(json);
+    }
+
+  } catch (error) {
+    // VYLEPŠENIE: Reálna chyba sa vypíše do konzoly prehliadača (F12)
+    console.error("Presná chyba pri dešifrovaní (skontrolujte, či odkaz nie je orezaný):", error);
+    throw new Error('Nesprávne heslo alebo poškodený (nekompletný) odkaz.');
   }
 }
