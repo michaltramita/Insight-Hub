@@ -1443,42 +1443,33 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
                       <span
   key={tIdx}
-  onMouseEnter={(e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setThemeTooltip({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 6,
+onMouseEnter={(e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  setThemeTooltip({
+    x: rect.left + rect.width / 2,
+    y: rect.top - 6, // uprav 2–10
+    theme: theme.theme,
+    count: theme.count,
+    percentage: theme.percentage,
+  });
+}}
+onMouseLeave={() => setThemeTooltip(null)}
+onClick={(e) => {
+  e.stopPropagation();
+  const rect = e.currentTarget.getBoundingClientRect();
+
+  setThemeTooltip((prev) => {
+    if (prev?.theme === theme.theme) return null;
+
+    return {
       theme: theme.theme,
       count: theme.count,
       percentage: theme.percentage,
-    });
-  }}
-  onMouseMove={(e) => {
-    setThemeTooltip((prev) =>
-      prev
-        ? {
-            ...prev,
-            x: e.clientX,
-            y: e.clientY - 4,
-          }
-        : prev
-    );
-  }}
-  onMouseLeave={() => setThemeTooltip(null)}
-  onClick={(e) => {
-    e.stopPropagation();
-
-    setThemeTooltip((prev) => {
-      if (prev?.theme === theme.theme) return null;
-
-      return {
-        theme: theme.theme,
-        count: theme.count,
-        percentage: theme.percentage,
-        x: rect.left + rect.width / 2,
-        y: rect.bottom + 6,
-      };
-    });
+      x: rect.left + rect.width / 2,
+      y: rect.top - 6,
+    };
+  });
+}}
   }}
   className={`
     inline-flex items-center rounded-xl px-3 py-1.5
