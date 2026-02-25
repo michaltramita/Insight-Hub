@@ -1444,10 +1444,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       <span
   key={tIdx}
   onMouseEnter={(e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    // 1. ZMENA: Pri nabehnutí myšou to dáme hneď k myši, nie na stred slova
     setThemeTooltip({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 6,
+      x: e.clientX,
+      y: e.clientY - 30, // Zobrazí sa kúsok nad kurzorom
       theme: theme.theme,
       count: theme.count,
       percentage: theme.percentage,
@@ -1458,9 +1458,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       prev
         ? {
             ...prev,
-            // Tu si viete upraviť čísla (offset), ak by to bolo pri pohybe myši stále ďaleko
             x: e.clientX,
-            y: e.clientY - 4, 
+            y: e.clientY - 4,
           }
         : prev
     );
@@ -1469,9 +1468,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   onClick={(e) => {
     e.stopPropagation();
 
-    // TOTO TU CHÝBALO: Musíme znova načítať pozíciu priamo pri kliknutí
-    const rect = e.currentTarget.getBoundingClientRect();
-
     setThemeTooltip((prev) => {
       if (prev?.theme === theme.theme) return null;
 
@@ -1479,9 +1475,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         theme: theme.theme,
         count: theme.count,
         percentage: theme.percentage,
-        x: rect.left + rect.width / 2,
-        // Tu nastavujeme, ako ďaleko pod slovom to má vyskočiť (napr. +6)
-        y: rect.bottom + 6, 
+        // 2. ZMENA: Namiesto zložitého počítania rohov použijeme priamo pozíciu kliknutia myši
+        x: e.clientX,
+        y: e.clientY + 15, // Číslo 15 určuje, koľko pixelov pod myšou (pod slovom) okienko vyskočí
       };
     });
   }}
