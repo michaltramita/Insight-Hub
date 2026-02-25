@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
-import LZString from 'lz-string';
+import { encryptReportToUrlPayload } from '../utils/reportCrypto';
 import {
   Users, Search, BarChart4, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown,
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
-  PieChart, Pie
+  PieChart, Pie, Sector // <-- TOTO SME PRIDALI
 } from 'recharts';
 
 interface Props {
@@ -26,7 +26,23 @@ type SortDirection = 'asc' | 'desc' | null;
 type ComparisonFilterType = 'ALL' | 'PRIEREZOVA' | 'SPECIFICKA';
 type EngagementVisualMode = 'CARDS' | 'PIE';
 
-const PIE_COLORS = ['#B81547', '#000000', '#2B2B2B', '#555555', '#7F7F7F', '#AAAAAA', '#D4D4D4'];
+const PIE_COLORS = [
+  '#4A081C', // 1. Najtmavší odtieň (Shade)
+  '#630B26', // 2.
+  '#7D0E30', // 3.
+  '#97113A', // 4.
+  '#B81547', // 5. Vaša základná firemná farba
+  '#C22C5A', // 6.
+  '#CB446D', // 7.
+  '#D55B80', // 8.
+  '#DE7393', // 9.
+  '#E88AA6', // 10. Svetlejšie tóny (Tints)
+  '#EFA1B8', // 11.
+  '#F5B9CB', // 12.
+  '#F9D0DD', // 13.
+  '#FCE8EE', // 14.
+  '#FFF2F5', // 15. Najsvetlejší ružový tón
+];
 
 const CustomBarTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -43,11 +59,75 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+// --- NOVÁ FUNKCIA NA ZALAMOVANIE TEXTU ---
+const CustomYAxisTick = ({ x, y, payload }: any) => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  // ZMENA: Na mobile dovolíme 28 znakov, aby sa nerobili 4 riadky
+  const maxLength = isMobile ? 40 : 80; 
+
+  const words = payload.value.split(' ');
+  const lines = [];
+  let currentLine = '';
+
+  words.forEach((word: string) => {
+    if ((currentLine + word).length > maxLength) {
+      lines.push(currentLine.trim());
+      currentLine = word + ' ';
+    } else {
+      currentLine += word + ' ';
+    }
+  });
+  if (currentLine) {
+    lines.push(currentLine.trim());
+  }
+
+  // ZMENA: Riadkovanie na mobile z 14 na 16 pre lepšiu čitateľnosť
+  const lineHeight = isMobile ? 16 : 18;
+  const startY = y - ((lines.length - 1) * lineHeight) / 2;
+
+  return (
+    <g transform={`translate(${x},${startY})`}>
+      {lines.map((line: string, index: number) => (
+        <text
+          key={index}
+          x={0}
+          y={index * lineHeight}
+          dy="0.35em"
+          textAnchor="end"
+          fill="#000"
+          // ZMENA: Zmenšený font na mobile z 14 na 12
+          fontSize={isMobile ? 13 : 18}
+          fontWeight={800}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+};
+
+// --- SEM SME PRIDALI FUNKCIU PRE ZVÄČŠENÝ VÝSEK V KOLÁČI ---
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius}
+      outerRadius={outerRadius + 12} // Zväčšenie o 12 pixelov
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+    />
+  );
+};
+// -----------------------------------------------------------
+
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
-
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
   const [copyStatus, setCopyStatus] = useState(false);
@@ -56,6 +136,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [comparisonFilter, setComparisonFilter] = useState<ComparisonFilterType>('ALL');
   const [engagementVisualMode, setEngagementVisualMode] = useState<EngagementVisualMode>('CARDS');
+  const [hoveredPie, setHoveredPie] = useState<number | null>(null);
 
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
@@ -63,6 +144,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
   const [expandedRecIndex, setExpandedRecIndex] = useState<number | null>(null);
+
+  const [themeTooltip, setThemeTooltip] = useState<{
+    x: number;
+    y: number;
+    theme: string;
+    count: number;
+    percentage: number;
+  } | null>(null);
 
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({});
   const [comparisonSelection, setComparisonSelection] = useState<Record<string, string[]>>({});
@@ -73,15 +162,49 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
 
-  const generateShareLink = () => {
+  const generateShareLink = async () => {
     try {
-      const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(result));
-      const shareUrl = `${window.location.origin}${window.location.pathname}#report=${compressed}`;
-      navigator.clipboard.writeText(shareUrl);
-      setCopyStatus(true);
-      setTimeout(() => setCopyStatus(false), 2000);
-    } catch (err) {
-      alert('Chyba pri kopírovaní odkazu.');
+      const password = window.prompt('Zadajte heslo pre report (min. 6 znakov):');
+      if (!password) return;
+
+      if (password.trim().length < 6) {
+        alert('Heslo musí mať aspoň 6 znakov.');
+        return;
+      }
+
+      const encryptedPayload = await encryptReportToUrlPayload(result, password.trim());
+
+      const clientMeta = encodeURIComponent(data.clientName || 'Klient');
+      const surveyMeta = encodeURIComponent(data.surveyName || 'Prieskum spokojnosti');
+      const issuedMeta = encodeURIComponent(
+        result.reportMetadata?.date || new Date().toLocaleDateString('sk-SK')
+      );
+
+      const shareUrl =
+        `${window.location.origin}${window.location.pathname}` +
+        `#report=${encodeURIComponent(encryptedPayload)}` +
+        `&client=${clientMeta}` +
+        `&survey=${surveyMeta}` +
+        `&issued=${issuedMeta}`;
+
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopyStatus(true);
+        setTimeout(() => setCopyStatus(false), 2000);
+        alert('Odkaz bol skopírovaný. Heslo pošlite používateľovi zvlášť.');
+      } catch (clipboardErr) {
+        console.warn('Clipboard blocked:', clipboardErr);
+
+        // fallback – zobrazí link na ručné skopírovanie
+        window.prompt('Skopírujte odkaz manuálne (Cmd+C):', shareUrl);
+
+        setCopyStatus(true);
+        setTimeout(() => setCopyStatus(false), 2000);
+        alert('Schránka bola zablokovaná, odkaz som zobrazil na manuálne skopírovanie.');
+      }
+    } catch (err: any) {
+      console.error('Share link error:', err);
+      alert(`Chyba pri vytváraní zabezpečeného odkazu: ${err?.message || err}`);
     }
   };
 
@@ -151,6 +274,18 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
     setExpandedRecIndex(null);
   }, [openQuestionsTeam, data.openQuestions, selectedQuestionText]);
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setThemeTooltip(null);
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -235,23 +370,43 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
   const engagementChartData = useMemo(() => {
-    return filteredEngagement.map((team: any, index: number) => {
-      const count = Number(team.count) || 0;
-      const percentage = totalFilteredCount > 0 ? Number(((count / totalFilteredCount) * 100).toFixed(1)) : 0;
+    // 1. Zoberieme všetky tímy
+    const baseTeams = (data.teamEngagement || [])
+      .filter((t: any) => t.name && !['total', 'celkom'].includes(t.name.toLowerCase()));
+      
+    const isFiltering = selectedEngagementTeams.length > 0 || searchTerm !== '';
 
+    // 2. Najprv si len priradíme percentá a zistíme, či je tím aktívny
+    const mappedTeams = baseTeams.map((team: any) => {
+      const count = Number(team.count) || 0;
+      const percentage = safeTotalReceived > 0 ? Number(((count / safeTotalReceived) * 100).toFixed(1)) : 0;
+      const isActive = isFiltering ? filteredEngagement.some((ft: any) => ft.name === team.name) : true;
+
+      return { ...team, count, percentage, isActive };
+    });
+
+    // 3. Zoradíme ich: Najprv aktívne (farebné), potom neaktívne. Vo vnútri ešte podľa veľkosti.
+    const sortedTeams = mappedTeams.sort((a: any, b: any) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      return b.count - a.count;
+    });
+
+    // 4. Nakoniec priradíme farby. Farebné pôjdu pekne poporadí z palety, neaktívne budú sivé.
+    let activeIndex = 0;
+    return sortedTeams.map((team: any) => {
       return {
         ...team,
-        count,
-        percentage,
-        color: PIE_COLORS[index % PIE_COLORS.length],
+        color: team.isActive ? PIE_COLORS[activeIndex++ % PIE_COLORS.length] : '#f4f4f5'
       };
     });
-  }, [filteredEngagement, totalFilteredCount]);
+
+  }, [data.teamEngagement, filteredEngagement, safeTotalReceived, selectedEngagementTeams.length, searchTerm]);
 
   const engagementTeamCards = useMemo(() => {
     return engagementChartData
-      .slice()
-      .sort((a, b) => b.count - a.count)
+      .filter((team: any) => team.isActive)
+      .sort((a: any, b: any) => b.count - a.count)
       .map((team: any) => {
         const responded = Number(team.count) || 0;
 
@@ -277,6 +432,19 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         };
       });
   }, [engagementChartData, safeTotalReceived, safeTotalSent]);
+
+  // --- TOTO JE TEN NOVÝ BLOK PRE ZVÄČŠENIE VÝSEKOV V KOLÁČI (KROK 3) ---
+  const activePieIndices = useMemo(() => {
+    const isFiltering = selectedEngagementTeams.length > 0 || searchTerm !== '';
+    // Ak nefiltrujeme, koláč zostane pekne uhladený a jednoliaty
+    if (!isFiltering) return [];
+    
+    // Zistíme indexy tímov, ktoré sú práve aktívne
+    return engagementChartData
+      .map((team: any, index: number) => team.isActive ? index : -1)
+      .filter((idx: number) => idx !== -1);
+  }, [engagementChartData, selectedEngagementTeams.length, searchTerm]);
+  // ----------------------------------------------------------------------
 
   const topEngagementTeam = engagementChartData.length > 0
     ? [...engagementChartData].sort((a, b) => b.count - a.count)[0]
@@ -330,6 +498,18 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   useEffect(() => {
     setExpandedEngagementCard(null);
   }, [engagementVisualMode, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setThemeTooltip(null);
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
 
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
@@ -469,33 +649,43 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 </div>
               </div>
 
-              <div className="w-full overflow-x-auto">
-                <div className="min-w-[860px] h-[380px] sm:h-[420px] lg:h-[460px]">
+              {/* TUTO SA TO ZMENILO PRE RESPONZIVITU */}
+              <div className="w-full">
+                <div className="h-[450px] sm:h-[500px] lg:h-[550px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={activeMetrics}
                       layout="vertical"
-                      margin={{ left: 30, right: 55, top: 6, bottom: 6 }}
+                      // ZMENA: Pridaný ochranný okraj left: 10
+                      margin={{ left: 10, right: 50, top: 10, bottom: 10 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                       <XAxis type="number" domain={[0, scaleMax]} hide />
                       <YAxis
-                        dataKey="category"
-                        type="category"
-                        width={540}
-                        tick={{ fontSize: 16, fontWeight: 800, fill: '#000' }}
-                        interval={0}
-                        tickFormatter={(val: string) => val.length > 70 ? val.substring(0, 70) + '...' : val}
-                      />
+  dataKey="category"
+  type="category"
+  // ZMENA: Šírka na mobile zväčšená zo 140 na 280
+  width={typeof window !== 'undefined' && window.innerWidth < 768 ? 280: 600}
+  interval={0}
+  tick={<CustomYAxisTick />} 
+/>
                       <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
-                      <Bar dataKey="score" radius={[0, 12, 12, 0]} barSize={24}>
+                      <Bar 
+                        dataKey="score" 
+                        radius={[0, 12, 12, 0]} 
+                        barSize={typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24}
+                      >
                         {activeMetrics.map((entry: any, index: number) => (
                           <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
                         ))}
                         <LabelList
                           dataKey="score"
                           position="right"
-                          style={{ fontWeight: 900, fontSize: '14px', fill: '#000' }}
+                          style={{ 
+                            fontWeight: 900, 
+                            fontSize: typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px', 
+                            fill: '#000' 
+                          }}
                           offset={10}
                         />
                       </Bar>
@@ -581,7 +771,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12 sm:pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] 2xl:max-w-[1800px] mx-auto">
+    <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+      <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
+        <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
+
       <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden">
         <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
           <div className="space-y-2 sm:space-y-3">
@@ -750,7 +943,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     <th className="p-4 sm:p-6 text-center">% podiel na celkovom vyplnení</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black/5 font-black text-xs">
+                <tbody className="divide-y divide-black/5 font-black text-sm">
                   {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
                     <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
                       <td className="p-4 sm:p-7 group-hover:text-brand transition-colors">{team.name}</td>
@@ -763,7 +956,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                               style={{ width: `${(team.count / safeTotalReceived) * 100}%` }}
                             />
                           </div>
-                          <span className="text-brand font-black text-xs min-w-[45px]">{((team.count / safeTotalReceived) * 100).toFixed(1)}%</span>
+                          <span className="text-brand font-black text-sm min-w-[80px]">{((team.count / safeTotalReceived) * 100).toFixed(1)}%</span>
                         </div>
                       </td>
                     </tr>
@@ -1047,19 +1240,52 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8 items-start xl:items-center">
-          <div className="xl:col-span-7 h-[340px] sm:h-[420px] w-full">
+          <div className="xl:col-span-7 h-[280px] sm:h-[400px] lg:h-[500px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={engagementChartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={70}
-                  outerRadius={120}
-                  paddingAngle={3}
+                  outerRadius="75%" 
                   dataKey="count"
                   nameKey="name"
-                  stroke="none"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  // NOVÉ: Sledovanie pohybu myši
+                  onMouseEnter={(_, index) => setHoveredPie(index)}
+                  onMouseLeave={() => setHoveredPie(null)}
+                  // NOVÉ: Vlastné vykresľovanie dielikov s dvojitým zväčšením
+                  shape={(props: any) => {
+                    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
+                    
+                    const isHovered = hoveredPie === index;
+                    const isFiltering = typeof selectedEngagementTeams !== 'undefined' && selectedEngagementTeams.length > 0;
+                    
+                    // Zistíme, či má byť tím permanentne vyskočený
+                    const isSelected = isFiltering && payload.isActive;
+                    
+                    let radiusOffset = 0;
+                    if (isSelected) radiusOffset += 12; // Permanentné povyskočenie pre vybrané
+                    if (isHovered) radiusOffset += 8;  // Extra povyskočenie navyše pre myš
+                    
+                    return (
+                      <Sector
+                        cx={cx}
+                        cy={cy}
+                        innerRadius={innerRadius}
+                        outerRadius={outerRadius + radiusOffset}
+                        startAngle={startAngle}
+                        endAngle={endAngle}
+                        fill={fill}
+                        // TÚTO DVE VECI PRIDAJTE:
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                        // -----------------------
+                        style={{ transition: 'all 0.25s ease-out' }} 
+                      />
+                    );
+                  }}
                 >
                   {engagementChartData.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1070,8 +1296,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   formatter={(value, name) => {
                     const count = Number(value);
                     const percentage =
-                      totalFilteredCount > 0
-                        ? ((count / totalFilteredCount) * 100).toFixed(1)
+                      safeTotalReceived > 0
+                        ? ((count / safeTotalReceived) * 100).toFixed(1)
                         : '0.0';
                     return [`${count} osôb (${percentage}%)`, name];
                   }}
@@ -1083,41 +1309,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   }}
                   itemStyle={{ fontWeight: 900, color: '#000' }}
                 />
-
-                <text
-                  x="50%"
-                  y="46%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="fill-black"
-                  style={{ fontSize: '30px', fontWeight: 900 }}
-                >
-                  {totalFilteredCount}
-                </text>
-                <text
-                  x="50%"
-                  y="55%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  style={{
-                    fill: 'rgba(0,0,0,0.5)',
-                    fontSize: '10px',
-                    fontWeight: 800,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase' as any
-                  }}
-                >
-                  zapojených osôb
-                </text>
-                <text
-                  x="50%"
-                  y="62%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  style={{ fill: 'rgba(0,0,0,0.3)', fontSize: '9px', fontWeight: 700 }}
-                >
-                  Priemer na tím: {averagePerTeam}
-                </text>
+                {/* Stredové texty sme definitívne zmazali */}
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -1133,12 +1325,18 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
                 {engagementChartData
                   .slice()
-                  .sort((a: any, b: any) => b.count - a.count)
+                  .sort((a: any, b: any) => {
+                    if (a.isActive && !b.isActive) return -1;
+                    if (!a.isActive && b.isActive) return 1;
+                    return b.count - a.count;
+                  })
                   .map((team: any, idx: number) => (
                     <div
                       key={`${team.name}-${idx}`}
-                      className={`rounded-2xl border p-3 sm:p-4 ${
-                        idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5'
+                      className={`rounded-2xl border p-3 sm:p-4 transition-all ${
+                        team.isActive 
+                          ? (idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5') 
+                          : 'bg-black/5 border-transparent opacity-50 grayscale'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-2">
@@ -1153,7 +1351,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
-                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand mt-1">
+                          <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-1 ${team.isActive ? 'text-brand' : 'text-black/40'}`}>
                             {team.percentage}%
                           </p>
                         </div>
@@ -1178,9 +1376,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     </div>
   </div>
 )}
+
+        {/* TOTO BOLO DOPLNENÉ */}
         </div>
       )}
-
+      
       {activeTab === 'OPEN_QUESTIONS' && (
         <div className="space-y-8 sm:space-y-10 animate-fade-in">
           <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -1241,18 +1441,55 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <div className="bg-black/5 rounded-2xl p-4 sm:p-5 md:p-6 border border-black/5">
                     <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
                       {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
-                        <span
-                          key={tIdx}
-                          title={`Výskyt: ${theme.count}x • Podiel: ${theme.percentage} % odpovedí`}
-                          className={`
-                            inline-flex items-center rounded-xl px-3 py-1.5
-                            font-black tracking-tight cursor-help select-none
-                            ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
-                            ${getThemeFontSizeClass(theme.count, selectedQuestionMaxThemeCount)}
-                          `}
-                        >
-                          {theme.theme}
-                        </span>
+                      <span
+  key={tIdx}
+  onMouseEnter={(e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setThemeTooltip({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10,
+      theme: theme.theme,
+      count: theme.count,
+      percentage: theme.percentage,
+    });
+  }}
+  onMouseMove={(e) => {
+    setThemeTooltip((prev) =>
+      prev
+        ? {
+            ...prev,
+            x: e.clientX,
+            y: e.clientY - 12,
+          }
+        : prev
+    );
+  }}
+  onMouseLeave={() => setThemeTooltip(null)}
+  onClick={(e) => {
+    e.stopPropagation();
+
+    setThemeTooltip((prev) => {
+      if (prev?.theme === theme.theme) return null;
+
+      return {
+        theme: theme.theme,
+        count: theme.count,
+        percentage: theme.percentage,
+        x: e.clientX,
+        y: e.clientY - 12,
+      };
+    });
+  }}
+  className={`
+    inline-flex items-center rounded-xl px-3 py-1.5
+    font-black tracking-tight cursor-help select-none transition-all
+    ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
+    ${getThemeFontSizeClass(theme.count, selectedQuestionMaxThemeCount)}
+    hover:scale-[1.03]
+  `}
+>
+  {theme.theme}
+</span>
                       ))}
                     </div>
 
@@ -1326,7 +1563,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {(data.areas || []).some((a: any) => a.id === activeTab) && renderSection(activeTab as string)}
 
-      <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6">
+        <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6">
         <div className="flex items-center gap-4">
           <img src="/logo.png" alt="Libellius" className="h-14 sm:h-20 lg:h-24 w-auto object-contain" />
         </div>
@@ -1335,8 +1572,43 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
         </div>
       </div>
+
+      {themeTooltip && (
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            left: themeTooltip.x,
+            top: themeTooltip.y,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="bg-black text-white rounded-2xl shadow-2xl border border-white/10 px-4 py-3 min-w-[220px] max-w-[280px]">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mb-2">
+              Theme cloud
+            </p>
+
+            <p className="text-sm sm:text-base font-black leading-tight mb-3">
+              {themeTooltip.theme}
+            </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-white/60 font-bold">Výskyt</span>
+                <span className="font-black">{themeTooltip.count}x</span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-white/60 font-bold">Podiel</span>
+                <span className="font-black">{themeTooltip.percentage}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+</div>
+);
 };
 
 export default SatisfactionDashboard;

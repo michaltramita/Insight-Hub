@@ -6,6 +6,7 @@ import { analyzeDocument, fileToBase64, parseExcelFile } from './services/gemini
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
 import LZString from 'lz-string';
+import { decryptReportFromUrlPayload } from './utils/reportCrypto';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.HOME);
@@ -14,23 +15,73 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [needsKey, setNeedsKey] = useState<boolean>(false);
 
+  const [pendingEncryptedPayload, setPendingEncryptedPayload] = useState<string | null>(null);
+  const [sharePassword, setSharePassword] = useState<string>('');
+  const [shareDecryptError, setShareDecryptError] = useState<string | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
+
+  const [showSharedGoodbye, setShowSharedGoodbye] = useState<boolean>(false);
+
+  const [publicMeta, setPublicMeta] = useState<{
+    client?: string;
+    survey?: string;
+    issued?: string;
+  } | null>(null);
+
   useEffect(() => {
     const handleUrlData = () => {
       const hash = window.location.hash;
+
       if (hash && hash.startsWith('#report=')) {
         try {
-          const compressed = hash.replace('#report=', '');
-          const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
+          const raw = hash.slice(1); // remove '#'
+          const params = new URLSearchParams(raw);
+
+          const payload = params.get('report');
+          const client = params.get('client');
+          const survey = params.get('survey');
+          const issued = params.get('issued');
+
+          if (!payload) {
+            throw new Error('Chýba payload reportu.');
+          }
+
+          setPublicMeta({
+            client: client || undefined,
+            survey: survey || undefined,
+            issued: issued || undefined,
+          });
+
+          if (payload.startsWith('v1.')) {
+            setPendingEncryptedPayload(payload);
+            setShareDecryptError(null);
+            setSharePassword('');
+            setResult(null);
+            setShowSharedGoodbye(false);
+            setStatus(AppStatus.HOME);
+            return;
+          }
+
+          const decompressed = LZString.decompressFromEncodedURIComponent(payload);
           if (decompressed) {
             const jsonData = JSON.parse(decompressed);
             if (!jsonData.mode) {
               jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
             }
             setResult(jsonData);
+            setPendingEncryptedPayload(null);
+            setShowSharedGoodbye(false);
             setStatus(AppStatus.SUCCESS);
+            return;
           }
+
+          throw new Error('Neplatný link reportu.');
         } catch (e) {
           console.error('Chyba linku', e);
+          setShareDecryptError('Link reportu sa nepodarilo načítať.');
+          setPendingEncryptedPayload(null);
+          setShowSharedGoodbye(false);
+          setPublicMeta(null);
         }
       }
     };
@@ -49,6 +100,7 @@ const App: React.FC = () => {
         }
       }
     };
+
     checkKey();
 
     return () => window.removeEventListener('hashchange', handleUrlData);
@@ -62,7 +114,35 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDecryptSharedReport = async () => {
+    if (!pendingEncryptedPayload) return;
+
+    setIsDecrypting(true);
+    setShareDecryptError(null);
+
+    try {
+      const jsonData: any = await decryptReportFromUrlPayload(
+        pendingEncryptedPayload,
+        sharePassword.trim()
+      );
+
+      if (!jsonData.mode) {
+        jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
+      }
+
+      setResult(jsonData);
+      setPendingEncryptedPayload(null);
+      setShowSharedGoodbye(false);
+      setStatus(AppStatus.SUCCESS);
+    } catch (err: any) {
+      setShareDecryptError(err?.message || 'Nepodarilo sa odomknúť report.');
+    } finally {
+      setIsDecrypting(false);
+    }
+  };
+
   const selectMode = (mode: AnalysisMode) => {
+    setShowSharedGoodbye(false);
     setSelectedMode(mode);
     setStatus(AppStatus.READY_TO_UPLOAD);
   };
@@ -76,9 +156,10 @@ const App: React.FC = () => {
       reader.onload = (e) => {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
+          setShowSharedGoodbye(false);
           setResult(jsonData);
           setStatus(AppStatus.SUCCESS);
-        } catch (err) {
+        } catch {
           setError('Chybný formát JSON.');
           setStatus(AppStatus.ERROR);
         }
@@ -99,6 +180,7 @@ const App: React.FC = () => {
         throw new Error('Nepodarilo sa extrahovať dáta.');
       }
 
+      setShowSharedGoodbye(false);
       setResult(data);
       setStatus(AppStatus.SUCCESS);
     } catch (err: any) {
@@ -108,14 +190,31 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
+    const isSharedLink = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+
     window.location.hash = '';
-    setStatus(AppStatus.HOME);
     setResult(null);
     setSelectedMode(null);
     setError(null);
+
+    setPendingEncryptedPayload(null);
+    setSharePassword('');
+    setShareDecryptError(null);
+    setIsDecrypting(false);
+    setPublicMeta(null);
+
+    if (isSharedLink) {
+      setShowSharedGoodbye(true);
+      setStatus(AppStatus.HOME);
+      return;
+    }
+
+    setShowSharedGoodbye(false);
+    setStatus(AppStatus.HOME);
   };
 
   const handleBackToMode = () => {
+    setShowSharedGoodbye(false);
     setStatus(AppStatus.HOME);
     setSelectedMode(null);
   };
@@ -132,7 +231,127 @@ const App: React.FC = () => {
       )}
 
       <main className="w-full max-w-[1440px] xl:max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
-        {status === AppStatus.HOME && (
+        {showSharedGoodbye && (
+          <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4">
+            <div className="w-full max-w-6xl bg-white border border-black/5 rounded-[2rem] shadow-2xl p-8 sm:p-10 md:p-14 lg:p-16">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-xs md:text-sm font-black tracking-widest uppercase">
+                ĎAKUJEME ZA VYUŽITIE LIBELLIUS INSIGHTHUB
+              </div>
+
+              <h2 className="text-[clamp(2rem,5vw,4rem)] font-black tracking-tight leading-[1.2] md:leading-[1.18] mb-8 md:mb-10 max-w-5xl mx-auto">
+                Veríme, že vizualizácia dát Vám priniesla jasnejší pohľad na ďalšie rozhodnutia.
+              </h2>
+
+              <p className="text-[clamp(1rem,2vw,1.3rem)] text-black/50 font-semibold leading-relaxed max-w-4xl mx-auto">
+                Ak budete potrebovať znovu otvoriť prehľad, použite zdieľaný odkaz.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {pendingEncryptedPayload && status !== AppStatus.SUCCESS && (
+  <div className="flex flex-col min-h-[calc(100vh-120px)]">
+    <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4 py-6 md:py-10">
+      <div className="w-full max-w-5xl bg-white border border-black/5 rounded-[2rem] shadow-2xl px-6 sm:px-10 md:px-14 py-8 sm:py-10 md:py-12">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 text-xs font-black tracking-widest uppercase">
+          <Key className="w-3 h-3" /> Chránený report
+        </div>
+
+        <h1 className="text-sm sm:text-base font-black uppercase tracking-[0.24em] text-black/40 mb-5">
+          Libellius <span className="text-brand">InsightHub</span>
+        </h1>
+
+        <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-8 md:mb-10">
+          Tento report je chránený heslom
+        </h2>
+
+        {publicMeta && (
+          <div className="mb-6 md:mb-10 text-left bg-black/5 border border-black/5 rounded-3xl px-6 py-5 md:px-7 md:py-6 max-w-4xl mx-auto">
+            {publicMeta.client && (
+              <p className="text-lg md:text-xl font-black text-black leading-tight">
+                Klient <span className="text-brand">{publicMeta.client}</span>
+              </p>
+            )}
+
+            {publicMeta.survey && (
+              <p className="text-base md:text-lg font-semibold text-black/70 mt-3 leading-snug">
+                Report {publicMeta.survey}
+              </p>
+            )}
+
+            {publicMeta.issued && (
+              <p className="text-xs md:text-sm font-black uppercase tracking-[0.18em] text-black/40 mt-4">
+                Vydané {publicMeta.issued}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4 text-left max-w-4xl mx-auto">
+          <input
+            type="password"
+            value={sharePassword}
+            onChange={(e) => setSharePassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleDecryptSharedReport();
+            }}
+            placeholder="Zadajte heslo"
+            className="w-full px-5 py-4 md:px-6 md:py-5 bg-black/5 border border-black/5 rounded-2xl outline-none focus:ring-2 focus:ring-brand/30 text-lg"
+          />
+
+          {shareDecryptError && (
+            <p className="text-sm font-bold text-brand">{shareDecryptError}</p>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-4 pt-2">
+            <button
+              onClick={handleDecryptSharedReport}
+              disabled={isDecrypting || !sharePassword.trim()}
+              className="flex-1 px-6 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDecrypting ? 'Odomykám...' : 'Odomknúť report'}
+            </button>
+
+            <button
+              onClick={() => {
+                window.location.hash = '';
+                setPendingEncryptedPayload(null);
+                setSharePassword('');
+                setShareDecryptError(null);
+                setPublicMeta(null);
+                setStatus(AppStatus.HOME);
+              }}
+              className="px-6 py-4 bg-black/5 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-black/10 transition-all min-w-[170px]"
+            >
+              Zrušiť
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="w-full max-w-5xl mx-auto mt-auto pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
+      <div className="flex items-center gap-4">
+        <img
+          src="/logo.png"
+          alt="Libellius"
+          className="h-16 md:h-20 w-auto object-contain opacity-80"
+        />
+      </div>
+
+      <div className="text-center md:text-right">
+        <p className="text-xs font-bold text-black/60">
+          © {new Date().getFullYear()} Libellius. Všetky práva vyhradené.
+        </p>
+        <p className="text-[10px] font-bold uppercase tracking-widest mt-1">
+          Generované pomocou umelej inteligencie
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+        {!pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
@@ -160,7 +379,6 @@ const App: React.FC = () => {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-0 sm:px-2">
-              {/* DISABLED KARTA - ANALÝZA 360 */}
               <div
                 className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] opacity-85 cursor-not-allowed"
                 aria-disabled="true"
@@ -187,7 +405,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* AKTÍVNA KARTA - SPOKOJNOSŤ */}
               <button
                 onClick={() => selectMode('ZAMESTNANECKA_SPOKOJNOST')}
                 className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] hover:border-black hover:bg-black/5 transition-all text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9]"
@@ -217,7 +434,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status === AppStatus.READY_TO_UPLOAD && (
+        {status === AppStatus.READY_TO_UPLOAD && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow animate-fade-in px-4">
             <button
               onClick={handleBackToMode}
@@ -229,13 +446,13 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status === AppStatus.ANALYZING && (
+        {status === AppStatus.ANALYZING && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow">
             <FileUpload onFileSelect={() => {}} isAnalyzing={true} mode={selectedMode} />
           </div>
         )}
 
-        {status === AppStatus.SUCCESS && result && (
+        {status === AppStatus.SUCCESS && result && !showSharedGoodbye && (
           <div className="w-full">
             {result.mode === '360_FEEDBACK' ? (
               <Dashboard result={result} onReset={handleReset} />
@@ -245,7 +462,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status === AppStatus.ERROR && (
+        {status === AppStatus.ERROR && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow gap-6 text-center px-6">
             <AlertCircle className="w-20 h-20 text-brand" />
             <h3 className="text-3xl font-black uppercase tracking-tighter">Chyba analýzy</h3>
@@ -259,7 +476,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status !== AppStatus.SUCCESS && (
+        {status !== AppStatus.SUCCESS && !pendingEncryptedPayload && !showSharedGoodbye && (
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
               <img

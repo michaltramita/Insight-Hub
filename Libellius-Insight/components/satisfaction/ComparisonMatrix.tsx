@@ -48,7 +48,8 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }
           <tbody className="divide-y divide-black/5">
             {matrixData.map((row, idx) => (
               <tr key={idx} className="hover:bg-black/[0.02] transition-colors group">
-                <td className="p-6 text-xs font-bold text-black sticky left-0 z-10 bg-white border-r border-black/5 group-hover:bg-[#fcfcfc]">
+                {/* Zväčšený text kategórie (text-lg) */}
+                <td className="p-6 text-lg leading-snug font-bold text-black sticky left-0 z-10 bg-white border-r border-black/5 group-hover:bg-[#fcfcfc]">
                   <div className="flex flex-col gap-2 items-start">
                     <span>{row.category}</span>
                     {/* --- ZOBRAZENIE ŠTÍTKU --- */}
@@ -61,7 +62,8 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }
                 </td>
                 {teams.map(team => (
                   <td key={team} className="p-0 border-l border-black/5">
-                    <div className={`w-full h-full p-6 text-center font-black text-sm transition-all ${getCellColor(row[team])}`}>
+                    {/* Zväčšené čísla (text-lg) */}
+                    <div className={`w-full h-full flex items-center justify-center p-6 text-center font-black text-base transition-all ${getCellColor(row[team])}`}>
                       {row[team] > 0 ? row[team].toFixed(2) : '-'}
                     </div>
                   </td>
