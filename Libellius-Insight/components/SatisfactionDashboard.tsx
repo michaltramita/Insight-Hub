@@ -1576,9 +1576,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           style={{
             left: themeTooltip.x,
             top: themeTooltip.y,
-            // TOTO BOLA CHYBA: Zmenili sme to tak, aby sa okno vycentrovalo 
-            // a posunulo presne 15 pixelov pod kurzor myši
-            transform: 'translate(-50%, 15px)',
+            // ZMENA: Odstránili sme -50%.
+            // 15px posunie okno doprava od myši, 15px ho posunie dole.
+            transform: 'translate(15px, 15px)',
           }}
         >
           <div className="bg-black text-white rounded-2xl shadow-2xl border border-white/10 px-4 py-3 min-w-[220px] max-w-[280px]">
