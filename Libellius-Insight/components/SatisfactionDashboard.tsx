@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
@@ -1570,14 +1571,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       </div>
 
-      {themeTooltip && (
+     {/* TOTO SME ZMENILI: Použijeme createPortal, aby sa okno vložilo priamo do body a ignorovalo všetky CSS obaly */}
+      {themeTooltip && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{
             left: themeTooltip.x,
             top: themeTooltip.y,
-            // ZMENA: Odstránili sme -50%.
-            // 15px posunie okno doprava od myši, 15px ho posunie dole.
             transform: 'translate(15px, 15px)',
           }}
         >
@@ -1602,7 +1602,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body // <-- Tooltip sa presunie úplne na vrch dokumentu mimo všetky CSS obaly
       )}
     </div>
   </div>
