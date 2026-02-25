@@ -1442,7 +1442,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
                       {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
                       <span
-  <span
                           key={tIdx}
                           onMouseEnter={(e) => {
                             setThemeTooltip({
