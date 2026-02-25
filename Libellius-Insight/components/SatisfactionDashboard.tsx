@@ -1442,46 +1442,43 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
                       {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
                       <span
-  key={tIdx}
-  onMouseEnter={(e) => {
-    // 1. ZMENA: Pri nabehnutí myšou to dáme hneď k myši, nie na stred slova
-    setThemeTooltip({
-      x: e.clientX,
-      y: e.clientY - 30, // Zobrazí sa kúsok nad kurzorom
-      theme: theme.theme,
-      count: theme.count,
-      percentage: theme.percentage,
-    });
-  }}
-  onMouseMove={(e) => {
-    setThemeTooltip((prev) =>
-      prev
-        ? {
-            ...prev,
-            x: e.clientX,
-            y: e.clientY - 4,
-          }
-        : prev
-    );
-  }}
-  onMouseLeave={() => setThemeTooltip(null)}
-  onClick={(e) => {
-    e.stopPropagation();
-
-    setThemeTooltip((prev) => {
-      if (prev?.theme === theme.theme) return null;
-
-      return {
-        theme: theme.theme,
-        count: theme.count,
-        percentage: theme.percentage,
-        // 2. ZMENA: Namiesto zložitého počítania rohov použijeme priamo pozíciu kliknutia myši
-        x: e.clientX,
-        y: e.clientY + 15, // Číslo 15 určuje, koľko pixelov pod myšou (pod slovom) okienko vyskočí
-      };
-    });
-  }}
-  className={`
+  <span
+                          key={tIdx}
+                          onMouseEnter={(e) => {
+                            setThemeTooltip({
+                              x: e.clientX,
+                              y: e.clientY,
+                              theme: theme.theme,
+                              count: theme.count,
+                              percentage: theme.percentage,
+                            });
+                          }}
+                          onMouseMove={(e) => {
+                            setThemeTooltip((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    x: e.clientX,
+                                    y: e.clientY,
+                                  }
+                                : prev
+                            );
+                          }}
+                          onMouseLeave={() => setThemeTooltip(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setThemeTooltip((prev) => {
+                              if (prev?.theme === theme.theme) return null;
+                              return {
+                                theme: theme.theme,
+                                count: theme.count,
+                                percentage: theme.percentage,
+                                x: e.clientX,
+                                y: e.clientY,
+                              };
+                            });
+                          }}
+                          className={`
     inline-flex items-center rounded-xl px-3 py-1.5
     font-black tracking-tight cursor-help select-none transition-all
     ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
@@ -1580,7 +1577,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           style={{
             left: themeTooltip.x,
             top: themeTooltip.y,
-            transform: 'translate(-50%, -100)',
+            // TOTO BOLA CHYBA: Zmenili sme to tak, aby sa okno vycentrovalo 
+            // a posunulo presne 15 pixelov pod kurzor myši
+            transform: 'translate(-50%, 15px)',
           }}
         >
           <div className="bg-black text-white rounded-2xl shadow-2xl border border-white/10 px-4 py-3 min-w-[220px] max-w-[280px]">
