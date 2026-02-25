@@ -1458,8 +1458,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       prev
         ? {
             ...prev,
+            // Tu si viete upraviť čísla (offset), ak by to bolo pri pohybe myši stále ďaleko
             x: e.clientX,
-            y: e.clientY - 4,
+            y: e.clientY - 4, 
           }
         : prev
     );
@@ -1467,6 +1468,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   onMouseLeave={() => setThemeTooltip(null)}
   onClick={(e) => {
     e.stopPropagation();
+
+    // TOTO TU CHÝBALO: Musíme znova načítať pozíciu priamo pri kliknutí
+    const rect = e.currentTarget.getBoundingClientRect();
 
     setThemeTooltip((prev) => {
       if (prev?.theme === theme.theme) return null;
@@ -1476,7 +1480,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         count: theme.count,
         percentage: theme.percentage,
         x: rect.left + rect.width / 2,
-        y: rect.bottom + 6,
+        // Tu nastavujeme, ako ďaleko pod slovom to má vyskočiť (napr. +6)
+        y: rect.bottom + 6, 
       };
     });
   }}
