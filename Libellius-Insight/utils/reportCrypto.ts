@@ -1,4 +1,4 @@
-/import LZString from 'lz-string';
+import LZString from 'lz-string';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
