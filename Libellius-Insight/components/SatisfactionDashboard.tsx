@@ -1447,7 +1447,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setThemeTooltip({
       x: rect.left + rect.width / 2,
-      y: rect.top - 2,
+      y: rect.top - 6,
       theme: theme.theme,
       count: theme.count,
       percentage: theme.percentage,
@@ -1475,8 +1475,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         theme: theme.theme,
         count: theme.count,
         percentage: theme.percentage,
-        x: e.clientX,
-        y: e.clientY - 4,
+        x: rect.left + rect.width / 2,
+        y: rect.bottom + 6,
       };
     });
   }}
@@ -1579,7 +1579,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           style={{
             left: themeTooltip.x,
             top: themeTooltip.y,
-            transform: 'translate(-50%, -100%)',
+            transform: 'translate(-50%, -100)',
           }}
         >
           <div className="bg-black text-white rounded-2xl shadow-2xl border border-white/10 px-4 py-3 min-w-[220px] max-w-[280px]">
