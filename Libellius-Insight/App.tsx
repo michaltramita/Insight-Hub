@@ -44,7 +44,6 @@ const App: React.FC = () => {
 
       if (hash && hash.startsWith('#report=')) {
         try {
-          // Ak otvárame nový report, zrušíme prípadné podakovanie v pamäti
           sessionStorage.removeItem('libellius_show_goodbye');
           
           const raw = hash.slice(1); 
@@ -115,6 +114,14 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleUrlData);
   }, []);
 
+  const handleOpenKeyDialog = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      await aistudio.openSelectKey();
+      setNeedsKey(false);
+    }
+  };
+
   const handleDecryptSharedReport = async () => {
     if (!pendingEncryptedPayload) return;
     setIsDecrypting(true);
@@ -137,7 +144,6 @@ const App: React.FC = () => {
   };
 
   const selectMode = (mode: AnalysisMode) => {
-    // Ak si používateľ vyberie nový mód, zrušíme podakovanie
     sessionStorage.removeItem('libellius_show_goodbye');
     setShowSharedGoodbye(false);
     setSelectedMode(mode);
@@ -202,7 +208,6 @@ const App: React.FC = () => {
     setPublicMeta(null);
 
     if (isSharedLink) {
-      // ULOŽÍME DO PAMÄTE: Užívateľ zavrel report, chceme ukázať podakovanie aj po refreshi
       sessionStorage.setItem('libellius_show_goodbye', 'true');
       setShowSharedGoodbye(true);
       setStatus(AppStatus.HOME);
@@ -246,12 +251,6 @@ const App: React.FC = () => {
                 <p className="text-[clamp(1rem,2vw,1.3rem)] text-black/50 font-semibold leading-relaxed max-w-4xl mx-auto">
                   Ak budete potrebovať znovu otvoriť prehľad, použite zdieľaný odkaz.
                 </p>
-                <button 
-                  onClick={handleBackToMode}
-                  className="mt-10 px-8 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-brand transition-all"
-                >
-                  Nová analýza
-                </button>
               </div>
             </div>
             {/* Pätička vnútri Goodbye sekcie */}
@@ -415,7 +414,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Hlavná pätička (viditeľná len ak nie je zobrazený úspešný report a nie sme v Goodbye móde, lebo ten má svoju) */}
         {status !== AppStatus.SUCCESS && !showSharedGoodbye && (
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
