@@ -52,7 +52,6 @@ const App: React.FC = () => {
             issued: issued || undefined,
           });
 
-          // TOTO JE TÁ ZMENA: Aplikácia teraz akceptuje staré v1 aj nové komprimované v2 odkazy
           if (payload.startsWith('v1.') || payload.startsWith('v2.')) {
             setPendingEncryptedPayload(payload);
             setShareDecryptError(null);
@@ -233,7 +232,7 @@ const App: React.FC = () => {
 
       <main className="w-full max-w-[1440px] xl:max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-grow flex flex-col">
         {showSharedGoodbye && (
-          <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4">
+          <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4 py-6 md:py-10">
             <div className="w-full max-w-6xl bg-white border border-black/5 rounded-[2rem] shadow-2xl p-8 sm:p-10 md:p-14 lg:p-16">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-xs md:text-sm font-black tracking-widest uppercase">
                 ĎAKUJEME ZA VYUŽITIE LIBELLIUS INSIGHTHUB
@@ -251,102 +250,81 @@ const App: React.FC = () => {
         )}
 
         {pendingEncryptedPayload && status !== AppStatus.SUCCESS && (
-          <div className="flex flex-col min-h-[calc(100vh-120px)]">
-            <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4 py-6 md:py-10">
-              <div className="w-full max-w-5xl bg-white border border-black/5 rounded-[2rem] shadow-2xl px-6 sm:px-10 md:px-14 py-8 sm:py-10 md:py-12">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 text-xs font-black tracking-widest uppercase">
-                  <Key className="w-3 h-3" /> Chránený report
-                </div>
+          <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4 py-6 md:py-10">
+            <div className="w-full max-w-5xl bg-white border border-black/5 rounded-[2rem] shadow-2xl px-6 sm:px-10 md:px-14 py-8 sm:py-10 md:py-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 text-xs font-black tracking-widest uppercase">
+                <Key className="w-3 h-3" /> Chránený report
+              </div>
 
-                <h1 className="text-sm sm:text-base font-black uppercase tracking-[0.24em] text-black/40 mb-5">
-                  Libellius <span className="text-brand">InsightHub</span>
-                </h1>
+              <h1 className="text-sm sm:text-base font-black uppercase tracking-[0.24em] text-black/40 mb-5">
+                Libellius <span className="text-brand">InsightHub</span>
+              </h1>
 
-                <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-8 md:mb-10">
-                  Tento report je chránený heslom
-                </h2>
+              <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-8 md:mb-10">
+                Tento report je chránený heslom
+              </h2>
 
-                {publicMeta && (
-                  <div className="mb-6 md:mb-10 text-left bg-black/5 border border-black/5 rounded-3xl px-6 py-5 md:px-7 md:py-6 max-w-4xl mx-auto">
-                    {publicMeta.client && (
-                      <p className="text-lg md:text-xl font-black text-black leading-tight">
-                        Klient <span className="text-brand">{publicMeta.client}</span>
-                      </p>
-                    )}
-
-                    {publicMeta.survey && (
-                      <p className="text-base md:text-lg font-semibold text-black/70 mt-3 leading-snug">
-                        Report {publicMeta.survey}
-                      </p>
-                    )}
-
-                    {publicMeta.issued && (
-                      <p className="text-xs md:text-sm font-black uppercase tracking-[0.18em] text-black/40 mt-4">
-                        Vydané {publicMeta.issued}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-4 text-left max-w-4xl mx-auto">
-                  <input
-                    type="password"
-                    value={sharePassword}
-                    onChange={(e) => setSharePassword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleDecryptSharedReport();
-                    }}
-                    placeholder="Zadajte heslo"
-                    className="w-full px-5 py-4 md:px-6 md:py-5 bg-black/5 border border-black/5 rounded-2xl outline-none focus:ring-2 focus:ring-brand/30 text-lg"
-                  />
-
-                  {shareDecryptError && (
-                    <p className="text-sm font-bold text-brand">{shareDecryptError}</p>
+              {publicMeta && (
+                <div className="mb-6 md:mb-10 text-left bg-black/5 border border-black/5 rounded-3xl px-6 py-5 md:px-7 md:py-6 max-w-4xl mx-auto">
+                  {publicMeta.client && (
+                    <p className="text-lg md:text-xl font-black text-black leading-tight">
+                      Klient <span className="text-brand">{publicMeta.client}</span>
+                    </p>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                    <button
-                      onClick={handleDecryptSharedReport}
-                      disabled={isDecrypting || !sharePassword.trim()}
-                      className="flex-1 px-6 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isDecrypting ? 'Odomykám...' : 'Odomknúť report'}
-                    </button>
+                  {publicMeta.survey && (
+                    <p className="text-base md:text-lg font-semibold text-black/70 mt-3 leading-snug">
+                      Report {publicMeta.survey}
+                    </p>
+                  )}
 
-                    <button
-                      onClick={() => {
-                        window.location.hash = '';
-                        setPendingEncryptedPayload(null);
-                        setSharePassword('');
-                        setShareDecryptError(null);
-                        setPublicMeta(null);
-                        setStatus(AppStatus.HOME);
-                      }}
-                      className="px-6 py-4 bg-black/5 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-black/10 transition-all min-w-[170px]"
-                    >
-                      Zrušiť
-                    </button>
-                  </div>
+                  {publicMeta.issued && (
+                    <p className="text-xs md:text-sm font-black uppercase tracking-[0.18em] text-black/40 mt-4">
+                      Vydané {publicMeta.issued}
+                    </p>
+                  )}
                 </div>
-              </div>
-            </div>
+              )}
 
-            <div className="w-full max-w-5xl mx-auto mt-auto pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
-              <div className="flex items-center gap-4">
-                <img
-                  src="/logo.png"
-                  alt="Libellius"
-                  className="h-16 md:h-20 w-auto object-contain opacity-80"
+              <div className="space-y-4 text-left max-w-4xl mx-auto">
+                <input
+                  type="password"
+                  value={sharePassword}
+                  onChange={(e) => setSharePassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleDecryptSharedReport();
+                  }}
+                  placeholder="Zadajte heslo"
+                  className="w-full px-5 py-4 md:px-6 md:py-5 bg-black/5 border border-black/5 rounded-2xl outline-none focus:ring-2 focus:ring-brand/30 text-lg"
                 />
-              </div>
 
-              <div className="text-center md:text-right">
-                <p className="text-xs font-bold text-black/60">
-                  © {new Date().getFullYear()} Libellius. Všetky práva vyhradené.
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-widest mt-1">
-                  Generované pomocou umelej inteligencie
-                </p>
+                {shareDecryptError && (
+                  <p className="text-sm font-bold text-brand">{shareDecryptError}</p>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                  <button
+                    onClick={handleDecryptSharedReport}
+                    disabled={isDecrypting || !sharePassword.trim()}
+                    className="flex-1 px-6 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDecrypting ? 'Odomykám...' : 'Odomknúť report'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      window.location.hash = '';
+                      setPendingEncryptedPayload(null);
+                      setSharePassword('');
+                      setShareDecryptError(null);
+                      setPublicMeta(null);
+                      setStatus(AppStatus.HOME);
+                    }}
+                    className="px-6 py-4 bg-black/5 text-black rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-black/10 transition-all min-w-[170px]"
+                  >
+                    Zrušiť
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -477,7 +455,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {status !== AppStatus.SUCCESS && !pendingEncryptedPayload && !showSharedGoodbye && (
+        {status !== AppStatus.SUCCESS && (
           <div className="w-full max-w-5xl mx-auto mt-auto pt-16 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
             <div className="flex items-center gap-4">
               <img
