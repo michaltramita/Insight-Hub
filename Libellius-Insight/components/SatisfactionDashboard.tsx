@@ -837,7 +837,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
-              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
+              <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                 <div className="relative w-full sm:flex-1 md:w-64">
