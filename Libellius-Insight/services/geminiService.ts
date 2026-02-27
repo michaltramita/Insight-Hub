@@ -112,7 +112,9 @@ export const analyzeDocument = async (
       const openQsMap: Record<string, Record<string, Array<{ text: string; tema: string }>>> = {};
       const quantitativeByOblast: Record<string, Record<string, { questionType: string; scores: Record<string, number> }>> = {};
       const uniqueTeams = new Set<string>();
-      const teamEngagementMap: Record<string, number> = {};
+      
+      // UPRAVENÉ: Uchovávame si prijaté (odpovede) aj odoslané (oslovení) pre každý tím
+      const teamEngagementMap: Record<string, { received: number; sent: number }> = {};
 
       rawData.forEach((row: any) => {
         const team = String(row.skupina || "").trim();
@@ -166,8 +168,15 @@ export const analyzeDocument = async (
                   totalR = val;
                 }
               } else {
-                if (otazkaTextLower.includes("struktura") || otazkaTextLower.includes("vyplnen") || otazkaTextLower.includes("zapojen")) {
-                  teamEngagementMap[team] = val;
+                // UPRAVENÉ: Sledovanie presných čísiel pre konkrétne tímy
+                if (!teamEngagementMap[team]) {
+                  teamEngagementMap[team] = { received: 0, sent: 0 };
+                }
+                
+                if (otazkaTextLower.includes("osloven") || otazkaTextLower.includes("rozposlan")) {
+                  teamEngagementMap[team].sent = val; // Počet oslovených z nového riadku
+                } else if (otazkaTextLower.includes("struktura") || otazkaTextLower.includes("vyplnen") || otazkaTextLower.includes("zapojen")) {
+                  teamEngagementMap[team].received = val; // Počet prijatých odpovedí
                 }
               }
               return;
@@ -204,9 +213,11 @@ export const analyzeDocument = async (
         };
       });
 
+      // UPRAVENÉ: Na front-end pošleme aj počet odpovedí (count) aj počet oslovených (totalSent)
       calculatedEngagement = Array.from(uniqueTeams).map((t) => ({
         name: t,
-        count: teamEngagementMap[t] || 0,
+        count: teamEngagementMap[t]?.received || 0,
+        totalSent: teamEngagementMap[t]?.sent || 0,
       }));
     } catch (e) {
       console.warn("Chyba pri lokálnom spracovaní:", e);
@@ -230,17 +241,18 @@ export const analyzeDocument = async (
     } as FeedbackAnalysisResult;
   }
 
-  // PRÍPRAVA DÁT PRE AI ENGAGEMENT
+  // PRÍPRAVA DÁT PRE AI ENGAGEMENT (Upravená pre reálne dáta)
   const firmResponseRate = totalS > 0 ? ((totalR / totalS) * 100).toFixed(1) : 0;
   const engagementDataForAI = calculatedEngagement.map((t) => {
       const responded = t.count;
-      const teamSentApprox = (responded > 0 && totalR > 0) ? Math.round((responded / totalR) * totalS) : 0;
-      const responseRate = teamSentApprox > 0 ? ((responded / teamSentApprox) * 100).toFixed(1) : 0;
+      // Tu už preberáme t.totalSent, ktoré sme vyťažili z novej verzie Excelu
+      const teamSent = t.totalSent > 0 ? t.totalSent : ((responded > 0 && totalR > 0) ? Math.round((responded / totalR) * totalS) : 0);
+      const responseRate = teamSent > 0 ? ((responded / teamSent) * 100).toFixed(1) : 0;
       
       return {
           teamName: t.name,
           responded: responded,
-          approximatedSent: teamSentApprox,
+          sent: teamSent, // Názov kľúča sme zmenili na 'sent' (namiesto approximatedSent)
           responseRatePercentage: responseRate
       };
   });
