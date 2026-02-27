@@ -1,11 +1,10 @@
 import * as XLSX from "xlsx";
 import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 
-// Bezpečná normalizácia textu (odstráni diakritiku a zmení na malé písmená)
+// Bezpečná normalizácia textu
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-// Normalizácia AI payloadu pre OPEN QUESTIONS
 const normalizeOpenQuestionsPayload = (payload: any) => {
   const safe = Array.isArray(payload?.openQuestions) ? payload.openQuestions : [];
 
@@ -113,8 +112,8 @@ export const analyzeDocument = async (
       const quantitativeByOblast: Record<string, Record<string, { questionType: string; scores: Record<string, number> }>> = {};
       const uniqueTeams = new Set<string>();
       
-      // UPRAVENÉ: Uchovávame si prijaté (odpovede) aj odoslané (oslovení) pre každý tím
-      const teamEngagementMap: Record<string, { received: number; sent: number }> = {};
+      // NOVÉ: Uchovávame si presne hodnoty zapojenia + text z Excelu
+      const teamEngagementMap: Record<string, { received: number; sent: number; interpretation: string }> = {};
 
       rawData.forEach((row: any) => {
         const team = String(row.skupina || "").trim();
@@ -127,11 +126,19 @@ export const analyzeDocument = async (
         const otazkaTextLower = normalize(otazkaText);
         const oblast = String(row.oblast || "Iné oblasti").trim();
         const oblastNorm = normalize(oblast);
+        
+        // --- 1. ODCHYTENIE MANUÁLNEJ INTERPRETÁCIE ---
+        if (otazkaTextLower.includes("interpretacia zapojenia") || otazkaTextLower.includes("interpretácia zapojenia")) {
+            if (!teamEngagementMap[team]) teamEngagementMap[team] = { received: 0, sent: 0, interpretation: "" };
+            // Text odpovede si uložíme do premennej interpretation
+            teamEngagementMap[team].interpretation = String(row.text || "").trim();
+            return; // Končíme s týmto riadkom, aby nešiel zbytočne do API ako otvorená otázka
+        }
 
         const rawQuestionType = String(row.kategoria_otazky || "Prierezova").trim();
         const qType = normalize(rawQuestionType).includes("specif") ? "Specificka" : "Prierezova";
 
-        // 1. Voľné odpovede
+        // 2. Voľné odpovede
         if (rowTyp.includes("volna") && row.text?.toString().trim() !== "") {
           const ansText = row.text.toString().trim();
           const ansTema = String(row.tema_odpovede || "").trim();
@@ -144,7 +151,7 @@ export const analyzeDocument = async (
           return;
         }
 
-        // 2. Kvantitatívne údaje a zapojenie
+        // 3. Kvantitatívne údaje a zapojenie
         if (row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
           const cleanHodnota = String(row.hodnota).replace(",", ".");
           const val = Number(cleanHodnota);
@@ -168,15 +175,12 @@ export const analyzeDocument = async (
                   totalR = val;
                 }
               } else {
-                // UPRAVENÉ: Sledovanie presných čísiel pre konkrétne tímy
-                if (!teamEngagementMap[team]) {
-                  teamEngagementMap[team] = { received: 0, sent: 0 };
-                }
+                if (!teamEngagementMap[team]) teamEngagementMap[team] = { received: 0, sent: 0, interpretation: "" };
                 
                 if (otazkaTextLower.includes("osloven") || otazkaTextLower.includes("rozposlan")) {
-                  teamEngagementMap[team].sent = val; // Počet oslovených z nového riadku
+                  teamEngagementMap[team].sent = val;
                 } else if (otazkaTextLower.includes("struktura") || otazkaTextLower.includes("vyplnen") || otazkaTextLower.includes("zapojen")) {
-                  teamEngagementMap[team].received = val; // Počet prijatých odpovedí
+                  teamEngagementMap[team].received = val; 
                 }
               }
               return;
@@ -213,11 +217,12 @@ export const analyzeDocument = async (
         };
       });
 
-      // UPRAVENÉ: Na front-end pošleme aj počet odpovedí (count) aj počet oslovených (totalSent)
+      // --- Zostavenie objektu z Excelu (aj s manuálnym textom `aiSummary`) ---
       calculatedEngagement = Array.from(uniqueTeams).map((t) => ({
         name: t,
         count: teamEngagementMap[t]?.received || 0,
         totalSent: teamEngagementMap[t]?.sent || 0,
+        aiSummary: teamEngagementMap[t]?.interpretation || "", // Priradené priamo z Excelu!
       }));
     } catch (e) {
       console.warn("Chyba pri lokálnom spracovaní:", e);
@@ -241,33 +246,15 @@ export const analyzeDocument = async (
     } as FeedbackAnalysisResult;
   }
 
-  // PRÍPRAVA DÁT PRE AI ENGAGEMENT (Upravená pre reálne dáta)
-  const firmResponseRate = totalS > 0 ? ((totalR / totalS) * 100).toFixed(1) : 0;
-  const engagementDataForAI = calculatedEngagement.map((t) => {
-      const responded = t.count;
-      // Tu už preberáme t.totalSent, ktoré sme vyťažili z novej verzie Excelu
-      const teamSent = t.totalSent > 0 ? t.totalSent : ((responded > 0 && totalR > 0) ? Math.round((responded / totalR) * totalS) : 0);
-      const responseRate = teamSent > 0 ? ((responded / teamSent) * 100).toFixed(1) : 0;
-      
-      return {
-          teamName: t.name,
-          responded: responded,
-          sent: teamSent, // Názov kľúča sme zmenili na 'sent' (namiesto approximatedSent)
-          responseRatePercentage: responseRate
-      };
-  });
-
-  let aiParsed: any = { openQuestions: [], engagementAnalysis: [] };
+  // Odosielame na API iba otvorené otázky
+  let aiParsed: any = { openQuestions: [] };
 
   try {
     const res = await fetch("/api/analyze-open-questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        rawOpenQuestionsForAI,
-        engagementData: engagementDataForAI,
-        firmSuccessRate: sucRate || `${firmResponseRate}%`
-      }),
+      // API už nevyžaduje engagementData, posielame len toto
+      body: JSON.stringify({ rawOpenQuestionsForAI }), 
     });
 
     if (!res.ok) {
@@ -280,17 +267,6 @@ export const analyzeDocument = async (
   }
 
   const normalizedOpenQuestions = normalizeOpenQuestionsPayload(aiParsed);
-  const aiEngagementAnalyses = aiParsed.engagementAnalysis || [];
-
-  // ZLÚČENIE AI TEXTOV SO ZAPOJENÍM TÍMOV
-  const finalEngagement = calculatedEngagement.map(t => {
-    const aiMatch = aiEngagementAnalyses.find((a: any) => a.teamName === t.name);
-    return {
-      ...t,
-      aiSummary: aiMatch?.aiSummary || undefined,
-      aiRecommendation: aiMatch?.aiRecommendation || undefined
-    };
-  });
 
   return {
     mode: "ZAMESTNANECKA_SPOKOJNOST",
@@ -301,7 +277,7 @@ export const analyzeDocument = async (
       totalSent: totalS,
       totalReceived: totalR,
       successRate: sucRate || "0%",
-      teamEngagement: finalEngagement,
+      teamEngagement: calculatedEngagement, // Vraciame presne to, čo sme prečítali z Excelu
       openQuestions: normalizedOpenQuestions,
       areas: calculatedAreas || [],
     },
