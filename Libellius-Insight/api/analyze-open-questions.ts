@@ -58,8 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // PRIDANÉ: Prijímame aj dáta o zapojení (engagementData)
-    const { rawOpenQuestionsForAI, engagementData, firmSuccessRate } = req.body || {};
+    const { rawOpenQuestionsForAI } = req.body || {};
 
     if (!rawOpenQuestionsForAI || !Array.isArray(rawOpenQuestionsForAI)) {
       return res.status(400).json({ error: 'Missing or invalid rawOpenQuestionsForAI' });
@@ -87,27 +86,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
     }));
 
-    // PRIDANÉ: Rozšírený prompt pre analýzu zapojenia
     const promptText = `
 Si senior HR/People Analytics expert. Píšeš po slovensky.
 
-Úloha má 2 časti:
-
-ČASŤ 1: OTVORENÉ OTÁZKY
-Pre každý tím a každú otázku vytvor presne 3 manažérske odporúčania.
+Úloha:
+Pre každý tím a každú otázku vytvor presne 3 manažérske odporúčania z dostupných dát.
 - ODPORÚČANIA musia byť praktické, stručné a použiteľné.
 - "themeCloud" NEGENERUJ do odporúčaní (je riešený inde).
 - Uveď max 5 reprezentatívnych doslovných citácií z answers[].text.
 - Nepíš žiadne vymyslené dáta.
-
-ČASŤ 2: ZAPOJENIE TÍMOV (ENGAGEMENT)
-Analyzuj dáta o návratnosti prieskumu. Celofiremná návratnosť je: ${firmSuccessRate || 'Neznáma'}.
-Pre každý tím v "Dáta o zapojení tímov" napíš:
-- aiSummary: Krátke zhodnotenie čísel v kontexte firmy (napr. "Tím tvorí 43% odpovedí celej firmy a dosahuje nadpriemernú návratnosť 75%.").
-- aiRecommendation: Praktické manažérske odporúčanie, ako udržať alebo zlepšiť toto zapojenie do budúcna.
-
-Dáta o zapojení tímov:
-${JSON.stringify(engagementData || [])}
 
 Vstupné dáta pre otvorené otázky:
 ${JSON.stringify(enrichedInput)}
@@ -123,7 +110,6 @@ Výstup musí byť výhradne validný JSON so štruktúrou definovanou v schéme
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            // Pôvodná schéma pre otvorené otázky
             openQuestions: {
               type: Type.ARRAY,
               items: {
@@ -170,22 +156,9 @@ Výstup musí byť výhradne validný JSON so štruktúrou definovanou v schéme
                 },
                 required: ["teamName", "questions"]
               }
-            },
-            // NOVÉ: Schéma pre hodnotenie zapojenia
-            engagementAnalysis: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  teamName: { type: Type.STRING },
-                  aiSummary: { type: Type.STRING },
-                  aiRecommendation: { type: Type.STRING }
-                },
-                required: ["teamName", "aiSummary", "aiRecommendation"]
-              }
             }
           },
-          required: ["openQuestions", "engagementAnalysis"]
+          required: ["openQuestions"]
         },
         temperature: 0.2
       }
@@ -194,11 +167,11 @@ Výstup musí byť výhradne validný JSON so štruktúrou definovanou v schéme
     const text = (response.text || "").trim();
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    let parsed: any = { openQuestions: [], engagementAnalysis: [] };
+    let parsed: any = { openQuestions: [] };
     try {
       parsed = JSON.parse(cleanJson);
     } catch {
-      parsed = { openQuestions: [], engagementAnalysis: [] };
+      parsed = { openQuestions: [] };
     }
 
     const metaLookup = new Map<string, { totalAnswers: number; themeStats: ThemeStat[] }>();
@@ -255,11 +228,7 @@ Výstup musí byť výhradne validný JSON so štruktúrou definovanou v schéme
       }));
     }
 
-    // Posielame späť obidva výsledky
-    return res.status(200).json({
-      openQuestions: parsed.openQuestions,
-      engagementAnalysis: parsed.engagementAnalysis || []
-    });
+    return res.status(200).json({ openQuestions: parsed.openQuestions });
   } catch (error: any) {
     console.error("Serverless Gemini error:", error);
     return res.status(500).json({
