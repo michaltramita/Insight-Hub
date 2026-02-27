@@ -5,8 +5,7 @@ import { FeedbackAnalysisResult, AnalysisMode } from "../types";
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-// Normalizácia AI payloadu pre OPEN QUESTIONS (nová štruktúra)
-// themeCloud má byť na úrovni otázky, nie odporúčania
+// Normalizácia AI payloadu pre OPEN QUESTIONS
 const normalizeOpenQuestionsPayload = (payload: any) => {
   const safe = Array.isArray(payload?.openQuestions) ? payload.openQuestions : [];
 
@@ -15,8 +14,6 @@ const normalizeOpenQuestionsPayload = (payload: any) => {
     questions: Array.isArray(team?.questions)
       ? team.questions.map((q: any) => ({
           questionText: String(q?.questionText || "").trim(),
-
-          // NOVÁ LOGIKA: themeCloud je na úrovni otázky
           themeCloud: Array.isArray(q?.themeCloud)
             ? q.themeCloud
                 .filter((t: any) => t?.theme)
@@ -27,7 +24,6 @@ const normalizeOpenQuestionsPayload = (payload: any) => {
                 }))
                 .sort((a: any, b: any) => b.count - a.count)
             : [],
-
           recommendations: Array.isArray(q?.recommendations)
             ? q.recommendations.slice(0, 3).map((rec: any) => ({
                 title: String(rec?.title || "Odporúčanie").trim(),
@@ -68,36 +64,14 @@ export const parseExcelFile = async (file: File): Promise<string> => {
           kategoria_otazky: String(
             row["kategoria_otazky"] || row["Kategoria_otazky"] || "Prierezova"
           ).trim(),
-
-          // META polia pre header reportu
           nazov_firmy: String(
-            row["nazov_firmy"] ||
-              row["Nazov_firmy"] ||
-              row["Názov_firmy"] ||
-              row["firma"] ||
-              row["Firma"] ||
-              ""
+            row["nazov_firmy"] || row["Nazov_firmy"] || row["firma"] || row["Firma"] || ""
           ).trim(),
           nazov_prieskumu: String(
-            row["nazov_prieskumu"] ||
-              row["Nazov_prieskumu"] ||
-              row["Názov_prieskumu"] ||
-              row["prieskum"] ||
-              row["Prieskum"] ||
-              ""
+            row["nazov_prieskumu"] || row["Nazov_prieskumu"] || row["prieskum"] || row["Prieskum"] || ""
           ).trim(),
-
-          // TÉMA / LABEL voľnej odpovede (pre theme cloud a počty)
           tema_odpovede: String(
-            row["tema_odpovede"] ||
-              row["Tema_odpovede"] ||
-              row["téma_odpovede"] ||
-              row["Téma_odpovede"] ||
-              row["label_temy"] ||
-              row["Label_temy"] ||
-              row["tema"] ||
-              row["Tema"] ||
-              ""
+            row["tema_odpovede"] || row["Tema_odpovede"] || row["label_temy"] || row["Label_temy"] || ""
           ).trim(),
         }));
 
@@ -124,7 +98,6 @@ export const analyzeDocument = async (
   let totalR = 0;
   let sucRate = "";
 
-  // META pre header (firma + názov prieskumu)
   let clientNameFromExcel = "";
   let surveyNameFromExcel = "";
 
@@ -132,23 +105,12 @@ export const analyzeDocument = async (
     try {
       const rawData = JSON.parse(inputData);
 
-      // Vytiahni meta údaje z prvého riadku, kde existujú
-      const firstRowWithMeta =
-        rawData.find((r: any) => r.nazov_firmy || r.nazov_prieskumu) || {};
+      const firstRowWithMeta = rawData.find((r: any) => r.nazov_firmy || r.nazov_prieskumu) || {};
       clientNameFromExcel = String(firstRowWithMeta.nazov_firmy || "").trim();
       surveyNameFromExcel = String(firstRowWithMeta.nazov_prieskumu || "").trim();
 
-      // openQsMap[team][question] = [{ text, tema }]
-      const openQsMap: Record<
-        string,
-        Record<string, Array<{ text: string; tema: string }>>
-      > = {};
-
-      const quantitativeByOblast: Record<
-        string,
-        Record<string, { questionType: string; scores: Record<string, number> }>
-      > = {};
-
+      const openQsMap: Record<string, Record<string, Array<{ text: string; tema: string }>>> = {};
+      const quantitativeByOblast: Record<string, Record<string, { questionType: string; scores: Record<string, number> }>> = {};
       const uniqueTeams = new Set<string>();
       const teamEngagementMap: Record<string, number> = {};
 
@@ -165,10 +127,9 @@ export const analyzeDocument = async (
         const oblastNorm = normalize(oblast);
 
         const rawQuestionType = String(row.kategoria_otazky || "Prierezova").trim();
-        const normQType = normalize(rawQuestionType);
-        const qType = normQType.includes("specif") ? "Specificka" : "Prierezova";
+        const qType = normalize(rawQuestionType).includes("specif") ? "Specificka" : "Prierezova";
 
-        // 1. Voľné odpovede (text + tema)
+        // 1. Voľné odpovede
         if (rowTyp.includes("volna") && row.text?.toString().trim() !== "") {
           const ansText = row.text.toString().trim();
           const ansTema = String(row.tema_odpovede || "").trim();
@@ -176,72 +137,46 @@ export const analyzeDocument = async (
           if (team && otazkaText && !isCelkom) {
             if (!openQsMap[team]) openQsMap[team] = {};
             if (!openQsMap[team][otazkaText]) openQsMap[team][otazkaText] = [];
-
-            openQsMap[team][otazkaText].push({
-              text: ansText,
-              tema: ansTema,
-            });
+            openQsMap[team][otazkaText].push({ text: ansText, tema: ansTema });
           }
           return;
         }
 
-        // 2. Kvantitatívne údaje
+        // 2. Kvantitatívne údaje a zapojenie
         if (row.hodnota !== undefined && row.hodnota !== null && row.hodnota !== "") {
           const cleanHodnota = String(row.hodnota).replace(",", ".");
           const val = Number(cleanHodnota);
 
           if (!isNaN(val)) {
-            // A. Extrakcia ÚČASTI (Zapojenie)
             const jeUcast =
               oblastNorm.includes("zapojenie") ||
               otazkaTextLower.includes("zapojen") ||
               otazkaTextLower.includes("ucast") ||
-              otazkaTextLower.includes("účasť") ||
-              otazkaTextLower.includes("respondent") ||
-              otazkaTextLower.includes("odpovedal") ||
               otazkaTextLower.includes("navrat") ||
-              otazkaTextLower.includes("návrat") ||
               otazkaTextLower.includes("osloven") ||
               otazkaTextLower.includes("rozposlan");
 
             if (jeUcast) {
               if (isCelkom) {
-                if (
-                  otazkaTextLower.includes("rozposlan") ||
-                  otazkaTextLower.includes("osloven")
-                ) {
+                if (otazkaTextLower.includes("rozposlan") || otazkaTextLower.includes("osloven")) {
                   totalS = val;
-                } else if (
-                  otazkaTextLower.includes("navrat") ||
-                  otazkaTextLower.includes("návrat")
-                ) {
+                } else if (otazkaTextLower.includes("navrat")) {
                   sucRate = `${val}%`;
                 } else {
                   totalR = val;
                 }
               } else {
-                if (
-                  otazkaTextLower.includes("struktura") ||
-                  otazkaTextLower.includes("štruktúra") ||
-                  otazkaTextLower.includes("vyplnen") ||
-                  otazkaTextLower.includes("zapojen")
-                ) {
+                if (otazkaTextLower.includes("struktura") || otazkaTextLower.includes("vyplnen") || otazkaTextLower.includes("zapojen")) {
                   teamEngagementMap[team] = val;
                 }
               }
               return;
             }
 
-            // B. Extrakcia dát pre GRAFY a MATICU (iba skóre)
             if (team && otazkaText && !isCelkom && rowTyp.includes("skore")) {
-              if (!quantitativeByOblast[oblast]) {
-                quantitativeByOblast[oblast] = {};
-              }
+              if (!quantitativeByOblast[oblast]) quantitativeByOblast[oblast] = {};
               if (!quantitativeByOblast[oblast][otazkaText]) {
-                quantitativeByOblast[oblast][otazkaText] = {
-                  questionType: qType,
-                  scores: {},
-                };
+                quantitativeByOblast[oblast][otazkaText] = { questionType: qType, scores: {} };
               }
               quantitativeByOblast[oblast][otazkaText].scores[team] = val;
             }
@@ -249,34 +184,26 @@ export const analyzeDocument = async (
         }
       });
 
-      // Dáta pre AI: po tímoch a otázkach, odpovede obsahujú text + tému
       rawOpenQuestionsForAI = Object.entries(openQsMap).map(([teamName, qs]) => ({
         teamName,
-        questions: Object.entries(qs).map(([questionText, answers]) => ({
-          questionText,
-          answers, // [{ text, tema }]
-        })),
+        questions: Object.entries(qs).map(([questionText, answers]) => ({ questionText, answers })),
       }));
 
-      // DYNAMICKÉ OBLASTI
-      calculatedAreas = Object.entries(quantitativeByOblast).map(
-        ([oblastName, questionsInOblast], index) => {
-          return {
-            id: `area_${index + 1}`,
-            title: oblastName,
-            teams: Array.from(uniqueTeams).map((teamName) => ({
-              teamName,
-              metrics: Object.entries(questionsInOblast).map(([qText, qData]) => ({
-                category: qText,
-                score: qData.scores[teamName] || 0,
-                questionType: qData.questionType,
-              })),
+      calculatedAreas = Object.entries(quantitativeByOblast).map(([oblastName, questionsInOblast], index) => {
+        return {
+          id: `area_${index + 1}`,
+          title: oblastName,
+          teams: Array.from(uniqueTeams).map((teamName) => ({
+            teamName,
+            metrics: Object.entries(questionsInOblast).map(([qText, qData]) => ({
+              category: qText,
+              score: qData.scores[teamName] || 0,
+              questionType: qData.questionType,
             })),
-          };
-        }
-      );
+          })),
+        };
+      });
 
-      // Zostavenie počtov ľudí z Excelu
       calculatedEngagement = Array.from(uniqueTeams).map((t) => ({
         name: t,
         count: teamEngagementMap[t] || 0,
@@ -286,7 +213,6 @@ export const analyzeDocument = async (
     }
   }
 
-  // --- FALLBACK (Bez voľných odpovedí) ---
   if (rawOpenQuestionsForAI.length === 0) {
     return {
       mode: "ZAMESTNANECKA_SPOKOJNOST",
@@ -304,32 +230,56 @@ export const analyzeDocument = async (
     } as FeedbackAnalysisResult;
   }
 
-  // --- AI PRE TEXTOVÉ ODPORÚČANIA (cez backend API route Vercelu) ---
-  let aiParsed: any = { openQuestions: [] };
+  // PRÍPRAVA DÁT PRE AI ENGAGEMENT
+  const firmResponseRate = totalS > 0 ? ((totalR / totalS) * 100).toFixed(1) : 0;
+  const engagementDataForAI = calculatedEngagement.map((t) => {
+      const responded = t.count;
+      const teamSentApprox = (responded > 0 && totalR > 0) ? Math.round((responded / totalR) * totalS) : 0;
+      const responseRate = teamSentApprox > 0 ? ((responded / teamSentApprox) * 100).toFixed(1) : 0;
+      
+      return {
+          teamName: t.name,
+          responded: responded,
+          approximatedSent: teamSentApprox,
+          responseRatePercentage: responseRate
+      };
+  });
+
+  let aiParsed: any = { openQuestions: [], engagementAnalysis: [] };
 
   try {
     const res = await fetch("/api/analyze-open-questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rawOpenQuestionsForAI }),
+      body: JSON.stringify({ 
+        rawOpenQuestionsForAI,
+        engagementData: engagementDataForAI,
+        firmSuccessRate: sucRate || `${firmResponseRate}%`
+      }),
     });
 
     if (!res.ok) {
       console.error("API route error:", res.status, res.statusText);
-      aiParsed = { openQuestions: [] };
     } else {
       aiParsed = await res.json();
     }
   } catch (error) {
     console.error("API fetch error:", error);
-    aiParsed = { openQuestions: [] };
   }
 
-  // Normalizácia AI dát podľa novej štruktúry:
-  // question.themeCloud + recommendation.quotes
   const normalizedOpenQuestions = normalizeOpenQuestionsPayload(aiParsed);
+  const aiEngagementAnalyses = aiParsed.engagementAnalysis || [];
 
-  // --- FINÁLNE ZLÚČENIE ---
+  // ZLÚČENIE AI TEXTOV SO ZAPOJENÍM TÍMOV
+  const finalEngagement = calculatedEngagement.map(t => {
+    const aiMatch = aiEngagementAnalyses.find((a: any) => a.teamName === t.name);
+    return {
+      ...t,
+      aiSummary: aiMatch?.aiSummary || undefined,
+      aiRecommendation: aiMatch?.aiRecommendation || undefined
+    };
+  });
+
   return {
     mode: "ZAMESTNANECKA_SPOKOJNOST",
     reportMetadata: { date: new Date().getFullYear().toString(), scaleMax: 6 },
@@ -339,7 +289,7 @@ export const analyzeDocument = async (
       totalSent: totalS,
       totalReceived: totalR,
       successRate: sucRate || "0%",
-      teamEngagement: calculatedEngagement,
+      teamEngagement: finalEngagement,
       openQuestions: normalizedOpenQuestions,
       areas: calculatedAreas || [],
     },
