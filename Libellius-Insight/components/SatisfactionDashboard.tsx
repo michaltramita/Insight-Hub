@@ -888,7 +888,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
             <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5">
               <table className="w-full min-w-[760px] text-left">
-                <thead className="bg-[#fcfcfc] text-[11px] font-black uppercase tracking-widest text-black/40 border-b border-black/5">
+                <thead className="bg-[#fcfcfc] text-xs font-black uppercase tracking-widest text-black/60 border-b border-black/5">
                   <tr>
                     <th className="p-4 sm:p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
                       <div className="flex items-center gap-2">Tím <ArrowUpDown className="w-3 h-3" /></div>
