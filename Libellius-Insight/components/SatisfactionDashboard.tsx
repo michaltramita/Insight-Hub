@@ -1031,7 +1031,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               return (
                 <div
                   key={cardId}
-                  className={`snap-start self-start shrink-0 w-[92%] sm:w-[calc(50%-10px)] min-w-[320px] min-h-[380px] lg:min-h-[430px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${
+                  className={`snap-start self-start shrink-0 w-[85vw] sm:w-[calc(50%-10px)] min-w-[280px] sm:min-w-[320px] min-h-[380px] lg:min-h-[430px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 ${
                     idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'
                   }`}
                 >
