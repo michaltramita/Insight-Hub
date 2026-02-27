@@ -1120,22 +1120,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     </button>
 
                     {isExpanded && (
-                      <div className="mt-3 space-y-3 animate-fade-in">
-                        <div className="bg-white rounded-xl border border-black/5 p-4">
-                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 mb-2">
-                            Čo hovoria čísla?
+                      <div className="mt-3 animate-fade-in">
+                        <div className="bg-white rounded-xl border border-black/5 p-4 sm:p-5">
+                          <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/35 mb-2">
+                            Interpretácia hodnôt
                           </p>
                           <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80">
-                            {team.aiSummary || `Návratnosť pre tím ${team.name} je na úrovni ${team.responseRateTeam}%.`}
-                          </p>
-                        </div>
-
-                        <div className="bg-brand/5 rounded-xl border border-brand/10 p-4">
-                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-brand/70 mb-2">
-                            Odporúčanie manažmentu
-                          </p>
-                          <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80">
-                            {team.aiRecommendation || 'Odporúčame detailnejšie analyzovať konkrétne dôvody zapojenia v porovnaní s ostatnými tímami.'}
+                            {/* Tu sa vypíše presne ten text, ktorý ste zadali do Excelu */}
+                            {team.aiSummary || `Návratnosť pre tím ${team.name} je na úrovni ${team.responseRateTeam}%. Bližšia interpretácia zatiaľ nebola doplnená.`}
                           </p>
                         </div>
                       </div>
