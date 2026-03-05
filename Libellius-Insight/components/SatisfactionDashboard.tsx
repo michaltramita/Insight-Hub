@@ -5,6 +5,7 @@ import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
+import { exportBlockToPDF, exportDataToExcel } from '../utils/exportUtils';
 import {
   Users, Search, BarChart4, MapPin, UserCheck,
   Building2, Star, Target, Download, Link as LinkIcon, Check, ArrowUpDown, ChevronDown,
@@ -355,34 +356,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
-  // --- EXPORT DO PDF ---
-  const exportBlockToPDF = (blockId: string, fileName: string) => {
-    setActiveExportMenu(null); // Zavrie menu pred tlačou
-    
-    setTimeout(() => {
-      const style = document.createElement('style');
-      style.innerHTML = `
-        @media print {
-          body * { visibility: hidden !important; }
-          #${blockId}, #${blockId} * { visibility: visible !important; }
-          #${blockId} { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-          .export-buttons { display: none !important; }
-        }
-      `;
-      document.head.appendChild(style);
-      
-      const originalTitle = document.title;
-      document.title = fileName;
-      
-      window.print();
-      
-      document.title = originalTitle;
-      document.head.removeChild(style);
-    }, 100);
+  // --- LOKÁLNE WRAPPERY PRE EXPORT ---
+  const handlePdfExport = (blockId: string, fileName: string) => {
+    exportBlockToPDF(blockId, fileName, () => setActiveExportMenu(null));
   };
 
-  // --- EXPORT DO EXCELU ---
-  const exportBlockToExcel = (blockType: 'ENGAGEMENT' | 'AREA', areaId?: string, areaTitle?: string) => {
+  const handleExcelExport = (blockType: 'ENGAGEMENT' | 'AREA', areaId?: string, areaTitle?: string) => {
     let dataToExport: any[] = [];
     let fileName = '';
 
@@ -405,15 +384,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         }));
         fileName = `Oblast_${areaTitle}_${teamValue}_Detail.xlsx`.replace(/\s+/g, '_');
       } else {
-        // Režim porovnania
         const currentTeams = comparisonSelection[areaId] || [];
         const comparisonData = getComparisonData(areaId, currentTeams);
-        
         dataToExport = comparisonData.map((row: any) => {
-            const rowData: any = {
-                'Kategória': row.category,
-                'Typ otázky': row.questionType
-            };
+            const rowData: any = { 'Kategória': row.category, 'Typ otázky': row.questionType };
             currentTeams.forEach(team => {
                 rowData[team] = row[team] !== undefined ? Number(row[team].toFixed(2)) : null;
             });
@@ -422,6 +396,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         fileName = `Oblast_${areaTitle}_Porovnanie.xlsx`.replace(/\s+/g, '_');
       }
     }
+
+    exportDataToExcel(dataToExport, fileName, () => setActiveExportMenu(null));
+  };
 
     if (dataToExport.length === 0) return alert('Žiadne dáta na export.');
 
