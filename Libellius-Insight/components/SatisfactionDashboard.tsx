@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx'; // <-- TOTO SME ZMENILI
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
