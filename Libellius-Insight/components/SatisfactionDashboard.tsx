@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
-import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock'; // <-- TOTO JE NÁŠ NOVÝ IMPORT
+import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
 import { exportBlockToPDF, exportDataToExcel } from '../utils/exportUtils';
 import {
@@ -89,6 +89,21 @@ const CustomYAxisTick = ({ x, y, payload }: any) => {
         </text>
       ))}
     </g>
+  );
+};
+
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius}
+      outerRadius={outerRadius + 12} 
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+    />
   );
 };
 
