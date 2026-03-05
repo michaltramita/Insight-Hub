@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FeedbackAnalysisResult } from '../types';
 import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
 import {
-  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare
+  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare,
+  Sun, Moon // <-- PRIDANÉ IKONY
 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +23,27 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [copyStatus, setCopyStatus] = useState(false);
+
+  // --- LOGIKA PRE DARK MODE ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return saved === 'dark';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+  // ----------------------------
 
   const generateShareLink = async () => {
     try {
@@ -88,36 +110,36 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen transition-colors duration-300 bg-zinc-50 dark:bg-zinc-950 flex flex-col px-4 sm:px-6 lg:px-8">
       <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
         <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
 
           {/* HLAVIČKA */}
-          <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden print:hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 dark:border-white/10 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden print:hidden">
             <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
               <div className="space-y-2 sm:space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
+                <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 dark:bg-brand/10 rounded-full border border-brand/10 w-fit">
                   <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand">Next-gen Analytics</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter uppercase">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter uppercase dark:text-white">
                     Libellius <span className="text-brand">InsightHub</span>
                   </h2>
                 </div>
               </div>
-              <div className="w-16 h-1 bg-black/5 rounded-full"></div>
+              <div className="w-16 h-1 bg-black/5 dark:bg-white/10 rounded-full"></div>
               <div className="space-y-2 sm:space-y-3 min-w-0">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl xl:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-4xl">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl xl:text-5xl font-black tracking-tighter uppercase leading-none text-black dark:text-white break-words max-w-4xl">
                   {data.surveyName || 'Prieskum spokojnosti'}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5 min-w-0">
-                    <Building2 className="w-4 h-4 text-black/40 shrink-0" />
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/60 truncate">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 min-w-0">
+                    <Building2 className="w-4 h-4 text-black/40 dark:text-white/40 shrink-0" />
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/60 dark:text-white/60 truncate">
                       {data.clientName || 'Názov firmy'}
                     </span>
                   </div>
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-black/30">
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-black/30 dark:text-white/20">
                     Vydané: {result.reportMetadata?.date || new Date().getFullYear().toString()}
                   </span>
                 </div>
@@ -125,19 +147,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
+              
+              {/* TLAČIDLO PREPÍNAČA MODU */}
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="mb-2 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-brand transition-all flex items-center justify-center gap-2"
+              >
+                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
+                <span className="text-[10px] font-black uppercase tracking-widest sm:hidden">
+                  {isDarkMode ? 'Svetlý režim' : 'Tmavý režim'}
+                </span>
+              </button>
+
               {!isSharedView && (
                 <>
-                  <button onClick={generateShareLink} className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
+                  <button onClick={generateShareLink} className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white dark:bg-zinc-800 border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
                     {copyStatus ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                     {copyStatus ? 'Skopírované!' : 'Zdieľať'}
                   </button>
-                  <button onClick={exportToJson} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black text-white hover:bg-brand rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl">
+                  <button onClick={exportToJson} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black dark:bg-zinc-700 text-white hover:bg-brand rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl">
                     <Download className="w-4 h-4" /> Export
                   </button>
                 </>
               )}
-              <button onClick={onReset} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group">
-                <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
+              <button onClick={onReset} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 dark:bg-white/5 hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-zinc-900 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 dark:border-white/5 group dark:text-white">
+                <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white dark:text-white/40" />
                 {isSharedView ? 'Zavrieť report' : 'Zavrieť'}
               </button>
             </div>
@@ -145,32 +179,32 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {/* TABY */}
-          <div className="flex gap-2 bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5 print:hidden">
+          <div className="flex gap-2 bg-black/5 dark:bg-white/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5 dark:border-white/5 print:hidden">
             {allTabs.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`shrink-0 xl:shrink xl:flex-1 xl:min-w-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-black shadow-lg' : 'text-black/40 hover:text-black'}`}>
+              <button key={t.id} onClick={() => setActiveTab(t.id as TabType)} className={`shrink-0 xl:shrink xl:flex-1 xl:min-w-0 flex items-center justify-center gap-2 py-3 sm:py-4 lg:py-5 px-4 sm:px-5 lg:px-6 rounded-xl sm:rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-lg' : 'text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white'}`}>
                 <t.icon className="w-4 h-4 shrink-0" />
                 <span className="truncate">{t.label}</span>
               </button>
             ))}
           </div>
 
-          {/* VYKRESLENIE SEKCII PODĽA AKTÍVNEHO TABU */}
-          {activeTab === 'ENGAGEMENT' && <EngagementBlock data={data} masterTeams={masterTeams} />}
-          {activeTab === 'OPEN_QUESTIONS' && <OpenQuestionsBlock openQuestions={data.openQuestions || []} masterTeams={masterTeams} />}
+          {/* VYKRESLENIE SEKCII - Tu pribudol prop isDarkMode */}
+          {activeTab === 'ENGAGEMENT' && <EngagementBlock data={data} masterTeams={masterTeams} isDarkMode={isDarkMode} />}
+          {activeTab === 'OPEN_QUESTIONS' && <OpenQuestionsBlock openQuestions={data.openQuestions || []} masterTeams={masterTeams} isDarkMode={isDarkMode} />}
           
           {(() => {
             const activeArea = (data.areas || []).find((a: any) => a.id === activeTab);
-            if (activeArea) return <AreaAnalysisBlock area={activeArea} masterTeams={masterTeams} scaleMax={scaleMax} />;
+            if (activeArea) return <AreaAnalysisBlock area={activeArea} masterTeams={masterTeams} scaleMax={scaleMax} isDarkMode={isDarkMode} />;
             return null;
           })()}
 
           {/* PÄTIČKA */}
-          <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6 print:hidden">
+          <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 dark:border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 dark:text-white/20 pb-4 sm:pb-6 print:hidden">
             <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Libellius" className="h-14 sm:h-20 lg:h-24 w-auto object-contain" />
+              <img src="/logo.png" alt="Libellius" className="h-14 sm:h-20 lg:h-24 w-auto object-contain dark:invert dark:opacity-50" />
             </div>
             <div className="text-center md:text-right">
-              <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
+              <p className="text-xs font-bold text-black/60 dark:text-white/40">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
               <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
             </div>
           </div>
