@@ -13,9 +13,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script>
+      // Konfigurácia Tailwindu pre CDN verziu
       tailwind.config = {
-        // TOTO JE KĽÚČOVÉ: Povie Tailwindu, aby sledoval triedu "dark" na <html> elemente
-        darkMode: 'class', 
+        darkMode: 'class', // Toto aktivuje prepínanie cez triedu .dark
         theme: {
           extend: {
             colors: {
@@ -27,14 +27,13 @@
     </script>
 
     <style>
+      /* Základné nastavenia, ktoré nepřebíjajú Dark Mode */
       body {
         font-family: 'Inter', sans-serif;
-        /* Odstránili sme natvrdo nastavenú bielu, aby ju mohol ovládať React/Tailwind */
         margin: 0;
         padding: 0;
       }
       
-      /* Zabezpečíme plynulý prechod farieb pri prepínaní */
       html {
         transition: background-color 0.3s ease;
       }
@@ -44,17 +43,8 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      @keyframes rowSlideIn {
-        from { opacity: 0; transform: translateX(-10px); }
-        to { opacity: 1; transform: translateX(0); }
-      }
-      
       .animate-fade-in {
         animation: fadeIn 0.6s ease-out forwards;
-      }
-      .animate-row-slide-in {
-        opacity: 0;
-        animation: rowSlideIn 0.5s ease-out forwards;
       }
 
       /* Skrytie scrollbaru */
@@ -66,7 +56,6 @@
         scrollbar-width: none;
       }
 
-      /* Vlastná farba výberu textu */
       ::selection {
         background-color: #B81547;
         color: white;
@@ -76,6 +65,7 @@
   
   <body class="bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
