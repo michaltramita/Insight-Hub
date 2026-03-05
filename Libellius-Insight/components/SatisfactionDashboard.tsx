@@ -150,13 +150,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     if (!element) return;
 
     try {
+      // 1. Zastavíme animácie a vynútime plnú viditeľnosť, aby obrázok nebol vyblednutý
+      const originalStyle = element.getAttribute('style') || '';
+      element.style.animation = 'none';
+      element.style.opacity = '1';
+      element.style.transform = 'none';
+
+      // 2. Vygenerujeme obrázok
       const canvas = await html2canvas(element, {
-        scale: 2, 
+        scale: 2, // Dvojnásobná kvalita pre ostré texty
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false,
+        // Tieto dva parametre zabezpečia, že sa blok neposunie, ani keď máte odscrollované
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.offsetWidth,
       });
 
-      const dataUrl = canvas.toDataURL('image/png');
+      // 3. Vrátime blok do pôvodného stavu, aby UI fungovalo normálne
+      element.setAttribute('style', originalStyle);
+
+      // 4. Stiahnutie v maximálnej kvalite (1.0)
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.download = `${fileName}.png`;
       link.href = dataUrl;
