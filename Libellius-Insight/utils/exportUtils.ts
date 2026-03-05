@@ -98,4 +98,4 @@ export const exportDataToExcel = (dataToExport: any[], fileName: string, callbac
   XLSX.writeFile(workbook, fileName);
   
   if (callback) callback();
-};;
+};
