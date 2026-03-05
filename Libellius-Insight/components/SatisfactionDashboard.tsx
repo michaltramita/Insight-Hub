@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import * as XLSX from 'xlsx';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
@@ -261,7 +260,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       setThemeTooltip(null);
-      // Zavri export menu ak sa klikne mimo neho
       if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
         setActiveExportMenu(null);
       }
@@ -398,16 +396,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     }
 
     exportDataToExcel(dataToExport, fileName, () => setActiveExportMenu(null));
-  };
-
-    if (dataToExport.length === 0) return alert('Žiadne dáta na export.');
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dáta');
-    XLSX.writeFile(workbook, fileName);
-    
-    setActiveExportMenu(null);
   };
 
   const engagementChartData = useMemo(() => {
@@ -592,13 +580,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   {activeExportMenu === `area-${areaId}` && (
                     <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
                        <button
-                        onClick={() => exportBlockToPDF(`block-area-${areaId}`, `Oblast_${area.title}`)}
+                        onClick={() => handlePdfExport(`block-area-${areaId}`, `Oblast_${area.title}`)}
                         className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
                        >
                          PDF Dokument
                        </button>
                        <button
-                        onClick={() => exportBlockToExcel('AREA', areaId, area.title)}
+                        onClick={() => handleExcelExport('AREA', areaId, area.title)}
                         className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
                        >
                          Excel Dáta
@@ -946,13 +934,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       {activeExportMenu === 'engagement' && (
                         <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
                           <button
-                            onClick={() => exportBlockToPDF('block-engagement', 'Zapojenie_Timov')}
+                            onClick={() => handlePdfExport('block-engagement', 'Zapojenie_Timov')}
                             className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
                           >
                             PDF Dokument
                           </button>
                           <button
-                            onClick={() => exportBlockToExcel('ENGAGEMENT')}
+                            onClick={() => handleExcelExport('ENGAGEMENT')}
                             className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
                           >
                             Excel Dáta
