@@ -2,84 +2,114 @@ import * as XLSX from 'xlsx';
 
 /**
  * Vyexportuje konkrétny HTML blok do PDF pomocou natívneho prehliadačového okna.
- * Obsahuje optimalizácie pre tlač na šírku (Landscape) a zabránenie sekaniu prvkov.
+ * Optimalizované pre kompaktné zobrazenie (cca 55% mierka) na jednu stranu A4 Landscape.
  */
 export const exportBlockToPDF = (blockId: string, fileName: string, callback?: () => void) => {
-  // Zavoláme callback (napr. na zavretie menu) pred tlačou
+  // Zavoláme callback (napr. na zavretie dropdown menu v UI)
   if (callback) callback();
   
   setTimeout(() => {
     const style = document.createElement('style');
     style.innerHTML = `
-      /* 1. Nastavenie formátu strany na šírku (Landscape) a malých okrajov */
+      /* 1. Definícia strany A4 na šírku */
       @page {
         size: A4 landscape;
-        margin: 10mm;
+        margin: 10mm; 
       }
 
       @media print {
-        /* Skryjeme všetko ostatné */
+        /* Skryjeme kompletne celú stránku */
         body * { visibility: hidden !important; }
         
-        /* Zobrazíme len náš vybraný blok */
+        /* Zobrazíme len vybraný blok a jeho potomkov */
         #${blockId}, #${blockId} * { visibility: visible !important; }
         
-        /* Resetneme telo stránky, aby neposúvalo náš blok */
-        body {
+        /* Resetneme nastavenia tela dokumentu pre čistý export */
+        body, html {
           margin: 0 !important;
           padding: 0 !important;
+          background-color: white !important;
+          height: auto !important;
         }
 
-        /* 2. Umiestnime blok hore, roztiahneme na 100% a odstránime tiene pre čistejšie PDF */
+        /* 2. MAGICKÉ ŠKÁLOVANIE (Zmenšenie na cca 55%) */
         #${blockId} { 
           position: absolute !important; 
-          left: 0 !important; 
+          left: 50% !important; /* Posun do stredu */
           top: 0 !important; 
-          width: 100% !important;
-          max-width: 100vw !important;
+          
+          /* Zafixujeme logickú šírku, aby grafy a tabuľky mali správny pomer strán */
+          width: 1250px !important; 
+          max-width: 1250px !important;
+
+          /* Celý tento 1250px široký objekt zmenšíme tak, aby sa zmestil na A4 */
+          /* translateX(-50%) vráti blok na stred po posune left: 50% */
+          transform: translateX(-50%) scale(0.55) !important;
+          transform-origin: top center !important;
+          
           margin: 0 !important; 
-          padding: 0 !important; 
+          padding: 20px !important; 
           box-shadow: none !important;
+          background-color: white !important;
         }
 
-        /* 3. ZABRÁNENIE ROZSEKNUTIU GRAFOV A TABULIEK */
+        /* 3. ZABRÁNENIE ROZSEKNUTIU PRVKOV */
+        /* Chránime tabuľky, grafy a zaoblené boxy pred rozdelením na 2 strany */
         table, tr, td, th, 
         .recharts-wrapper, 
-        svg, 
+        .recharts-surface,
+        svg,
         .bg-white, 
         .rounded-2xl, 
-        .rounded-3xl {
+        .rounded-3xl,
+        .rounded-\\[1\\.5rem\\],
+        .rounded-\\[2rem\\] {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
         }
 
-        /* Vynútime, aby nadpisy nezostali samé na konci strany */
-        h2, h3, h4 {
-          page-break-after: avoid !important;
-          break-after: avoid !important;
+        /* Oprava rozloženia gridu pre tlač (vynútenie flexu tam, kde grid zlyháva) */
+        .grid {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 20px !important;
+        }
+        
+        .grid > div {
+          flex: 1 1 calc(50% - 20px) !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Metriky v sekcii Zapojenie (3 stĺpce) */
+        .grid-cols-1.md\\:grid-cols-3 > div {
+           flex: 1 1 calc(33.333% - 20px) !important;
         }
 
-        /* Skryjeme exportovacie tlačidlá z PDF */
-        .export-buttons { display: none !important; }
-
-        /* Vypneme všetky tiene pre rýchlejšie generovanie PDF */
-        * {
-          box-shadow: none !important;
-        }
+        /* Skrytie nepotrebných prvkov v PDF */
+        .export-buttons, .print\\:hidden { display: none !important; }
+        
+        /* Vypnutie tieňov pre ostrejší text v PDF */
+        * { box-shadow: none !important; }
       }
     `;
     document.head.appendChild(style);
     
-    // Zmeníme názov dokumentu, aby sa PDF uložilo s pekným názvom
+    // Nastavenie dočasného názvu dokumentu (pre uloženie PDF súboru)
     const originalTitle = document.title;
     document.title = fileName;
     
-    // Vyvoláme okno tlače
-    window.print();
-    
-    // Upraceme po sebe
-    document.title = originalTitle;
-    document.head.removeChild(style);
+    // Vyvolanie simulovaného resize eventu pre grafy, aby sa prekreslili do PDF šírky
+    window.dispatchEvent(new Event('resize'));
+
+    setTimeout(() => {
+      window.print();
+      
+      // Upratanie po tlači
+      document.title = originalTitle;
+      document.head.removeChild(style);
+      window.dispatchEvent(new Event('resize'));
+    }, 600); // Polsekunda na usadenie layoutu pred tlačou
+
   }, 100);
 };
 
