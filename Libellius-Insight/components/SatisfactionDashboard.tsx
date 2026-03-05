@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import html2canvas from 'html2canvas';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
@@ -143,6 +144,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [canScrollEngagementRight, setCanScrollEngagementRight] = useState(false);
 
   const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
+
+  const exportBlockAsImage = async (blockId: string, fileName: string) => {
+    const element = document.getElementById(blockId);
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2, 
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${fileName}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Chyba pri exporte bloku:", err);
+      alert("Nepodarilo sa exportovať tento blok.");
+    }
+  };
 
   const generateShareLink = async () => {
     try {
@@ -505,16 +528,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       .slice(0, 3);
 
     return (
-      <div className="space-y-8 sm:space-y-10 animate-fade-in">
+      // Pridali sme ID: id={`block-area-${areaId}`}
+      <div id={`block-area-${areaId}`} className="space-y-8 sm:space-y-10 animate-fade-in">
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
             <div className="space-y-4 sm:space-y-6 w-full lg:w-auto min-w-0">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em]">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em] print:hidden">
                 <MapPin className="w-3 h-3" /> Konfigurácia reportu
               </div>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none break-words">
-                {area.title}
-              </h2>
+              
+              {/* Obalili sme nadpis a pridali k nemu tlačidlo */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none break-words">
+                  {area.title}
+                </h2>
+                
+                <button
+                  onClick={() => exportBlockAsImage(`block-area-${areaId}`, `Oblast_${area.title}`)}
+                  className="w-fit flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black print:hidden"
+                  title="Stiahnuť tento blok ako obrázok"
+                >
+                  <Download className="w-3 h-3" />
+                  Stiahnuť blok
+                </button>
+              </div>
+
               <div className="flex bg-black/5 p-1 rounded-2xl w-full sm:w-fit border border-black/5 overflow-x-auto no-scrollbar">
                 <button
                   onClick={() => setViewMode('DETAIL')}
