@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import * as XLSX from 'xlsx'; // <-- TOTO SME ZMENILI
+import * as XLSX from 'xlsx';
 import { FeedbackAnalysisResult } from '../types';
 import TeamSelectorGrid from './satisfaction/TeamSelectorGrid';
 import ComparisonMatrix from './satisfaction/ComparisonMatrix';
@@ -144,43 +144,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [canScrollEngagementRight, setCanScrollEngagementRight] = useState(false);
 
   const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
-
-  const exportBlockAsImage = async (blockId: string, fileName: string) => {
-    const element = document.getElementById(blockId);
-    if (!element) return;
-
-    try {
-      // 1. Zastavíme animácie a vynútime plnú viditeľnosť, aby obrázok nebol vyblednutý
-      const originalStyle = element.getAttribute('style') || '';
-      element.style.animation = 'none';
-      element.style.opacity = '1';
-      element.style.transform = 'none';
-
-      // 2. Vygenerujeme obrázok
-      const canvas = await html2canvas(element, {
-        scale: 2, // Dvojnásobná kvalita pre ostré texty
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        // Tieto dva parametre zabezpečia, že sa blok neposunie, ani keď máte odscrollované
-        scrollY: -window.scrollY,
-        windowWidth: document.documentElement.offsetWidth,
-      });
-
-      // 3. Vrátime blok do pôvodného stavu, aby UI fungovalo normálne
-      element.setAttribute('style', originalStyle);
-
-      // 4. Stiahnutie v maximálnej kvalite (1.0)
-      const dataUrl = canvas.toDataURL('image/png', 1.0);
-      const link = document.createElement('a');
-      link.download = `${fileName}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (err) {
-      console.error("Chyba pri exporte bloku:", err);
-      alert("Nepodarilo sa exportovať tento blok.");
-    }
-  };
 
   const generateShareLink = async () => {
     try {
@@ -386,6 +349,60 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
+  // --- EXPORT DO PDF (Čistý natívny spôsob) ---
+  const exportBlockToPDF = (blockId: string, fileName: string) => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        body * { visibility: hidden; }
+        #${blockId}, #${blockId} * { visibility: visible; }
+        #${blockId} { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+        .export-buttons { display: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    const originalTitle = document.title;
+    document.title = fileName;
+    
+    window.print();
+    
+    document.title = originalTitle;
+    document.head.removeChild(style);
+  };
+
+  // --- EXPORT DO EXCELU (Čisté dáta) ---
+  const exportBlockToExcel = (blockType: 'ENGAGEMENT' | 'AREA', areaId?: string, areaTitle?: string) => {
+    let dataToExport: any[] = [];
+    let fileName = '';
+
+    if (blockType === 'ENGAGEMENT') {
+      dataToExport = filteredEngagement.map((t: any) => ({
+        'Tím / Stredisko': t.name,
+        'Počet zapojených': t.count,
+        'Podiel na celkovom vyplnení (%)': Number(((t.count / safeTotalReceived) * 100).toFixed(1))
+      }));
+      fileName = 'Zapojenie_Timov.xlsx';
+    } 
+    else if (blockType === 'AREA' && areaId) {
+      const teamValue = selectedTeams[areaId] || '';
+      const activeMetrics = getActiveData(areaId, teamValue);
+      dataToExport = activeMetrics.map((m: any) => ({
+        'Otázka / Kategória': m.category,
+        'Skóre (max 6)': Number(m.score.toFixed(2)),
+        'Typ otázky': m.questionType
+      }));
+      fileName = `Oblast_${areaTitle}_${teamValue}.xlsx`.replace(/\s+/g, '_');
+    }
+
+    if (dataToExport.length === 0) return alert('Žiadne dáta na export.');
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dáta');
+    XLSX.writeFile(workbook, fileName);
+  };
+
   const engagementChartData = useMemo(() => {
     const baseTeams = (data.teamEngagement || [])
       .filter((t: any) => t.name && !['total', 'celkom'].includes(t.name.toLowerCase()));
@@ -543,7 +560,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       .slice(0, 3);
 
     return (
-      // Pridali sme ID: id={`block-area-${areaId}`}
       <div id={`block-area-${areaId}`} className="space-y-8 sm:space-y-10 animate-fade-in">
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
@@ -552,23 +568,28 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <MapPin className="w-3 h-3" /> Konfigurácia reportu
               </div>
               
-              {/* Obalili sme nadpis a pridali k nemu tlačidlo */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none break-words">
                   {area.title}
                 </h2>
                 
-                <button
-                  onClick={() => exportBlockAsImage(`block-area-${areaId}`, `Oblast_${area.title}`)}
-                  className="w-fit flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black print:hidden"
-                  title="Stiahnuť tento blok ako obrázok"
-                >
-                  <Download className="w-3 h-3" />
-                  Stiahnuť blok
-                </button>
+                <div className="flex items-center gap-2 export-buttons">
+                  <button
+                    onClick={() => exportBlockToPDF(`block-area-${areaId}`, `Oblast_${area.title}`)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black/5 hover:bg-black/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
+                  >
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => exportBlockToExcel('AREA', areaId, area.title)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-brand/5 hover:bg-brand/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-brand hover:text-brand"
+                  >
+                    EXCEL
+                  </button>
+                </div>
               </div>
 
-              <div className="flex bg-black/5 p-1 rounded-2xl w-full sm:w-fit border border-black/5 overflow-x-auto no-scrollbar">
+              <div className="flex bg-black/5 p-1 rounded-2xl w-full sm:w-fit border border-black/5 overflow-x-auto no-scrollbar print:hidden">
                 <button
                   onClick={() => setViewMode('DETAIL')}
                   className={`shrink-0 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'DETAIL' ? 'bg-white text-black shadow-lg scale-105' : 'text-black/30 hover:text-black/60'}`}
@@ -585,7 +606,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             {viewMode === 'DETAIL' && (
-              <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto">
+              <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto print:hidden">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/20 lg:mr-4">
                   VYBRANÝ TÍM / STREDISKO:
                 </span>
@@ -618,7 +639,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 onClear={() => setComparisonSelection({ ...comparisonSelection, [areaId]: [] })}
               />
 
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-black/5 p-2 rounded-2xl w-full md:w-fit">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-black/5 p-2 rounded-2xl w-full md:w-fit print:hidden">
                 <button
                   onClick={() => setComparisonFilter('ALL')}
                   className={`px-4 sm:px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${comparisonFilter === 'ALL' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'}`}
@@ -784,7 +805,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
         <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
 
-      <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden">
+      <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-5 sm:p-8 md:p-10 lg:p-12 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-6 sm:gap-8 relative overflow-hidden print:hidden">
         <div className="flex flex-col gap-4 sm:gap-6 relative z-10 w-full xl:w-auto min-w-0">
           <div className="space-y-2 sm:space-y-3">
             <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
@@ -853,7 +874,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         <div className="absolute top-[-20%] right-[-10%] w-72 sm:w-96 h-72 sm:h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
       </div>
 
-      <div className="flex gap-2 bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5">
+      <div className="flex gap-2 bg-black/5 p-2 rounded-2xl sm:rounded-3xl w-full mx-auto overflow-x-auto no-scrollbar border border-black/5 print:hidden">
         {allTabs.map(t => (
           <button
             key={t.id}
@@ -888,11 +909,29 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
 
-          <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+          <div id="block-engagement" className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
-              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
+                
+                <div className="flex items-center gap-2 export-buttons">
+                  <button
+                    onClick={() => exportBlockToPDF('block-engagement', 'Zapojenie_Timov')}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black/5 hover:bg-black/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black print:hidden"
+                  >
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => exportBlockToExcel('ENGAGEMENT')}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-brand/5 hover:bg-brand/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-brand hover:text-brand print:hidden"
+                  >
+                    EXCEL
+                  </button>
+                </div>
+              </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto print:hidden">
                 <div className="relative w-full sm:flex-1 md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
                   <input
@@ -915,7 +954,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             {showTeamFilter && (
-              <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 animate-fade-in">
+              <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 animate-fade-in print:hidden">
                 <div className="flex flex-wrap gap-2">
                   {masterTeams.map((team: string) => (
                     <button
@@ -944,10 +983,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 <thead className="bg-[#fcfcfc] text-sm font-black uppercase tracking-widest text-black/60 border-b border-black/5">
                   <tr>
                     <th className="p-4 sm:p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
-                      <div className="flex items-center gap-2">Tím <ArrowUpDown className="w-3 h-3" /></div>
+                      <div className="flex items-center gap-2">Tím <ArrowUpDown className="w-3 h-3 print:hidden" /></div>
                     </th>
                     <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
-                      <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3" /></div>
+                      <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3 print:hidden" /></div>
                     </th>
                     <th className="p-4 sm:p-6 text-center">% podiel na celkovom vyplnení</th>
                   </tr>
@@ -982,7 +1021,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
 
           {filteredEngagement.length > 0 && (
-  <div className="bg-white p-6 sm:p-8 md:p-10 lg:p-12 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in">
+  <div className="bg-white p-6 sm:p-8 md:p-10 lg:p-12 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in print:hidden">
     <div className="flex flex-col gap-6 sm:gap-8">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
         <div>
@@ -1179,7 +1218,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                             Interpretácia hodnôt
                           </p>
                           <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80">
-                            {/* Tu sa vypíše presne ten text, ktorý ste zadali do Excelu */}
                             {team.aiSummary || `Návratnosť pre tím ${team.name} je na úrovni ${team.responseRateTeam}%. Bližšia interpretácia zatiaľ nebola doplnená.`}
                           </p>
                         </div>
@@ -1245,22 +1283,19 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   nameKey="name"
                   stroke="#ffffff"
                   strokeWidth={2}
-                  // NOVÉ: Sledovanie pohybu myši
                   onMouseEnter={(_, index) => setHoveredPie(index)}
                   onMouseLeave={() => setHoveredPie(null)}
-                  // NOVÉ: Vlastné vykresľovanie dielikov s dvojitým zväčšením
                   shape={(props: any) => {
                     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
                     
                     const isHovered = hoveredPie === index;
                     const isFiltering = typeof selectedEngagementTeams !== 'undefined' && selectedEngagementTeams.length > 0;
                     
-                    // Zistíme, či má byť tím permanentne vyskočený
                     const isSelected = isFiltering && payload.isActive;
                     
                     let radiusOffset = 0;
-                    if (isSelected) radiusOffset += 12; // Permanentné povyskočenie pre vybrané
-                    if (isHovered) radiusOffset += 8;  // Extra povyskočenie navyše pre myš
+                    if (isSelected) radiusOffset += 12; 
+                    if (isHovered) radiusOffset += 8;  
                     
                     return (
                       <Sector
@@ -1271,10 +1306,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                         startAngle={startAngle}
                         endAngle={endAngle}
                         fill={fill}
-                        // TÚTO DVE VECI PRIDAJTE:
                         stroke="#ffffff"
                         strokeWidth={2}
-                        // -----------------------
                         style={{ transition: 'all 0.25s ease-out' }} 
                       />
                     );
@@ -1302,7 +1335,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   }}
                   itemStyle={{ fontWeight: 900, color: '#000' }}
                 />
-                {/* Stredové texty sme definitívne zmazali */}
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -1369,13 +1401,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     </div>
   </div>
 )}
-
-        {/* TOTO BOLO DOPLNENÉ */}
         </div>
       )}
       
       {activeTab === 'OPEN_QUESTIONS' && (
-        <div className="space-y-8 sm:space-y-10 animate-fade-in">
+        <div className="space-y-8 sm:space-y-10 animate-fade-in print:hidden">
           <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
             <div className="flex flex-col lg:flex-row justify-between items-start gap-6 sm:gap-8">
               <div className="space-y-4 sm:space-y-6 w-full lg:w-1/2 min-w-0">
@@ -1553,7 +1583,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       {(data.areas || []).some((a: any) => a.id === activeTab) && renderSection(activeTab as string)}
 
-        <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6">
+        <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6 print:hidden">
         <div className="flex items-center gap-4">
           <img src="/logo.png" alt="Libellius" className="h-14 sm:h-20 lg:h-24 w-auto object-contain" />
         </div>
@@ -1563,7 +1593,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         </div>
       </div>
 
-     {/* TOTO SME ZMENILI: Použijeme createPortal, aby sa okno vložilo priamo do body a ignorovalo všetky CSS obaly */}
       {themeTooltip && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed z-[9999] pointer-events-none"
@@ -1595,11 +1624,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
           </div>
         </div>,
-        document.body // <-- Tooltip sa presunie úplne na vrch dokumentu mimo všetky CSS obaly
+        document.body 
       )}
     </div>
   </div>
-</div>
 );
 };
 
