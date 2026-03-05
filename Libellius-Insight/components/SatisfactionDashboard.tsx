@@ -111,6 +111,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = result.reportMetadata?.scaleMax || (data as any).reportMetadata?.scaleMax || 6;
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+  
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('DETAIL');
   const [copyStatus, setCopyStatus] = useState(false);
@@ -144,6 +145,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [canScrollEngagementRight, setCanScrollEngagementRight] = useState(false);
 
   const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
+  const [activeExportMenu, setActiveExportMenu] = useState<string | null>(null);
 
   const generateShareLink = async () => {
     try {
@@ -256,8 +258,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   }, [openQuestionsTeam, data.openQuestions, selectedQuestionText]);
 
   useEffect(() => {
-    const handleGlobalClick = () => {
+    const handleGlobalClick = (e: MouseEvent) => {
       setThemeTooltip(null);
+      // Zavri export menu ak sa klikne mimo neho
+      if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
+        setActiveExportMenu(null);
+      }
     };
 
     window.addEventListener('click', handleGlobalClick);
@@ -349,29 +355,33 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
-  // --- EXPORT DO PDF (Čistý natívny spôsob) ---
+  // --- EXPORT DO PDF ---
   const exportBlockToPDF = (blockId: string, fileName: string) => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      @media print {
-        body * { visibility: hidden !important; }
-        #${blockId}, #${blockId} * { visibility: visible !important; }
-        #${blockId} { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-        .export-buttons { display: none !important; }
-      }
-    `;
-    document.head.appendChild(style);
+    setActiveExportMenu(null); // Zavrie menu pred tlačou
     
-    const originalTitle = document.title;
-    document.title = fileName;
-    
-    window.print();
-    
-    document.title = originalTitle;
-    document.head.removeChild(style);
+    setTimeout(() => {
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @media print {
+          body * { visibility: hidden !important; }
+          #${blockId}, #${blockId} * { visibility: visible !important; }
+          #${blockId} { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+          .export-buttons { display: none !important; }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      const originalTitle = document.title;
+      document.title = fileName;
+      
+      window.print();
+      
+      document.title = originalTitle;
+      document.head.removeChild(style);
+    }, 100);
   };
 
-  // --- EXPORT DO EXCELU (Čisté dáta) ---
+  // --- EXPORT DO EXCELU ---
   const exportBlockToExcel = (blockType: 'ENGAGEMENT' | 'AREA', areaId?: string, areaTitle?: string) => {
     let dataToExport: any[] = [];
     let fileName = '';
@@ -385,14 +395,32 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       fileName = 'Zapojenie_Timov.xlsx';
     } 
     else if (blockType === 'AREA' && areaId) {
-      const teamValue = selectedTeams[areaId] || '';
-      const activeMetrics = getActiveData(areaId, teamValue);
-      dataToExport = activeMetrics.map((m: any) => ({
-        'Otázka / Kategória': m.category,
-        'Skóre (max 6)': Number(m.score.toFixed(2)),
-        'Typ otázky': m.questionType
-      }));
-      fileName = `Oblast_${areaTitle}_${teamValue}.xlsx`.replace(/\s+/g, '_');
+      if (viewMode === 'DETAIL') {
+        const teamValue = selectedTeams[areaId] || '';
+        const activeMetrics = getActiveData(areaId, teamValue);
+        dataToExport = activeMetrics.map((m: any) => ({
+          'Otázka / Kategória': m.category,
+          'Skóre (max 6)': Number(m.score.toFixed(2)),
+          'Typ otázky': m.questionType
+        }));
+        fileName = `Oblast_${areaTitle}_${teamValue}_Detail.xlsx`.replace(/\s+/g, '_');
+      } else {
+        // Režim porovnania
+        const currentTeams = comparisonSelection[areaId] || [];
+        const comparisonData = getComparisonData(areaId, currentTeams);
+        
+        dataToExport = comparisonData.map((row: any) => {
+            const rowData: any = {
+                'Kategória': row.category,
+                'Typ otázky': row.questionType
+            };
+            currentTeams.forEach(team => {
+                rowData[team] = row[team] !== undefined ? Number(row[team].toFixed(2)) : null;
+            });
+            return rowData;
+        });
+        fileName = `Oblast_${areaTitle}_Porovnanie.xlsx`.replace(/\s+/g, '_');
+      }
     }
 
     if (dataToExport.length === 0) return alert('Žiadne dáta na export.');
@@ -401,6 +429,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Dáta');
     XLSX.writeFile(workbook, fileName);
+    
+    setActiveExportMenu(null);
   };
 
   const engagementChartData = useMemo(() => {
@@ -573,19 +603,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   {area.title}
                 </h2>
                 
-                <div className="flex items-center gap-2 export-buttons">
+                <div className="relative export-dropdown-container export-buttons print:hidden">
                   <button
-                    onClick={() => exportBlockToPDF(`block-area-${areaId}`, `Oblast_${area.title}`)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black/5 hover:bg-black/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
+                    onClick={() => setActiveExportMenu(activeExportMenu === `area-${areaId}` ? null : `area-${areaId}`)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
                   >
-                    PDF
+                    <Download className="w-3 h-3" /> Export
+                    <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu === `area-${areaId}` ? 'rotate-180' : ''}`} />
                   </button>
-                  <button
-                    onClick={() => exportBlockToExcel('AREA', areaId, area.title)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-brand/5 hover:bg-brand/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-brand hover:text-brand"
-                  >
-                    EXCEL
-                  </button>
+                  
+                  {activeExportMenu === `area-${areaId}` && (
+                    <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
+                       <button
+                        onClick={() => exportBlockToPDF(`block-area-${areaId}`, `Oblast_${area.title}`)}
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
+                       >
+                         PDF Dokument
+                       </button>
+                       <button
+                        onClick={() => exportBlockToExcel('AREA', areaId, area.title)}
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
+                       >
+                         Excel Dáta
+                       </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -915,19 +957,31 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
                     
-                    <div className="flex items-center gap-2 export-buttons">
+                    <div className="relative export-dropdown-container export-buttons print:hidden">
                       <button
-                        onClick={() => exportBlockToPDF('block-engagement', 'Zapojenie_Timov')}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black/5 hover:bg-black/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black print:hidden"
+                        onClick={() => setActiveExportMenu(activeExportMenu === 'engagement' ? null : 'engagement')}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
                       >
-                        PDF
+                        <Download className="w-3 h-3" /> Export
+                        <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu === 'engagement' ? 'rotate-180' : ''}`} />
                       </button>
-                      <button
-                        onClick={() => exportBlockToExcel('ENGAGEMENT')}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-brand/5 hover:bg-brand/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-brand hover:text-brand print:hidden"
-                      >
-                        EXCEL
-                      </button>
+                      
+                      {activeExportMenu === 'engagement' && (
+                        <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
+                          <button
+                            onClick={() => exportBlockToPDF('block-engagement', 'Zapojenie_Timov')}
+                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
+                          >
+                            PDF Dokument
+                          </button>
+                          <button
+                            onClick={() => exportBlockToExcel('ENGAGEMENT')}
+                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
+                          >
+                            Excel Dáta
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1464,7 +1518,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                       <div className="bg-black/5 rounded-2xl p-4 sm:p-5 md:p-6 border border-black/5">
                         <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
                           {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
-                          <span
+                            <span
                               key={tIdx}
                               onMouseEnter={(e) => {
                                 setThemeTooltip({
