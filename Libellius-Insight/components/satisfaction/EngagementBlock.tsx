@@ -6,6 +6,7 @@ import { PieChart, Pie, Sector, Cell, Tooltip, ResponsiveContainer } from 'recha
 interface Props {
   data: any;
   masterTeams: string[];
+  isDarkMode: boolean; // <-- Pridané do Props
 }
 
 type SortKey = 'count' | 'name';
@@ -18,7 +19,7 @@ const PIE_COLORS = [
   '#EFA1B8', '#F5B9CB', '#F9D0DD', '#FCE8EE', '#FFF2F5', 
 ];
 
-const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
+const EngagementBlock: React.FC<Props> = ({ data, masterTeams, isDarkMode }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -36,7 +37,11 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
-  // Zatvorenie export menu po kliknutí mimo
+  // Dynamické farby pre Recharts a UI
+  const chartTextColor = isDarkMode ? '#e4e4e7' : '#3f3f46';
+  const gridBorderColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+  const cardBgClass = "bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 shadow-2xl transition-colors duration-300";
+
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
@@ -109,9 +114,9 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     let activeIndex = 0;
     return sortedTeams.map((team: any) => ({
       ...team,
-      color: team.isActive ? PIE_COLORS[activeIndex++ % PIE_COLORS.length] : '#f4f4f5'
+      color: team.isActive ? PIE_COLORS[activeIndex++ % PIE_COLORS.length] : (isDarkMode ? '#27272a' : '#f4f4f5')
     }));
-  }, [data.teamEngagement, filteredEngagement, safeTotalReceived, selectedEngagementTeams.length, searchTerm]);
+  }, [data.teamEngagement, filteredEngagement, safeTotalReceived, selectedEngagementTeams.length, searchTerm, isDarkMode]);
 
   const engagementTeamCards = useMemo(() => {
     return engagementChartData
@@ -164,15 +169,11 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     };
   }, [engagementVisualMode, engagementTeamCards.length]);
 
-  useEffect(() => {
-    setExpandedEngagementCard(null);
-  }, [engagementVisualMode, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
-
   return (
     <div className="space-y-8 sm:space-y-10 animate-fade-in">
       {/* Celkové metriky */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        <div className="bg-black text-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
+        <div className="bg-black dark:bg-zinc-900 text-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
           <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-50 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÝ POČET OSLOVENÝCH</span>
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
         </div>
@@ -180,37 +181,37 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
           <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-60 mb-2 sm:mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
         </div>
-        <div className="bg-white border border-black/5 p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
-          <span className="block text-[9px] sm:text-[10px] font-black uppercase text-black/40 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
+        <div className={`${cardBgClass} p-6 sm:p-8 lg:p-10 transition-transform hover:scale-[1.02]`}>
+          <span className="block text-[9px] sm:text-[10px] font-black uppercase text-black/40 dark:text-white/30 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÁ NÁVRATNOSŤ</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-5xl sm:text-6xl xl:text-7xl font-black text-black tracking-tighter leading-none">
+            <span className="text-5xl sm:text-6xl xl:text-7xl font-black text-black dark:text-white tracking-tighter leading-none">
               {String(data.successRate || '0').replace('%', '')}
             </span>
-            <span className="text-2xl sm:text-3xl xl:text-4xl font-black text-black/10 tracking-tighter">%</span>
+            <span className="text-2xl sm:text-3xl xl:text-4xl font-black text-black/10 dark:text-white/10 tracking-tighter">%</span>
           </div>
         </div>
       </div>
 
       {/* Tabuľka a filtre */}
-      <div id="block-engagement" className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
+      <div id="block-engagement" className={`${cardBgClass} p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem]`}>
         <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
+            <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none dark:text-white text-black">Prehľad zapojenia v tímoch</h3>
             
             <div className="relative export-dropdown-container export-buttons print:hidden">
               <button
                 onClick={() => setActiveExportMenu(activeExportMenu === 'engagement' ? null : 'engagement')}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white"
               >
                 <Download className="w-3 h-3" /> Export
                 <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu === 'engagement' ? 'rotate-180' : ''}`} />
               </button>
               
               {activeExportMenu === 'engagement' && (
-                <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
+                <div className="absolute top-full left-0 mt-2 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-black/5 dark:border-white/10 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
                   <button
                     onClick={() => handlePdfExport('block-engagement', 'Zapojenie_Timov')}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 dark:hover:bg-white/5 dark:text-white text-black transition-colors"
                   >
                     PDF Dokument
                   </button>
@@ -227,19 +228,19 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto print:hidden">
             <div className="relative w-full sm:flex-1 md:w-64">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 dark:text-white/20" />
               <input
                 type="text"
                 placeholder="Hľadať..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 sm:py-4 bg-black/5 rounded-2xl font-bold text-xs outline-none focus:bg-black/10 transition-all"
+                className="w-full pl-11 pr-4 py-3 sm:py-4 bg-black/5 dark:bg-white/5 dark:text-white rounded-2xl font-bold text-xs outline-none focus:bg-black/10 dark:focus:bg-white/10 transition-all placeholder:text-black/20 dark:placeholder:text-white/20"
               />
             </div>
 
             <button
               onClick={() => setShowTeamFilter(!showTeamFilter)}
-              className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 whitespace-nowrap ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white hover:bg-black/5 text-black'}`}
+              className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-bold text-xs transition-all border border-black/5 dark:border-white/5 whitespace-nowrap ${showTeamFilter || selectedEngagementTeams.length > 0 ? 'bg-brand text-white shadow-lg' : 'bg-white dark:bg-zinc-800 hover:bg-black/5 dark:hover:bg-white/5 text-black dark:text-white'}`}
             >
               <Filter className="w-4 h-4" />
               Výber ({selectedEngagementTeams.length > 0 ? selectedEngagementTeams.length : 'Všetky'})
@@ -248,13 +249,13 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
         </div>
 
         {showTeamFilter && (
-          <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 animate-fade-in print:hidden">
+          <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-black/5 dark:bg-white/5 rounded-2xl sm:rounded-3xl border border-black/5 dark:border-white/10 animate-fade-in print:hidden">
             <div className="flex flex-wrap gap-2">
               {masterTeams.map((team: string) => (
                 <button
                   key={team}
                   onClick={() => setSelectedEngagementTeams(prev => prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team])}
-                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black text-white shadow-md' : 'bg-white text-black hover:bg-black/10'}`}
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all ${selectedEngagementTeams.includes(team) ? 'bg-black dark:bg-white text-white dark:text-black shadow-md' : 'bg-white dark:bg-zinc-800 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10'}`}
                 >
                   {team}
                 </button>
@@ -268,27 +269,27 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5">
+        <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5 dark:border-white/10">
           <table className="w-full min-w-[760px] text-left">
-            <thead className="bg-[#fcfcfc] text-sm font-black uppercase tracking-widest text-black/60 border-b border-black/5">
+            <thead className="bg-[#fcfcfc] dark:bg-zinc-800/50 text-sm font-black uppercase tracking-widest text-black/60 dark:text-white/40 border-b border-black/5 dark:border-white/10">
               <tr>
-                <th className="p-4 sm:p-6 cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('name')}>
+                <th className="p-4 sm:p-6 cursor-pointer hover:text-black dark:hover:text-white transition-colors" onClick={() => handleSort('name')}>
                   <div className="flex items-center gap-2">Tím <ArrowUpDown className="w-3 h-3 print:hidden" /></div>
                 </th>
-                <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
+                <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black dark:hover:text-white transition-colors" onClick={() => handleSort('count')}>
                   <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3 print:hidden" /></div>
                 </th>
                 <th className="p-4 sm:p-6 text-center">% podiel na celkovom vyplnení</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/5 font-black text-sm">
+            <tbody className="divide-y divide-black/5 dark:divide-white/5 font-black text-sm dark:text-zinc-300">
               {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
-                <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
+                <tr key={idx} className={`hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 dark:bg-brand/10 text-brand' : ''}`}>
                   <td className="p-4 sm:p-7 group-hover:text-brand transition-colors">{team.name}</td>
                   <td className="p-4 sm:p-7 text-center">{team.count}</td>
                   <td className="p-4 sm:p-7">
                     <div className="flex items-center justify-center gap-4 sm:gap-5">
-                      <div className="w-28 sm:w-40 bg-black/5 h-2.5 rounded-full overflow-hidden">
+                      <div className="w-28 sm:w-40 bg-black/5 dark:bg-white/5 h-2.5 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-brand shadow-[0_0_10px_rgba(184,21,71,0.3)]"
                           style={{ width: `${(team.count / safeTotalReceived) * 100}%` }}
@@ -300,7 +301,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={3} className="p-8 sm:p-10 text-center text-black/30 font-black uppercase tracking-widest text-xs">
+                  <td colSpan={3} className="p-8 sm:p-10 text-center text-black/30 dark:text-white/20 font-black uppercase tracking-widest text-xs">
                     Žiadne tímy nezodpovedajú filtru
                   </td>
                 </tr>
@@ -312,25 +313,25 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
 
       {/* Karty a Graf */}
       {filteredEngagement.length > 0 && (
-        <div className="bg-white p-6 sm:p-8 md:p-10 lg:p-12 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl animate-fade-in print:hidden">
+        <div className={`${cardBgClass} p-6 sm:p-8 md:p-10 lg:p-12 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] animate-fade-in print:hidden`}>
           <div className="flex flex-col gap-6 sm:gap-8">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 sm:gap-6">
               <div>
-                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
+                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none dark:text-white text-black">
                   Podrobný prehľad tímov
                 </h3>
-                <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-black/30 mt-2">
+                <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-black/30 dark:text-white/30 mt-2">
                   {selectedEngagementTeams.length > 0 ? 'Podiel vo vybraných strediskách' : 'Výsledky a odporúčania'}
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 w-full lg:w-auto">
                 <div className="flex items-center gap-3">
-                  <div className="flex bg-black/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5">
+                  <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl w-full lg:w-fit border border-black/5 dark:border-white/10">
                     <button
                       onClick={() => setEngagementVisualMode('CARDS')}
                       className={`flex-1 lg:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-center ${
-                        engagementVisualMode === 'CARDS' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'
+                        engagementVisualMode === 'CARDS' ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-md' : 'text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white'
                       }`}
                     >
                       Karty
@@ -338,7 +339,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                     <button
                       onClick={() => setEngagementVisualMode('PIE')}
                       className={`flex-1 lg:flex-none px-4 sm:px-5 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-center ${
-                        engagementVisualMode === 'PIE' ? 'bg-white text-black shadow-md' : 'text-black/40 hover:text-black'
+                        engagementVisualMode === 'PIE' ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-md' : 'text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white'
                       }`}
                     >
                       Koláč
@@ -352,7 +353,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                         onClick={() => scrollEngagementCards('left')}
                         disabled={!canScrollEngagementLeft}
                         className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-sm transition-all ${
-                          canScrollEngagementLeft ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                          canScrollEngagementLeft ? 'bg-white dark:bg-zinc-800 border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black' : 'bg-white/70 dark:bg-zinc-800/70 border-black/5 dark:border-white/5 text-black/20 dark:text-white/20 cursor-not-allowed'
                         }`}
                       >
                         <ChevronLeft className="w-5 h-5" />
@@ -363,7 +364,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                         onClick={() => scrollEngagementCards('right')}
                         disabled={!canScrollEngagementRight}
                         className={`w-10 h-10 flex items-center justify-center rounded-full border shadow-sm transition-all ${
-                          canScrollEngagementRight ? 'bg-white border-black/10 text-black hover:bg-black hover:text-white' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'
+                          canScrollEngagementRight ? 'bg-white dark:bg-zinc-800 border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black' : 'bg-white/70 dark:bg-zinc-800/70 border-black/5 dark:border-white/5 text-black/20 dark:text-white/20 cursor-not-allowed'
                         }`}
                       >
                         <ChevronRight className="w-5 h-5" />
@@ -378,8 +379,8 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
               <div className="relative">
                 {engagementTeamCards.length > 2 && (
                   <>
-                    <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
-                    <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
+                    <div className={`hidden sm:block absolute left-0 top-0 bottom-8 w-10 bg-gradient-to-r ${isDarkMode ? 'from-zinc-900 to-transparent' : 'from-white to-transparent'} z-10 pointer-events-none transition-opacity ${canScrollEngagementLeft ? 'opacity-100' : 'opacity-0'}`} />
+                    <div className={`hidden sm:block absolute right-0 top-0 bottom-8 w-10 bg-gradient-to-l ${isDarkMode ? 'from-zinc-900 to-transparent' : 'from-white to-transparent'} z-10 pointer-events-none transition-opacity ${canScrollEngagementRight ? 'opacity-100' : 'opacity-0'}`} />
                   </>
                 )}
 
@@ -389,56 +390,56 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                     const isExpanded = expandedEngagementCard === cardId;
 
                     return (
-                      <div key={cardId} className={`snap-start self-start shrink-0 w-full sm:w-[calc(50%-10px)] sm:min-w-[320px] min-h-[380px] lg:min-h-[430px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 print:w-full print:break-inside-avoid ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'}`}>
+                      <div key={cardId} className={`snap-start self-start shrink-0 w-full sm:w-[calc(50%-10px)] sm:min-w-[320px] min-h-[380px] lg:min-h-[430px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 print:w-full print:break-inside-avoid ${idx === 0 ? 'bg-brand/5 dark:bg-brand/10 border-brand/20' : 'bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5'}`}>
                         <div className="flex items-start justify-between gap-3 mb-4">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                            <h4 className="font-black text-base sm:text-lg lg:text-xl text-black truncate">{team.name}</h4>
+                            <h4 className="font-black text-base sm:text-lg lg:text-xl text-black dark:text-white truncate">{team.name}</h4>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 leading-none">Tím</p>
-                            <p className="text-lg sm:text-xl lg:text-2xl font-black text-black leading-none mt-1">#{idx + 1}</p>
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 dark:text-white/35 leading-none">Tím</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-black text-black dark:text-white leading-none mt-1">#{idx + 1}</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Počet oslovených</p>
-                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5">{team.teamSent}</p>
+                          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-black/5 dark:border-white/5 p-3 sm:p-4 shadow-sm">
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 dark:text-white/35">Počet oslovených</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5 dark:text-white">{team.teamSent}</p>
                           </div>
-                          <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Počet odpovedí</p>
-                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5">{team.responded}</p>
+                          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-black/5 dark:border-white/5 p-3 sm:p-4 shadow-sm">
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 dark:text-white/35">Počet odpovedí</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5 dark:text-white">{team.responded}</p>
                           </div>
-                          <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Návratnosť v %</p>
-                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5">{team.responseRateTeam}%</p>
+                          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-black/5 dark:border-white/5 p-3 sm:p-4 shadow-sm">
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 dark:text-white/35">Návratnosť v %</p>
+                            <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5 dark:text-white">{team.responseRateTeam}%</p>
                           </div>
-                          <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">% podiel na celkovom vyplnení</p>
+                          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-black/5 dark:border-white/5 p-3 sm:p-4 shadow-sm">
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35 dark:text-white/35">% podiel</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5 text-brand">{team.shareOfAllResponded}%</p>
                           </div>
                         </div>
 
                         <div className="mt-4 space-y-2">
-                          <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
+                          <div className="w-full h-2 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }} />
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-3 border-t border-black/5">
-                          <button type="button" onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)} className="w-full flex items-center justify-between rounded-xl px-2 py-2.5 hover:bg-white/70 transition-colors">
-                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-black/50">
-                              {isExpanded ? 'Skryť' : 'Interpretácia dát tímu'}
+                        <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5">
+                          <button type="button" onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)} className="w-full flex items-center justify-between rounded-xl px-2 py-2.5 hover:bg-white/70 dark:hover:bg-zinc-800 transition-colors group/btn">
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-black/50 dark:text-white/50 group-hover/btn:text-brand transition-colors">
+                              {isExpanded ? 'Skryť' : 'Interpretácia dát'}
                             </span>
-                            <ChevronDown className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 text-black/40 dark:text-white/40 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-brand' : ''}`} />
                           </button>
 
                           {isExpanded && (
                             <div className="mt-3 animate-fade-in">
-                              <div className="bg-white rounded-xl border border-black/5 p-4 sm:p-5">
-                                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/35 mb-2">Interpretácia hodnôt</p>
-                                <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80">
+                              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-black/5 dark:border-white/5 p-4 sm:p-5 shadow-inner">
+                                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/35 dark:text-white/35 mb-2 text-brand">AI Pohľad</p>
+                                <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80 dark:text-zinc-300">
                                   {team.aiSummary || `Návratnosť pre tím ${team.name} je na úrovni ${team.responseRateTeam}%. Bližšia interpretácia zatiaľ nebola doplnená.`}
                                 </p>
                               </div>
@@ -452,15 +453,15 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
 
                 {engagementTeamCards.length > 1 && (
                   <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-black/25 leading-tight max-w-[60%] sm:max-w-none">
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-black/25 dark:text-white/20 leading-tight max-w-[60%] sm:max-w-none">
                       Potiahnite do strán pre ďalšie tímy
                     </p>
                     {engagementTeamCards.length > 2 && (
                       <div className="flex sm:hidden items-center gap-2">
-                        <button type="button" onClick={() => scrollEngagementCards('left')} disabled={!canScrollEngagementLeft} className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${canScrollEngagementLeft ? 'bg-white border-black/10 text-black' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}>
+                        <button type="button" onClick={() => scrollEngagementCards('left')} disabled={!canScrollEngagementLeft} className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${canScrollEngagementLeft ? 'bg-white dark:bg-zinc-800 border-black/10 dark:border-white/10 text-black dark:text-white' : 'bg-white/70 dark:bg-zinc-800/70 border-black/5 dark:border-white/5 text-black/20 dark:text-white/20'}`}>
                           <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <button type="button" onClick={() => scrollEngagementCards('right')} disabled={!canScrollEngagementRight} className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${canScrollEngagementRight ? 'bg-white border-black/10 text-black' : 'bg-white/70 border-black/5 text-black/20 cursor-not-allowed'}`}>
+                        <button type="button" onClick={() => scrollEngagementCards('right')} disabled={!canScrollEngagementRight} className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${canScrollEngagementRight ? 'bg-white dark:bg-zinc-800 border-black/10 dark:border-white/10 text-black dark:text-white' : 'bg-white/70 dark:bg-zinc-800/70 border-black/5 dark:border-white/5 text-black/20 dark:text-white/20'}`}>
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
@@ -475,7 +476,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                     <PieChart>
                       <Pie
                         data={engagementChartData}
-                        cx="50%" cy="50%" outerRadius="75%" dataKey="count" nameKey="name" stroke="#ffffff" strokeWidth={2}
+                        cx="50%" cy="50%" outerRadius="75%" dataKey="count" nameKey="name" stroke={isDarkMode ? '#18181b' : '#ffffff'} strokeWidth={2}
                         onMouseEnter={(_, index) => setHoveredPie(index)}
                         onMouseLeave={() => setHoveredPie(null)}
                         shape={(props: any) => {
@@ -491,7 +492,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                           return (
                             <Sector
                               cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + radiusOffset}
-                              startAngle={startAngle} endAngle={endAngle} fill={fill} stroke="#ffffff" strokeWidth={2}
+                              startAngle={startAngle} endAngle={endAngle} fill={fill} stroke={isDarkMode ? '#18181b' : '#ffffff'} strokeWidth={2}
                               style={{ transition: 'all 0.25s ease-out' }} 
                             />
                           );
@@ -507,36 +508,42 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                           const percentage = safeTotalReceived > 0 ? ((count / safeTotalReceived) * 100).toFixed(1) : '0.0';
                           return [`${count} osôb (${percentage}%)`, name];
                         }}
-                        contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontWeight: 700 }}
-                        itemStyle={{ fontWeight: 900, color: '#000' }}
+                        contentStyle={{ 
+                          borderRadius: '1rem', 
+                          border: 'none', 
+                          backgroundColor: isDarkMode ? '#18181b' : '#fff',
+                          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)', 
+                          fontWeight: 700 
+                        }}
+                        itemStyle={{ fontWeight: 900, color: isDarkMode ? '#fff' : '#000' }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
                 <div className="xl:col-span-5 w-full">
-                  <div className="bg-black/5 rounded-2xl sm:rounded-3xl border border-black/5 p-4 md:p-5">
-                    <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40 mb-4">
+                  <div className="bg-black/5 dark:bg-white/5 rounded-2xl sm:rounded-3xl border border-black/5 dark:border-white/10 p-4 md:p-5">
+                    <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4">
                       Rozdelenie podľa tímov
                     </h4>
-                    <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
+                    <div className="space-y-3 max-h-[340px] overflow-auto pr-1 custom-scrollbar">
                       {engagementChartData.slice().sort((a: any, b: any) => {
                         if (a.isActive && !b.isActive) return -1;
                         if (!a.isActive && b.isActive) return 1;
                         return b.count - a.count;
                       }).map((team: any, idx: number) => (
-                        <div key={`${team.name}-${idx}`} className={`rounded-2xl border p-3 sm:p-4 transition-all ${team.isActive ? (idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5') : 'bg-black/5 border-transparent opacity-50 grayscale'}`}>
+                        <div key={`${team.name}-${idx}`} className={`rounded-2xl border p-3 sm:p-4 transition-all ${team.isActive ? (idx === 0 ? 'bg-brand/5 dark:bg-brand/20 border-brand/20' : 'bg-white dark:bg-zinc-900 border-black/5 dark:border-white/5') : 'bg-black/5 dark:bg-white/5 border-transparent opacity-50 grayscale'}`}>
                           <div className="flex items-center justify-between gap-3 mb-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                              <span className="font-black text-xs sm:text-sm text-black truncate">{team.name}</span>
+                              <span className="font-black text-xs sm:text-sm text-black dark:text-white truncate">{team.name}</span>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-xs sm:text-sm font-black leading-none">{team.count}</p>
-                              <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-1 ${team.isActive ? 'text-brand' : 'text-black/40'}`}>{team.percentage}%</p>
+                              <p className="text-xs sm:text-sm font-black leading-none dark:text-white">{team.count}</p>
+                              <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-1 ${team.isActive ? 'text-brand' : 'text-black/40 dark:text-white/30'}`}>{team.percentage}%</p>
                             </div>
                           </div>
-                          <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
+                          <div className="w-full h-1.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${team.percentage}%`, backgroundColor: team.color }} />
                           </div>
                         </div>
