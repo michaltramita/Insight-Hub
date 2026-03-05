@@ -14,6 +14,8 @@
     
     <script>
       tailwind.config = {
+        // TOTO JE KĽÚČOVÉ: Povie Tailwindu, aby sledoval triedu "dark" na <html> elemente
+        darkMode: 'class', 
         theme: {
           extend: {
             colors: {
@@ -27,9 +29,16 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #ffffff;
+        /* Odstránili sme natvrdo nastavenú bielu, aby ju mohol ovládať React/Tailwind */
+        margin: 0;
+        padding: 0;
       }
       
+      /* Zabezpečíme plynulý prechod farieb pri prepínaní */
+      html {
+        transition: background-color 0.3s ease;
+      }
+
       /* Animácie */
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
@@ -48,7 +57,7 @@
         animation: rowSlideIn 0.5s ease-out forwards;
       }
 
-      /* Pomocná trieda na skrytie scrollbaru, ktorú máte v Reacte */
+      /* Skrytie scrollbaru */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -65,8 +74,8 @@
     </style>
   </head>
   
-  <body>
+  <body class="bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
