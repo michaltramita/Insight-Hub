@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { exportBlockToPDF, exportDataToExcel } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-import { MapPin, Download, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
+// OPRAVA: Vrátil som ChevronDown, ktorý chýbal a zhadzoval aplikáciu
+import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
 interface Props {
@@ -350,7 +351,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   return (
     <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
       
-      {/* HLAVIČKA KONFIGURÁCIE */}
+      {/* HLAVIČKA KONFIGURÁCIE S ČISTÝM EXCEL EXPORTOM */}
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
@@ -364,15 +365,13 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   {area.title}
                 </h2>
                 
-                {/* PRIAMY EXCEL EXPORT (bez menu) */}
-                <div className="print:hidden">
-                  <button
-                    onClick={handleExcelExport}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand/10 hover:bg-brand/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-brand"
-                  >
-                    <Download className="w-3 h-3" /> Excel Dáta
-                  </button>
-                </div>
+                {/* ČISTÉ TLAČIDLO NA EXCEL (bez menu) */}
+                <button
+                  onClick={handleExcelExport}
+                  className="print:hidden flex items-center justify-center gap-2 px-4 py-2.5 bg-brand/10 hover:bg-brand/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-brand"
+                >
+                  <Download className="w-3 h-3" /> Excel Dáta
+                </button>
               </div>
 
               <div className="flex bg-black/5 p-1 rounded-2xl w-full sm:w-fit border border-black/5 overflow-x-auto no-scrollbar print:hidden">
