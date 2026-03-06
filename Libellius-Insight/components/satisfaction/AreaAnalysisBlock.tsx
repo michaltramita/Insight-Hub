@@ -68,11 +68,13 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([]);
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
   
-  // Stavy pre export menu
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   const [activeFullscreenExportMenu, setActiveFullscreenExportMenu] = useState<boolean>(false);
   
   const [isFullScreen, setIsFullScreen] = useState(false);
+  
+  // NOVÝ STAV PRE ANIMÁCIU
+  const [exportingState, setExportingState] = useState<'png' | 'excel' | null>(null);
 
   useEffect(() => {
     if (masterTeams.length > 0 && !teamValue) {
@@ -80,7 +82,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     }
   }, [masterTeams, teamValue]);
 
-  // Uzatváranie export menu pri kliknutí inam
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -105,7 +106,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setActiveFullscreenExportMenu(false); // Reset menu pri odchode z fullscreenu
+      setActiveFullscreenExportMenu(false);
     }
 
     return () => {
@@ -150,16 +151,26 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
-  const handlePngExport = () => {
+  // ASYNCHRÓNNY EXPORT PNG
+  const handlePngExport = async () => {
     setActiveFullscreenExportMenu(false);
+    setExportingState('png');
+    
     const targetId = isFullScreen ? `fullscreen-block-${area.id}` : `block-area-${area.id}`;
     const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`.replace(/\s+/g, '_');
-    exportBlockToPNG(targetId, fileName);
+    
+    try {
+      await exportBlockToPNG(targetId, fileName);
+    } finally {
+      setExportingState(null);
+    }
   };
 
-  const handleExcelExport = () => {
+  // ASYNCHRÓNNY EXPORT EXCEL
+  const handleExcelExport = async () => {
     setActiveExportMenu(false);
     setActiveFullscreenExportMenu(false);
+    setExportingState('excel');
     
     let dataToExport: any[] = [];
     let fileName = '';
@@ -183,7 +194,12 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       });
       fileName = `Oblast_${area.title}_Porovnanie.xlsx`.replace(/\s+/g, '_');
     }
-    exportDataToExcel(dataToExport, fileName);
+    
+    try {
+      await exportDataToExcel(dataToExport, fileName);
+    } finally {
+      setExportingState(null);
+    }
   };
 
   if (!area) return null;
@@ -289,7 +305,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   fillOpacity={1}
                 >
                   {activeMetrics.map((entry: any, index: number) => (
-                    <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
+                    <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} fillOpacity={1} opacity={1} />
                   ))}
                   <LabelList 
                     dataKey="score" 
@@ -380,7 +396,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   );
 
   return (
-    <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
+    // PRIDANÁ TRIEDA RELATIVE pre správne prichytenie overlay animácie (ak nie je vo fullscreen)
+    <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in relative">
       
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -524,6 +541,39 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           }
         </>
       )}
+
+      {/* --- OVERLAY ANIMÁCIA PRI EXPORTE --- */}
+      {exportingState && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white/80 backdrop-blur-sm transition-all duration-300 animate-fade-in">
+          <div className="flex flex-col items-center">
+            
+            <div className="relative">
+              {/* Vonkajší rotujúci kruh */}
+              <div className="absolute inset-0 w-24 h-24 border-4 border-black/5 border-t-brand rounded-full animate-spin"></div>
+              
+              {/* Vnútorná pulzujúca ikona */}
+              <div className="w-24 h-24 flex items-center justify-center bg-white rounded-full shadow-2xl">
+                {exportingState === 'png' ? (
+                  <ImageIcon className="w-10 h-10 text-brand animate-pulse" />
+                ) : (
+                  <Download className="w-10 h-10 text-brand animate-pulse" />
+                )}
+              </div>
+            </div>
+
+            <h3 className="mt-8 text-xl sm:text-2xl font-black text-black uppercase tracking-widest animate-pulse">
+              {exportingState === 'png' ? 'Fotím graf...' : 'Pripravujem dáta...'}
+            </h3>
+            
+            <p className="text-xs sm:text-sm font-bold text-black/40 mt-3 uppercase tracking-widest">
+              Prosím, chvíľu strpenia
+            </p>
+            
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 };
