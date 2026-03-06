@@ -70,10 +70,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   const [activeFullscreenExportMenu, setActiveFullscreenExportMenu] = useState<boolean>(false);
-  
   const [isFullScreen, setIsFullScreen] = useState(false);
   
-  // NOVÝ STAV PRE ANIMÁCIU
   const [exportingState, setExportingState] = useState<'png' | 'excel' | null>(null);
 
   useEffect(() => {
@@ -85,12 +83,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('.export-dropdown-container')) {
-        setActiveExportMenu(false);
-      }
-      if (!target.closest('.export-fullscreen-dropdown-container')) {
-        setActiveFullscreenExportMenu(false);
-      }
+      if (!target.closest('.export-dropdown-container')) setActiveExportMenu(false);
+      if (!target.closest('.export-fullscreen-dropdown-container')) setActiveFullscreenExportMenu(false);
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -106,7 +100,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setActiveFullscreenExportMenu(false);
+      setActiveFullscreenExportMenu(false); 
     }
 
     return () => {
@@ -151,7 +145,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
-  // ASYNCHRÓNNY EXPORT PNG
   const handlePngExport = async () => {
     setActiveFullscreenExportMenu(false);
     setExportingState('png');
@@ -166,7 +159,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     }
   };
 
-  // ASYNCHRÓNNY EXPORT EXCEL
   const handleExcelExport = async () => {
     setActiveExportMenu(false);
     setActiveFullscreenExportMenu(false);
@@ -297,22 +289,27 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   content={<CustomBarTooltip />} 
                   isAnimationActive={false} 
                 />
-                <Bar 
-                  dataKey="score" 
-                  radius={[0, 12, 12, 0]} 
-                  barSize={isFullScreen ? 28 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
+                <Bar
+                  dataKey="score"
+                  radius={[0, 12, 12, 0]}
+                  barSize={isFullScreen ? 30 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
                   isAnimationActive={false}
                   fillOpacity={1}
                 >
                   {activeMetrics.map((entry: any, index: number) => (
                     <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} fillOpacity={1} opacity={1} />
                   ))}
-                  <LabelList 
-                    dataKey="score" 
-                    position="right" 
-                    style={{ fontWeight: 900, fontSize: isFullScreen ? '16px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px'), fill: '#000' }} 
-                    offset={15} 
+                  <LabelList
+                    dataKey="score"
+                    position="right"
+                    offset={10}
                     formatter={(val: number) => val.toFixed(2)}
+                    style={{
+                      fontWeight: 900,
+                      fontSize: isFullScreen ? '18px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px'),
+                      fill: '#000000',
+                      opacity: 1,
+                    }}
                   />
                 </Bar>
               </BarChart>
@@ -396,7 +393,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   );
 
   return (
-    // PRIDANÁ TRIEDA RELATIVE pre správne prichytenie overlay animácie (ak nie je vo fullscreen)
     <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in relative">
       
       {!isFullScreen && (
@@ -542,32 +538,43 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </>
       )}
 
-      {/* --- OVERLAY ANIMÁCIA PRI EXPORTE --- */}
+      {/* --- NOVÁ PRÉMIOVÁ ANIMÁCIA PRI EXPORTE --- */}
       {exportingState && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white/80 backdrop-blur-sm transition-all duration-300 animate-fade-in">
-          <div className="flex flex-col items-center">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-md transition-all duration-500 animate-fade-in">
+          
+          <div className="bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] flex flex-col items-center max-w-sm w-full mx-4 border border-white/20 transform hover:scale-105 transition-transform duration-500">
             
-            <div className="relative">
-              {/* Vonkajší rotujúci kruh */}
-              <div className="absolute inset-0 w-24 h-24 border-4 border-black/5 border-t-brand rounded-full animate-spin"></div>
+            {/* Animované kruhy - "Zaostrovanie" */}
+            <div className="relative w-24 h-24 sm:w-32 sm:h-32 mb-8 flex items-center justify-center">
               
-              {/* Vnútorná pulzujúca ikona */}
-              <div className="w-24 h-24 flex items-center justify-center bg-white rounded-full shadow-2xl">
+              {/* Vonkajší prstenec */}
+              <div className="absolute inset-0 border-[3px] sm:border-4 border-black/5 rounded-full"></div>
+              <div className="absolute inset-0 border-[3px] sm:border-4 border-transparent border-t-brand border-r-brand rounded-full animate-[spin_1.5s_cubic-bezier(0.68,-0.55,0.265,1.55)_infinite]"></div>
+              
+              {/* Vnútorný prstenec opačným smerom */}
+              <div className="absolute inset-4 sm:inset-5 border-[3px] sm:border-4 border-black/5 rounded-full"></div>
+              <div className="absolute inset-4 sm:inset-5 border-[3px] sm:border-4 border-transparent border-b-brand border-l-brand rounded-full animate-[spin_2s_linear_infinite_reverse]"></div>
+              
+              {/* Stred - Pulzujúca ikona */}
+              <div className="absolute inset-8 sm:inset-10 bg-brand/10 rounded-full flex items-center justify-center animate-pulse shadow-inner">
                 {exportingState === 'png' ? (
-                  <ImageIcon className="w-10 h-10 text-brand animate-pulse" />
+                  <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand" />
                 ) : (
-                  <Download className="w-10 h-10 text-brand animate-pulse" />
+                  <Download className="w-6 h-6 sm:w-8 sm:h-8 text-brand" />
                 )}
               </div>
             </div>
 
-            <h3 className="mt-8 text-xl sm:text-2xl font-black text-black uppercase tracking-widest animate-pulse">
-              {exportingState === 'png' ? 'Fotím graf...' : 'Pripravujem dáta...'}
+            <h3 className="text-base sm:text-lg font-black text-black uppercase tracking-[0.15em] text-center">
+              {exportingState === 'png' ? 'Snímkovanie grafu' : 'Spracovanie dát'}
             </h3>
             
-            <p className="text-xs sm:text-sm font-bold text-black/40 mt-3 uppercase tracking-widest">
-              Prosím, chvíľu strpenia
-            </p>
+            {/* Bouncing dots loading indikátor */}
+            <div className="flex items-center gap-1.5 mt-5">
+               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
             
           </div>
         </div>,
