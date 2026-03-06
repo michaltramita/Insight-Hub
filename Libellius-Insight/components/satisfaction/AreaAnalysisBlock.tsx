@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-// ZMENA: PDF import je úplne preč, ostal len Excel a PNG
 import { exportDataToExcel, exportBlockToPNG } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
@@ -69,6 +68,10 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([]);
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
   
+  // Stavy pre export menu
+  const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
+  const [activeFullscreenExportMenu, setActiveFullscreenExportMenu] = useState<boolean>(false);
+  
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
@@ -76,6 +79,21 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       setTeamValue(masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0]);
     }
   }, [masterTeams, teamValue]);
+
+  // Uzatváranie export menu pri kliknutí inam
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.export-dropdown-container')) {
+        setActiveExportMenu(false);
+      }
+      if (!target.closest('.export-fullscreen-dropdown-container')) {
+        setActiveFullscreenExportMenu(false);
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -87,6 +105,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      setActiveFullscreenExportMenu(false); // Reset menu pri odchode z fullscreenu
     }
 
     return () => {
@@ -131,15 +150,17 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
-  // --- PNG EXPORT ---
   const handlePngExport = () => {
+    setActiveFullscreenExportMenu(false);
     const targetId = isFullScreen ? `fullscreen-block-${area.id}` : `block-area-${area.id}`;
     const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`.replace(/\s+/g, '_');
     exportBlockToPNG(targetId, fileName);
   };
 
-  // --- EXCEL EXPORT ---
   const handleExcelExport = () => {
+    setActiveExportMenu(false);
+    setActiveFullscreenExportMenu(false);
+    
     let dataToExport: any[] = [];
     let fileName = '';
 
@@ -204,23 +225,28 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           </div>
 
           <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
+            {/* DROPDOWN MENU PRE FULLSCREEN */}
             {isFullScreen && (
-              <>
+              <div className="relative export-fullscreen-dropdown-container">
                 <button
-                  onClick={handlePngExport}
-                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
-                  title="Uložiť zobrazenie ako obrázok"
+                  onClick={() => setActiveFullscreenExportMenu(!activeFullscreenExportMenu)}
+                  className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
                 >
-                  <ImageIcon className="w-4 h-4" /> <span className="hidden sm:inline">PNG</span>
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Export</span>
+                  <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform ${activeFullscreenExportMenu ? 'rotate-180' : ''}`} />
                 </button>
-                <button
-                  onClick={handleExcelExport}
-                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
-                  title="Stiahnuť dáta do Excelu"
-                >
-                  <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
-                </button>
-              </>
+                
+                {activeFullscreenExportMenu && (
+                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[140px] animate-fade-in">
+                      <button onClick={handlePngExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors">
+                        <ImageIcon className="w-3 h-3" /> Obrázok PNG
+                      </button>
+                      <button onClick={handleExcelExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors">
+                        <Download className="w-3 h-3" /> Excel Dáta
+                      </button>
+                  </div>
+                )}
+              </div>
             )}
 
             <button
@@ -302,23 +328,28 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           )}
 
           <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
+            {/* DROPDOWN MENU PRE FULLSCREEN (MATICA) */}
             {isFullScreen && (
-              <>
+              <div className="relative export-fullscreen-dropdown-container">
                 <button
-                  onClick={handlePngExport}
-                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
-                  title="Uložiť tabuľku ako obrázok"
+                  onClick={() => setActiveFullscreenExportMenu(!activeFullscreenExportMenu)}
+                  className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
                 >
-                  <ImageIcon className="w-4 h-4" /> <span className="hidden sm:inline">PNG</span>
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Export</span>
+                  <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform ${activeFullscreenExportMenu ? 'rotate-180' : ''}`} />
                 </button>
-                <button
-                  onClick={handleExcelExport}
-                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
-                  title="Stiahnuť dáta do Excelu"
-                >
-                  <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
-                </button>
-              </>
+                
+                {activeFullscreenExportMenu && (
+                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[140px] animate-fade-in">
+                      <button onClick={handlePngExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors">
+                        <ImageIcon className="w-3 h-3" /> Obrázok PNG
+                      </button>
+                      <button onClick={handleExcelExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors">
+                        <Download className="w-3 h-3" /> Excel Dáta
+                      </button>
+                  </div>
+                )}
+              </div>
             )}
 
             <button
@@ -362,13 +393,23 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   {area.title}
                 </h2>
                 
-                <div className="print:hidden">
+                {/* DROPDOWN MENU PRE ZÁKLADNÉ ZOBRAZENIE */}
+                <div className="relative export-dropdown-container print:hidden">
                   <button
-                    onClick={handleExcelExport}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand/10 hover:bg-brand/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-brand"
+                    onClick={() => setActiveExportMenu(!activeExportMenu)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
                   >
-                    <Download className="w-3 h-3" /> Excel Dáta
+                    <Download className="w-3 h-3" /> Export
+                    <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu ? 'rotate-180' : ''}`} />
                   </button>
+                  
+                  {activeExportMenu && (
+                    <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
+                        <button onClick={handleExcelExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors">
+                          <Download className="w-3 h-3" /> Excel Dáta
+                        </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -432,6 +473,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
+          
           {isFullScreen && typeof document !== 'undefined' 
             ? createPortal(renderChartBox, document.body) 
             : renderChartBox
