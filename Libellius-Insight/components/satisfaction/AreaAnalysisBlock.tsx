@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { exportBlockToPDF, exportDataToExcel } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-// Pridané ikony Maximize2 a Minimize2 pre Fullscreen
 import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
@@ -27,10 +27,8 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// YAxisTick teraz vie, či je v režime celej obrazovky
 const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  // Ak sme vo fullscreene, dovolíme dlhší text predtým, než sa zlomí do ďalšieho riadku
   const maxLength = isMobile ? 40 : (isFullScreen ? 100 : 80); 
 
   const words = payload.value.split(' ');
@@ -71,7 +69,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   
-  // --- STAV PRE FULL-SCREEN ---
+  // Stav pre Fullscreen
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
@@ -90,18 +88,24 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // --- ZAVRETIE FULLSCREENU KLÁVESOU ESCAPE ---
+  // Uzamknutie scrollu a Escape klávesa pre Fullscreen
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsFullScreen(false);
-      }
+      if (event.key === 'Escape') setIsFullScreen(false);
     };
     window.addEventListener('keydown', handleEsc);
+
+    if (isFullScreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
     return () => {
       window.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = '';
     };
-  }, []);
+  }, [isFullScreen]);
 
   const getActiveData = (teamName: string) => {
     if (!area) return [];
@@ -175,17 +179,90 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const top = activeMetrics.slice(0, 3);
   const bottom = [...activeMetrics].filter((m: any) => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
 
-  // Dynamická šírka ľavej osi Y
   const getAxisWidth = () => {
     if (typeof window === 'undefined') return 600;
     if (window.innerWidth < 768) return 280;
     return isFullScreen ? 800 : 600;
   };
 
+  // SAMOTNÝ GRAF VYŇATÝ DO PREMENNEJ (pre použitie v portáli aj normálne)
+  const renderChartBox = (
+    <div className={`${
+      isFullScreen 
+        ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
+        : 'bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col'
+    }`}>
+      <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
+            <BarChartIcon className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tight text-black">
+              Hodnotenie jednotlivých tvrdení
+            </h3>
+            <p className="text-xs sm:text-sm font-bold text-black/40 mt-1 break-words">
+              Stredisko: <span className="text-brand">{teamValue}</span>
+              {isFullScreen && ` | Oblasť: ${area.title}`}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsFullScreen(!isFullScreen)}
+          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
+            isFullScreen ? 'bg-black text-white hover:bg-brand' : 'bg-black/5 text-black/50 hover:bg-black hover:text-white'
+          }`}
+          title={isFullScreen ? 'Zavrieť na celú obrazovku (Esc)' : 'Zobraziť na celú obrazovku'}
+        >
+          {isFullScreen ? (
+            <><Minimize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zavrieť</span></>
+          ) : (
+            <><Maximize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zväčšiť graf</span></>
+          )}
+        </button>
+      </div>
+
+      <div className={`w-full ${isFullScreen ? 'flex-1 min-h-0' : ''}`}>
+        <div className={`${isFullScreen ? 'h-full' : 'h-[450px] sm:h-[500px] lg:h-[550px]'} w-full`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 50, top: 10, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
+              <XAxis type="number" domain={[0, scaleMax]} hide />
+              <YAxis 
+                dataKey="category" 
+                type="category" 
+                width={getAxisWidth()} 
+                interval={0} 
+                tick={<CustomYAxisTick isFullScreen={isFullScreen} />} 
+              />
+              <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
+              <Bar 
+                dataKey="score" 
+                radius={[0, 12, 12, 0]} 
+                barSize={isFullScreen ? 30 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
+              >
+                {activeMetrics.map((entry: any, index: number) => (
+                  <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
+                ))}
+                <LabelList 
+                  dataKey="score" 
+                  position="right" 
+                  style={{ fontWeight: 900, fontSize: isFullScreen ? '18px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px'), fill: '#000' }} 
+                  offset={10} 
+                  formatter={(val: number) => val.toFixed(2)}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
-      
-      {/* HLAVIČKA - Schovaná počas fullscreenu */}
+      {/* HLAVIČKA KONFIGURÁCIE */}
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
@@ -252,6 +329,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
       )}
 
+      {/* FILTER PRE POROVNANIE */}
       {viewMode === 'COMPARISON' && !isFullScreen && (
         <div className="bg-white p-6 sm:p-8 rounded-[1.5rem] border border-black/5 shadow-xl">
           <TeamSelectorGrid
@@ -279,90 +357,17 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
       )}
 
+      {/* RENDER OBSAHU (Graf + Karty) alebo Matice */}
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
           
-          {/* HLAVNÝ GRAF S FULLSCREEN LOGIKOU */}
-          <div className={`${
-            isFullScreen 
-              ? 'fixed inset-0 z-[100] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
-              : 'bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col'
-          }`}>
-            
-            <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
-                  <BarChartIcon className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tight text-black">
-                    Hodnotenie jednotlivých tvrdení
-                  </h3>
-                  <p className="text-xs sm:text-sm font-bold text-black/40 mt-1 break-words">
-                    Stredisko: <span className="text-brand">{teamValue}</span>
-                    {isFullScreen && ` | Oblasť: ${area.title}`}
-                  </p>
-                </div>
-              </div>
+          {/* PORTAL PRE GRAF: Ak je fullscreen, hodí to priamo do body */}
+          {isFullScreen && typeof document !== 'undefined' 
+            ? createPortal(renderChartBox, document.body) 
+            : renderChartBox
+          }
 
-              {/* TLAČIDLO PRE FULLSCREEN PREPÍNANIA */}
-              <button
-                onClick={() => setIsFullScreen(!isFullScreen)}
-                className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
-                  isFullScreen 
-                    ? 'bg-black text-white hover:bg-brand' 
-                    : 'bg-black/5 text-black/50 hover:bg-black hover:text-white'
-                }`}
-                title={isFullScreen ? 'Zavrieť na celú obrazovku (Esc)' : 'Zobraziť na celú obrazovku'}
-              >
-                {isFullScreen ? (
-                  <><Minimize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zavrieť</span></>
-                ) : (
-                  <><Maximize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zväčšiť graf</span></>
-                )}
-              </button>
-            </div>
-
-            <div className={`w-full ${isFullScreen ? 'flex-1 min-h-0' : ''}`}>
-              <div className={`${isFullScreen ? 'h-full' : 'h-[450px] sm:h-[500px] lg:h-[550px]'} w-full`}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 50, top: 10, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-                    <XAxis type="number" domain={[0, scaleMax]} hide />
-                    
-                    <YAxis 
-                      dataKey="category" 
-                      type="category" 
-                      width={getAxisWidth()} 
-                      interval={0} 
-                      tick={<CustomYAxisTick isFullScreen={isFullScreen} />} 
-                    />
-                    
-                    <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
-                    
-                    <Bar 
-                      dataKey="score" 
-                      radius={[0, 12, 12, 0]} 
-                      barSize={isFullScreen ? 30 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
-                    >
-                      {activeMetrics.map((entry: any, index: number) => (
-                        <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
-                      ))}
-                      <LabelList 
-                        dataKey="score" 
-                        position="right" 
-                        style={{ fontWeight: 900, fontSize: isFullScreen ? '18px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px'), fill: '#000' }} 
-                        offset={10} 
-                        formatter={(val: number) => val.toFixed(2)}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* KARTY - Schované počas fullscreenu */}
+          {/* SILNÉ STRÁNKY A PRÍLEŽITOSTI */}
           {!isFullScreen && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
               <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
