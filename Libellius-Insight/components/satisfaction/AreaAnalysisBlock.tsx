@@ -69,7 +69,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   
-  // Stav pre Fullscreen
+  // Stav pre Fullscreen (používa sa aj pre graf, aj pre maticu)
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
@@ -185,7 +185,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     return isFullScreen ? 800 : 600;
   };
 
-  // SAMOTNÝ GRAF VYŇATÝ DO PREMENNEJ (pre použitie v portáli aj normálne)
+  // 1. ZOSTAVENÝ BOX PRE DETAIL (GRAF)
   const renderChartBox = (
     <div className={`${
       isFullScreen 
@@ -210,7 +210,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
         <button
           onClick={() => setIsFullScreen(!isFullScreen)}
-          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
+          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all shrink-0 ${
             isFullScreen ? 'bg-black text-white hover:bg-brand' : 'bg-black/5 text-black/50 hover:bg-black hover:text-white'
           }`}
           title={isFullScreen ? 'Zavrieť na celú obrazovku (Esc)' : 'Zobraziť na celú obrazovku'}
@@ -260,8 +260,54 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     </div>
   );
 
+  // 2. ZOSTAVENÝ BOX PRE POROVNANIE (MATICA)
+  const renderComparisonBox = (
+    <div className={`${
+      isFullScreen 
+        ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
+        : 'relative mt-4'
+    }`}>
+      <div className={`flex justify-between items-start gap-4 ${isFullScreen ? 'mb-8' : 'mb-4'}`}>
+        {isFullScreen ? (
+          <div className="min-w-0">
+             <h3 className="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tight text-black">
+               Porovnanie tímov
+             </h3>
+             <p className="text-xs sm:text-sm font-bold text-black/40 mt-1 break-words">
+               Oblasť: <span className="text-brand">{area.title}</span>
+             </p>
+          </div>
+        ) : (
+          <div /> // Prázdny element, aby tlačidlo Zväčšiť zostalo napravo
+        )}
+
+        <button
+          onClick={() => setIsFullScreen(!isFullScreen)}
+          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all shrink-0 ${
+            isFullScreen 
+              ? 'bg-black text-white hover:bg-brand' 
+              : 'bg-black/5 text-black/50 hover:bg-black hover:text-white'
+          }`}
+          title={isFullScreen ? 'Zavrieť na celú obrazovku (Esc)' : 'Zobraziť tabuľku na celú obrazovku'}
+        >
+          {isFullScreen ? (
+            <><Minimize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zavrieť</span></>
+          ) : (
+            <><Maximize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zväčšiť tabuľku</span></>
+          )}
+        </button>
+      </div>
+
+      <div className={`w-full ${isFullScreen ? 'flex-1 overflow-y-auto no-scrollbar pb-8' : ''}`}>
+        <ComparisonMatrix teams={comparisonSelection} matrixData={getComparisonData(comparisonSelection)} />
+      </div>
+    </div>
+  );
+
+  // --- HLAVNÝ RENDER KOMPONENTU ---
   return (
     <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
+      
       {/* HLAVIČKA KONFIGURÁCIE */}
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -329,7 +375,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
       )}
 
-      {/* FILTER PRE POROVNANIE */}
+      {/* FILTRE PRE POROVNANIE */}
       {viewMode === 'COMPARISON' && !isFullScreen && (
         <div className="bg-white p-6 sm:p-8 rounded-[1.5rem] border border-black/5 shadow-xl">
           <TeamSelectorGrid
@@ -357,17 +403,16 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
       )}
 
-      {/* RENDER OBSAHU (Graf + Karty) alebo Matice */}
+      {/* RENDER OBSAHU (Graf + Karty) ALEBO Matice */}
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
-          
-          {/* PORTAL PRE GRAF: Ak je fullscreen, hodí to priamo do body */}
+          {/* Ak je fullscreen zapnutý, pošle sa do portálu nad všetko. Inak sa ukáže normálne. */}
           {isFullScreen && typeof document !== 'undefined' 
             ? createPortal(renderChartBox, document.body) 
             : renderChartBox
           }
 
-          {/* SILNÉ STRÁNKY A PRÍLEŽITOSTI */}
+          {/* OSTATNÉ KARTY (schované, ak sme vo fullscreene) */}
           {!isFullScreen && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
               <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -405,7 +450,13 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           )}
         </div>
       ) : (
-        <ComparisonMatrix teams={comparisonSelection} matrixData={getComparisonData(comparisonSelection)} />
+        <>
+          {/* Ak je fullscreen zapnutý, pošle sa Matica do portálu. Inak sa ukáže normálne. */}
+          {isFullScreen && typeof document !== 'undefined' 
+            ? createPortal(renderComparisonBox, document.body) 
+            : renderComparisonBox
+          }
+        </>
       )}
     </div>
   );
