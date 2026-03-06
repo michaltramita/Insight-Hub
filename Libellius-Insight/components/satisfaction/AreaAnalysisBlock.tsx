@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { exportBlockToPDF, exportDataToExcel } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-// Pridané Maximize2 a Minimize2 pre ikony fullscreenu
+// Pridané ikony Maximize2 a Minimize2 pre Fullscreen
 import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
@@ -27,10 +27,10 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// YAxisTick teraz prijíma aj informáciu, či je zapnutý fullscreen, aby vedel, koľko textu môže zobraziť
+// YAxisTick teraz vie, či je v režime celej obrazovky
 const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  // Ak je zapnutý fullscreen, dovolíme dlhšie riadky (menej zalamovania)
+  // Ak sme vo fullscreene, dovolíme dlhší text predtým, než sa zlomí do ďalšieho riadku
   const maxLength = isMobile ? 40 : (isFullScreen ? 100 : 80); 
 
   const words = payload.value.split(' ');
@@ -49,11 +49,9 @@ const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
     lines.push(currentLine.trim());
   }
 
-  const lineHeight = isMobile ? 16 : 18;
+  const lineHeight = isMobile ? 16 : (isFullScreen ? 22 : 18);
   const startY = y - ((lines.length - 1) * lineHeight) / 2;
-
-  // Vo fullscreene môžeme písmo jemne zväčšiť
-  const fontSize = isMobile ? 13 : (isFullScreen ? 20 : 18);
+  const fontSize = isMobile ? 13 : (isFullScreen ? 18 : 14);
 
   return (
     <g transform={`translate(${x},${startY})`}>
@@ -92,7 +90,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // --- HANDLER PRE ESCAPE KLÁVESU ---
+  // --- ZAVRETIE FULLSCREENU KLÁVESOU ESCAPE ---
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -177,7 +175,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const top = activeMetrics.slice(0, 3);
   const bottom = [...activeMetrics].filter((m: any) => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
 
-  // Šírka osi Y sa prispôsobuje tomu, či sme vo fullscreene
+  // Dynamická šírka ľavej osi Y
   const getAxisWidth = () => {
     if (typeof window === 'undefined') return 600;
     if (window.innerWidth < 768) return 280;
@@ -187,7 +185,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   return (
     <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
       
-      {/* HLAVIČKA (skryjeme ju vo fullscreene, aby nerušila) */}
+      {/* HLAVIČKA - Schovaná počas fullscreenu */}
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
@@ -251,6 +249,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
               </div>
             )}
           </div>
+        </div>
       )}
 
       {viewMode === 'COMPARISON' && !isFullScreen && (
@@ -283,7 +282,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
           
-          {/* HLAVNÝ GRAF - Tu sa menia triedy podľa isFullScreen */}
+          {/* HLAVNÝ GRAF S FULLSCREEN LOGIKOU */}
           <div className={`${
             isFullScreen 
               ? 'fixed inset-0 z-[100] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
@@ -306,7 +305,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                 </div>
               </div>
 
-              {/* TLAČIDLO PRE FULLSCREEN */}
+              {/* TLAČIDLO PRE FULLSCREEN PREPÍNANIA */}
               <button
                 onClick={() => setIsFullScreen(!isFullScreen)}
                 className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
@@ -325,14 +324,12 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
             </div>
 
             <div className={`w-full ${isFullScreen ? 'flex-1 min-h-0' : ''}`}>
-              {/* Výška grafu sa natiahne vo fullscreene, inak je fixná */}
               <div className={`${isFullScreen ? 'h-full' : 'h-[450px] sm:h-[500px] lg:h-[550px]'} w-full`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 50, top: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
                     <XAxis type="number" domain={[0, scaleMax]} hide />
                     
-                    {/* Odovzdávame isFullScreen do CustomYAxisTick, aby vedel, že má povoliť širší text */}
                     <YAxis 
                       dataKey="category" 
                       type="category" 
@@ -365,7 +362,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
             </div>
           </div>
 
-          {/* OSTATNÉ KARTY (schované, keď je zapnutý fullscreen) */}
+          {/* KARTY - Schované počas fullscreenu */}
           {!isFullScreen && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
               <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -375,7 +372,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                 </div>
                 <div className="space-y-3 sm:space-y-4">
                   {top.map((m: any, i: number) => (
-                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-brand text-white shadow-lg group relative cursor-help hover:scale-[1.02] transition-transform">
+                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-brand text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-black shrink-0">{m.score.toFixed(2)}</span>
                     </div>
@@ -390,7 +387,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                 </div>
                 <div className="space-y-3 sm:space-y-4">
                   {bottom.length > 0 ? bottom.map((m: any, i: number) => (
-                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-black text-white shadow-lg group relative cursor-help hover:scale-[1.02] transition-transform">
+                    <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-black text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-brand shrink-0">{m.score.toFixed(2)}</span>
                     </div>
