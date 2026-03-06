@@ -94,12 +94,23 @@ export const exportBlockToPNG = async (elementId: string, fileName: string, call
         alert("Nástroj na export obrázkov sa ešte nenačítal. Skúste to prosím o sekundu.");
         return;
       }
+      
+      // Vytvoríme obrázok s vyšším kontrastom a bez vyhladzovania, ktoré spôsobuje vyblednutie
       const canvas = await html2canvas(element, {
-        scale: 2, 
+        scale: 3, // Zvýšime na 3 pre extra ostrosť
         useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false
+        backgroundColor: '#ffffff', // Vynútená čistá biela
+        logging: false,
+        imageTimeout: 0,
+        onclone: (clonedDoc: Document) => {
+          const clonedElement = clonedDoc.getElementById(elementId);
+          if (clonedElement) {
+            clonedElement.style.opacity = "1";
+            clonedElement.style.transform = "none";
+          }
+        }
       });
+      
       const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.download = `${fileName}.png`;
@@ -109,5 +120,5 @@ export const exportBlockToPNG = async (elementId: string, fileName: string, call
       console.error('Chyba pri exporte do PNG:', error);
       alert('Nepodarilo sa vytvoriť obrázok. Skúste to znova.');
     }
-  }, 150);
+  }, 200);
 };
