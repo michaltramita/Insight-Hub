@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { exportBlockToPDF, exportDataToExcel } from '../../utils/exportUtils';
+// ZMENA: PDF import je úplne preč, ostal len Excel a PNG
+import { exportDataToExcel, exportBlockToPNG } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
+import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2, Image as ImageIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
 interface Props {
@@ -49,7 +50,7 @@ const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
 
   const lineHeight = isMobile ? 16 : (isFullScreen ? 22 : 18);
   const startY = y - ((lines.length - 1) * lineHeight) / 2;
-  const fontSize = isMobile ? 13 : (isFullScreen ? 16 : 14); // Jemne som zmenšil max font pre istotu v PDF
+  const fontSize = isMobile ? 13 : (isFullScreen ? 16 : 14); 
 
   return (
     <g transform={`translate(${x},${startY})`}>
@@ -67,9 +68,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [teamValue, setTeamValue] = useState<string>('');
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([]);
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
-  const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   
-  // Stav pre Fullscreen
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
@@ -77,16 +76,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       setTeamValue(masterTeams.find(t => t.toLowerCase().includes('priemer')) || masterTeams[0]);
     }
   }, [masterTeams, teamValue]);
-
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
-        setActiveExportMenu(false);
-      }
-    };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -142,16 +131,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
-  const handlePdfExport = () => {
+  // --- PNG EXPORT ---
+  const handlePngExport = () => {
     const targetId = isFullScreen ? `fullscreen-block-${area.id}` : `block-area-${area.id}`;
-    const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`;
-    
-    // Pred exportom chvíľu počkáme, nech sa Recharts poriadne usadia, ak by sa niečo dialo s layoutom
-    setTimeout(() => {
-        exportBlockToPDF(targetId, fileName, () => setActiveExportMenu(false));
-    }, 100);
+    const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`.replace(/\s+/g, '_');
+    exportBlockToPNG(targetId, fileName);
   };
 
+  // --- EXCEL EXPORT ---
   const handleExcelExport = () => {
     let dataToExport: any[] = [];
     let fileName = '';
@@ -175,7 +162,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       });
       fileName = `Oblast_${area.title}_Porovnanie.xlsx`.replace(/\s+/g, '_');
     }
-    exportDataToExcel(dataToExport, fileName, () => setActiveExportMenu(false));
+    exportDataToExcel(dataToExport, fileName);
   };
 
   if (!area) return null;
@@ -187,20 +174,19 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const getAxisWidth = () => {
     if (typeof window === 'undefined') return 600;
     if (window.innerWidth < 768) return 280;
-    return isFullScreen ? 600 : 500; // Zmenšil som max. šírku osi, aby zostalo viac miesta na stĺpce v PDF
+    return isFullScreen ? 600 : 500; 
   };
 
-  // 1. ZOSTAVENÝ BOX PRE DETAIL (GRAF)
+  // ZOSTAVENÝ BOX PRE DETAIL (GRAF)
   const renderChartBox = (
     <div 
-      // V prípade fullscreenu používame ID na obaľovací div grafu, nie na samotný full-screen wrapper
       className={`${
         isFullScreen 
           ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-y-auto overflow-x-hidden animate-fade-in' 
           : 'bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col'
       }`}
     >
-      <div id={isFullScreen ? `fullscreen-block-${area.id}` : undefined} className="flex-1 flex flex-col w-full max-w-[1920px] mx-auto bg-white">
+      <div id={isFullScreen ? `fullscreen-block-${area.id}` : undefined} className="flex-1 flex flex-col w-full max-w-[1920px] mx-auto bg-white p-2">
         <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
@@ -221,11 +207,11 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
             {isFullScreen && (
               <>
                 <button
-                  onClick={handlePdfExport}
+                  onClick={handlePngExport}
                   className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
-                  title="Stiahnuť zobrazenie do PDF"
+                  title="Uložiť zobrazenie ako obrázok"
                 >
-                  <Download className="w-4 h-4" /> <span className="hidden sm:inline">PDF</span>
+                  <ImageIcon className="w-4 h-4" /> <span className="hidden sm:inline">PNG</span>
                 </button>
                 <button
                   onClick={handleExcelExport}
@@ -254,7 +240,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
 
         <div className={`w-full ${isFullScreen ? 'flex-1 min-h-[600px]' : ''}`}>
-          {/* DÔLEŽITÉ: Používam konkrétnejšie výšky a padding, aby sa graf "zapasoval" aj pre export */}
           <div className={`${isFullScreen ? 'h-full min-h-[600px] w-full' : 'h-[450px] sm:h-[500px] lg:h-[550px] w-full'}`}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 60, top: 10, bottom: 10 }}>
@@ -292,7 +277,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     </div>
   );
 
-  // 2. ZOSTAVENÝ BOX PRE POROVNANIE (MATICA)
+  // ZOSTAVENÝ BOX PRE POROVNANIE (MATICA)
   const renderComparisonBox = (
     <div 
       className={`${
@@ -301,7 +286,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           : 'relative mt-4'
       }`}
     >
-      <div id={isFullScreen ? `fullscreen-block-${area.id}` : undefined} className="flex-1 flex flex-col w-full max-w-[1920px] mx-auto bg-white">
+      <div id={isFullScreen ? `fullscreen-block-${area.id}` : undefined} className="flex-1 flex flex-col w-full max-w-[1920px] mx-auto bg-white p-2">
         <div className={`flex justify-between items-start gap-4 ${isFullScreen ? 'mb-8' : 'mb-4'}`}>
           {isFullScreen ? (
             <div className="min-w-0">
@@ -320,11 +305,11 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
             {isFullScreen && (
               <>
                 <button
-                  onClick={handlePdfExport}
+                  onClick={handlePngExport}
                   className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
-                  title="Stiahnuť tabuľku do PDF"
+                  title="Uložiť tabuľku ako obrázok"
                 >
-                  <Download className="w-4 h-4" /> <span className="hidden sm:inline">PDF</span>
+                  <ImageIcon className="w-4 h-4" /> <span className="hidden sm:inline">PNG</span>
                 </button>
                 <button
                   onClick={handleExcelExport}
@@ -447,7 +432,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
-          
           {isFullScreen && typeof document !== 'undefined' 
             ? createPortal(renderChartBox, document.body) 
             : renderChartBox
