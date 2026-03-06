@@ -80,6 +80,7 @@ export const exportDataToExcel = (dataToExport: any[], fileName: string, callbac
 
 /**
  * Vyexportuje HTML blok ako obrázok PNG vysokej kvality.
+ * Využíva html-to-image (natívne prehliadačové renderovanie), čím eliminuje blednutie.
  */
 export const exportBlockToPNG = async (elementId: string, fileName: string, callback?: () => void) => {
   if (callback) callback();
@@ -89,36 +90,40 @@ export const exportBlockToPNG = async (elementId: string, fileName: string, call
     if (!element) return;
 
     try {
-      const html2canvas = (window as any).html2canvas;
-      if (!html2canvas) {
+      // Ťaháme knižnicu z globálneho window (nainštalovanú cez CDN v index.html)
+      const htmlToImage = (window as any).htmlToImage;
+      
+      if (!htmlToImage) {
         alert("Nástroj na export obrázkov sa ešte nenačítal. Skúste to prosím o sekundu.");
         return;
       }
       
-      // Vytvoríme obrázok s vyšším kontrastom a bez vyhladzovania, ktoré spôsobuje vyblednutie
-      const canvas = await html2canvas(element, {
-        scale: 3, // Zvýšime na 3 pre extra ostrosť
-        useCORS: true,
-        backgroundColor: '#ffffff', // Vynútená čistá biela
-        logging: false,
-        imageTimeout: 0,
-        onclone: (clonedDoc: Document) => {
-          const clonedElement = clonedDoc.getElementById(elementId);
-          if (clonedElement) {
-            clonedElement.style.opacity = "1";
-            clonedElement.style.transform = "none";
+      // Vygenerujeme PNG - toto už nebude blednúť
+      const dataUrl = await htmlToImage.toPng(element, {
+        cacheBust: true,
+        pixelRatio: 3, // Retina displej ostrosť
+        backgroundColor: '#ffffff', // Uistíme sa, že pozadie je čisto biele
+        skipFonts: false,
+        style: {
+          backgroundColor: '#ffffff'
+        },
+        // Vyfiltrujeme tlačidlá a všetko s triedou "print:hidden", aby neboli na fotke
+        filter: (node: any) => {
+          if (node instanceof HTMLElement && node.classList && node.classList.contains('print:hidden')) {
+            return false;
           }
+          return true;
         }
       });
       
-      const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
       link.download = `${fileName}.png`;
-      link.href = image;
+      link.href = dataUrl;
       link.click();
+      
     } catch (error) {
       console.error('Chyba pri exporte do PNG:', error);
       alert('Nepodarilo sa vytvoriť obrázok. Skúste to znova.');
     }
-  }, 200);
+  }, 200); // Pol sekundy (200ms) na usadenie grafu pred fotením
 };
