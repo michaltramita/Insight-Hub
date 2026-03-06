@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { exportDataToExcel, exportBlockToPNG } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
@@ -80,6 +80,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     }
   }, [masterTeams, teamValue]);
 
+  // Uzatváranie export menu pri kliknutí inam
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -104,7 +105,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setActiveFullscreenExportMenu(false);
+      setActiveFullscreenExportMenu(false); // Reset menu pri odchode z fullscreenu
     }
 
     return () => {
@@ -275,7 +276,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   interval={0} 
                   tick={<CustomYAxisTick isFullScreen={isFullScreen} />} 
                 />
-                {/* OPRAVA 2: Vypnutie animácie tooltipu, aby "nenalietaval" zľava hore */}
                 <Tooltip 
                   cursor={{ fill: '#00000005' }} 
                   content={<CustomBarTooltip />} 
@@ -285,8 +285,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   dataKey="score" 
                   radius={[0, 12, 12, 0]} 
                   barSize={isFullScreen ? 28 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
-                  /* OPRAVA 1: Vypnutie animácie stĺpcov, aby nechýbali v PNG exporte */
                   isAnimationActive={false}
+                  fillOpacity={1}
                 >
                   {activeMetrics.map((entry: any, index: number) => (
                     <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
