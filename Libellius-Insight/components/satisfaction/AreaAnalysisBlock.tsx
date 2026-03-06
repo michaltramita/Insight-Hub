@@ -70,9 +70,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   const [activeFullscreenExportMenu, setActiveFullscreenExportMenu] = useState<boolean>(false);
-  const [isFullScreen, setIsFullScreen] = useState(false);
   
-  const [exportingState, setExportingState] = useState<'png' | 'excel' | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
     if (masterTeams.length > 0 && !teamValue) {
@@ -83,8 +82,12 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('.export-dropdown-container')) setActiveExportMenu(false);
-      if (!target.closest('.export-fullscreen-dropdown-container')) setActiveFullscreenExportMenu(false);
+      if (!target.closest('.export-dropdown-container')) {
+        setActiveExportMenu(false);
+      }
+      if (!target.closest('.export-fullscreen-dropdown-container')) {
+        setActiveFullscreenExportMenu(false);
+      }
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -145,24 +148,16 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
-  const handlePngExport = async () => {
+  const handlePngExport = () => {
     setActiveFullscreenExportMenu(false);
-    setExportingState('png');
-    
     const targetId = isFullScreen ? `fullscreen-block-${area.id}` : `block-area-${area.id}`;
     const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`.replace(/\s+/g, '_');
-    
-    try {
-      await exportBlockToPNG(targetId, fileName);
-    } finally {
-      setExportingState(null);
-    }
+    exportBlockToPNG(targetId, fileName);
   };
 
-  const handleExcelExport = async () => {
+  const handleExcelExport = () => {
     setActiveExportMenu(false);
     setActiveFullscreenExportMenu(false);
-    setExportingState('excel');
     
     let dataToExport: any[] = [];
     let fileName = '';
@@ -186,12 +181,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       });
       fileName = `Oblast_${area.title}_Porovnanie.xlsx`.replace(/\s+/g, '_');
     }
-    
-    try {
-      await exportDataToExcel(dataToExport, fileName);
-    } finally {
-      setExportingState(null);
-    }
+    exportDataToExcel(dataToExport, fileName);
   };
 
   if (!area) return null;
@@ -393,7 +383,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   );
 
   return (
-    <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in relative">
+    <div id={`block-area-${area.id}`} className="space-y-8 sm:space-y-10 animate-fade-in">
       
       {!isFullScreen && (
         <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
@@ -537,50 +527,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           }
         </>
       )}
-
-      {/* --- NOVÁ PRÉMIOVÁ ANIMÁCIA PRI EXPORTE --- */}
-      {exportingState && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-md transition-all duration-500 animate-fade-in">
-          
-          <div className="bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] flex flex-col items-center max-w-sm w-full mx-4 border border-white/20 transform hover:scale-105 transition-transform duration-500">
-            
-            {/* Animované kruhy - "Zaostrovanie" */}
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 mb-8 flex items-center justify-center">
-              
-              {/* Vonkajší prstenec */}
-              <div className="absolute inset-0 border-[3px] sm:border-4 border-black/5 rounded-full"></div>
-              <div className="absolute inset-0 border-[3px] sm:border-4 border-transparent border-t-brand border-r-brand rounded-full animate-[spin_1.5s_cubic-bezier(0.68,-0.55,0.265,1.55)_infinite]"></div>
-              
-              {/* Vnútorný prstenec opačným smerom */}
-              <div className="absolute inset-4 sm:inset-5 border-[3px] sm:border-4 border-black/5 rounded-full"></div>
-              <div className="absolute inset-4 sm:inset-5 border-[3px] sm:border-4 border-transparent border-b-brand border-l-brand rounded-full animate-[spin_2s_linear_infinite_reverse]"></div>
-              
-              {/* Stred - Pulzujúca ikona */}
-              <div className="absolute inset-8 sm:inset-10 bg-brand/10 rounded-full flex items-center justify-center animate-pulse shadow-inner">
-                {exportingState === 'png' ? (
-                  <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand" />
-                ) : (
-                  <Download className="w-6 h-6 sm:w-8 sm:h-8 text-brand" />
-                )}
-              </div>
-            </div>
-
-            <h3 className="text-base sm:text-lg font-black text-black uppercase tracking-[0.15em] text-center">
-              {exportingState === 'png' ? 'Snímkovanie grafu' : 'Spracovanie dát'}
-            </h3>
-            
-            {/* Bouncing dots loading indikátor */}
-            <div className="flex items-center gap-1.5 mt-5">
-               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-               <div className="w-2 h-2 bg-brand rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-            
-          </div>
-        </div>,
-        document.body
-      )}
-
     </div>
   );
 };
