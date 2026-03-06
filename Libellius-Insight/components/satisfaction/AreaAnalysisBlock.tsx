@@ -390,7 +390,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 sm:gap-8">
             <div className="space-y-4 sm:space-y-6 w-full lg:w-auto min-w-0">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand/5 rounded-full text-[10px] font-black uppercase text-brand tracking-[0.2em] print:hidden">
-                <MapPin className="w-3 h-3" /> Konfigurácia reportu
+                <MapPin className="w-3 h-3" /> FILTRE A ZOBRAZENIE
               </div>
               
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
