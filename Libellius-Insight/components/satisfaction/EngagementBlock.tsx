@@ -1,7 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-// ZMENA: Importujeme aj exportBlockToPNG
 import { exportBlockToPDF, exportDataToExcel, exportBlockToPNG } from '../../utils/exportUtils';
-// ZMENA: Pridali sme ImageIcon pre PNG export tlačidlo
 import { Search, Filter, ArrowUpDown, Download, ChevronDown, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { PieChart, Pie, Sector, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -38,7 +36,6 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
   const safeTotalReceived = Number(data.totalReceived) > 0 ? Number(data.totalReceived) : 1;
   const safeTotalSent = Number(data.totalSent) > 0 ? Number(data.totalSent) : 1;
 
-  // Zatvorenie export menu po kliknutí mimo
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
@@ -78,7 +75,10 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     return teams;
   }, [data.teamEngagement, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
 
-  // ZMENA: Upravený handler pre PNG export namiesto PDF
+  const handlePdfExport = (blockId: string, fileName: string) => {
+    exportBlockToPDF(blockId, fileName, () => setActiveExportMenu(null));
+  };
+
   const handlePngExport = (blockId: string, fileName: string) => {
     exportBlockToPNG(blockId, fileName, () => setActiveExportMenu(null));
   };
@@ -212,17 +212,16 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
               {activeExportMenu === 'engagement' && (
                 <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
                   <button
-                    onClick={() => handlePngExport('block-engagement', 'Zapojenie_Timov')}
+                    onClick={() => handlePdfExport('block-engagement', 'Zapojenie_Timov')}
                     className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
                   >
-                    {/* ZMENA: Ikonka a text pre PNG */}
-                    <ImageIcon className="w-3 h-3" /> Obrázok PNG
+                    PDF Dokument
                   </button>
                   <button
                     onClick={handleExcelExport}
                     className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
                   >
-                    <Download className="w-3 h-3" /> Excel Dáta
+                    Excel Dáta
                   </button>
                 </div>
               )}
@@ -349,33 +348,35 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                     </button>
                   </div>
                   
-                  {/* ZMENA: Dropdown menu pre export detailného pohľadu */}
-                  <div className="relative export-dropdown-container export-buttons print:hidden">
-                    <button
-                      onClick={() => setActiveExportMenu(activeExportMenu === 'engagement-detail' ? null : 'engagement-detail')}
-                      className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
-                    >
-                      <Download className="w-3 h-3" /> Export
-                      <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu === 'engagement-detail' ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    {activeExportMenu === 'engagement-detail' && (
-                      <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
-                        <button
-                          onClick={() => handlePngExport('block-engagement-detail', 'Zapojenie_Timov_Detail')}
-                          className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
-                        >
-                          <ImageIcon className="w-3 h-3" /> Obrázok PNG
-                        </button>
-                        <button
-                          onClick={handleExcelExport}
-                          className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
-                        >
-                          <Download className="w-3 h-3" /> Excel Dáta
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {/* ZMENA: Dropdown menu pre export je viditeľné len ak je zapnutý Koláčový graf */}
+                  {engagementVisualMode === 'PIE' && (
+                    <div className="relative export-dropdown-container export-buttons print:hidden">
+                      <button
+                        onClick={() => setActiveExportMenu(activeExportMenu === 'engagement-detail' ? null : 'engagement-detail')}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
+                      >
+                        <Download className="w-3 h-3" /> Export
+                        <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu === 'engagement-detail' ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {activeExportMenu === 'engagement-detail' && (
+                        <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
+                          <button
+                            onClick={() => handlePngExport('block-engagement-detail', 'Zapojenie_Timov_Detail')}
+                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors"
+                          >
+                            <ImageIcon className="w-3 h-3" /> Obrázok PNG
+                          </button>
+                          <button
+                            onClick={handleExcelExport}
+                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors"
+                          >
+                            <Download className="w-3 h-3" /> Excel Dáta
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {engagementVisualMode === 'CARDS' && engagementTeamCards.length > 2 && (
                     <div className="hidden sm:flex items-center gap-2">
@@ -510,7 +511,6 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                         cx="50%" cy="50%" outerRadius="75%" dataKey="count" nameKey="name" stroke="#ffffff" strokeWidth={2}
                         onMouseEnter={(_, index) => setHoveredPie(index)}
                         onMouseLeave={() => setHoveredPie(null)}
-                        // ZMENA: Vypnutie animácie, inak bude na PNG chýbať
                         isAnimationActive={false}
                         shape={(props: any) => {
                           const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
@@ -535,7 +535,6 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      {/* ZMENA: Vypnutie animácie tooltipu, aby nelietal do záberu v PNG */}
                       <Tooltip
                         isAnimationActive={false}
                         formatter={(value, name) => {
