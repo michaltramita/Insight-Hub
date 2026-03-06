@@ -80,7 +80,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     }
   }, [masterTeams, teamValue]);
 
-  // Uzatváranie export menu pri kliknutí inam
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -105,7 +104,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setActiveFullscreenExportMenu(false); // Reset menu pri odchode z fullscreenu
+      setActiveFullscreenExportMenu(false);
     }
 
     return () => {
@@ -198,7 +197,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     return isFullScreen ? 600 : 500; 
   };
 
-  // ZOSTAVENÝ BOX PRE DETAIL (GRAF)
   const renderChartBox = (
     <div 
       className={`${
@@ -225,7 +223,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           </div>
 
           <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
-            {/* DROPDOWN MENU PRE FULLSCREEN */}
             {isFullScreen && (
               <div className="relative export-fullscreen-dropdown-container">
                 <button
@@ -278,11 +275,18 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   interval={0} 
                   tick={<CustomYAxisTick isFullScreen={isFullScreen} />} 
                 />
-                <Tooltip cursor={{ fill: '#00000005' }} content={<CustomBarTooltip />} />
+                {/* OPRAVA 2: Vypnutie animácie tooltipu, aby "nenalietaval" zľava hore */}
+                <Tooltip 
+                  cursor={{ fill: '#00000005' }} 
+                  content={<CustomBarTooltip />} 
+                  isAnimationActive={false} 
+                />
                 <Bar 
                   dataKey="score" 
                   radius={[0, 12, 12, 0]} 
                   barSize={isFullScreen ? 28 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
+                  /* OPRAVA 1: Vypnutie animácie stĺpcov, aby nechýbali v PNG exporte */
+                  isAnimationActive={false}
                 >
                   {activeMetrics.map((entry: any, index: number) => (
                     <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} />
@@ -303,7 +307,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     </div>
   );
 
-  // ZOSTAVENÝ BOX PRE POROVNANIE (MATICA)
   const renderComparisonBox = (
     <div 
       className={`${
@@ -328,7 +331,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
           )}
 
           <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
-            {/* DROPDOWN MENU PRE FULLSCREEN (MATICA) */}
             {isFullScreen && (
               <div className="relative export-fullscreen-dropdown-container">
                 <button
@@ -393,7 +395,6 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   {area.title}
                 </h2>
                 
-                {/* DROPDOWN MENU PRE ZÁKLADNÉ ZOBRAZENIE */}
                 <div className="relative export-dropdown-container print:hidden">
                   <button
                     onClick={() => setActiveExportMenu(!activeExportMenu)}
