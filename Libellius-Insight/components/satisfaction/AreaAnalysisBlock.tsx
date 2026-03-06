@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { exportBlockToPDF, exportDataToExcel } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
+import { MapPin, Download, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
 interface Props {
@@ -67,8 +67,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [teamValue, setTeamValue] = useState<string>('');
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([]);
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
-  const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   
+  // Stav pre Fullscreen
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
@@ -77,16 +77,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     }
   }, [masterTeams, teamValue]);
 
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.export-dropdown-container')) {
-        setActiveExportMenu(false);
-      }
-    };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
-
+  // Uzamknutie scrollu a Escape klávesa pre Fullscreen
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsFullScreen(false);
@@ -141,11 +132,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     });
   };
 
+  // --- PDF EXPORT (Používa sa už len z Fullscreenu) ---
   const handlePdfExport = () => {
-    exportBlockToPDF(`block-area-${area.id}`, `Oblast_${area.title}`, () => setActiveExportMenu(false));
+    const targetId = isFullScreen ? `fullscreen-block-${area.id}` : `block-area-${area.id}`;
+    const fileName = `Oblast_${area.title}${isFullScreen ? '_Fullscreen' : ''}`;
+    exportBlockToPDF(targetId, fileName, () => {});
   };
 
-  // EXPORT DO EXCELU (Použijeme aj pre priamy export z fullscreenu)
+  // --- EXCEL EXPORT (Používa sa globálne aj z Fullscreenu) ---
   const handleExcelExport = () => {
     let dataToExport: any[] = [];
     let fileName = '';
@@ -169,7 +163,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       });
       fileName = `Oblast_${area.title}_Porovnanie.xlsx`.replace(/\s+/g, '_');
     }
-    exportDataToExcel(dataToExport, fileName, () => setActiveExportMenu(false));
+    exportDataToExcel(dataToExport, fileName, () => {});
   };
 
   if (!area) return null;
@@ -186,11 +180,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
   // 1. ZOSTAVENÝ BOX PRE DETAIL (GRAF)
   const renderChartBox = (
-    <div className={`${
-      isFullScreen 
-        ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
-        : 'bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col'
-    }`}>
+    <div 
+      id={isFullScreen ? `fullscreen-block-${area.id}` : undefined}
+      className={`${
+        isFullScreen 
+          ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
+          : 'bg-white p-6 sm:p-8 md:p-10 lg:p-14 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl flex flex-col'
+      }`}
+    >
       <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
@@ -208,16 +205,24 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
 
         {/* TLAČIDLÁ V PRAVOM HORNOM ROHU GRAFU */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Nový rýchly export do Excelu vo fullscreene */}
+        <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
           {isFullScreen && (
-            <button
-              onClick={handleExcelExport}
-              className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
-              title="Stiahnuť dáta do Excelu"
-            >
-              <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
-            </button>
+            <>
+              <button
+                onClick={handlePdfExport}
+                className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
+                title="Stiahnuť zobrazenie do PDF"
+              >
+                <Download className="w-4 h-4" /> <span className="hidden sm:inline">PDF</span>
+              </button>
+              <button
+                onClick={handleExcelExport}
+                className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
+                title="Stiahnuť dáta do Excelu"
+              >
+                <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
+              </button>
+            </>
           )}
 
           <button
@@ -275,11 +280,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
   // 2. ZOSTAVENÝ BOX PRE POROVNANIE (MATICA)
   const renderComparisonBox = (
-    <div className={`${
-      isFullScreen 
-        ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
-        : 'relative mt-4'
-    }`}>
+    <div 
+      id={isFullScreen ? `fullscreen-block-${area.id}` : undefined}
+      className={`${
+        isFullScreen 
+          ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-hidden animate-fade-in' 
+          : 'relative mt-4'
+      }`}
+    >
       <div className={`flex justify-between items-start gap-4 ${isFullScreen ? 'mb-8' : 'mb-4'}`}>
         {isFullScreen ? (
           <div className="min-w-0">
@@ -291,20 +299,28 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
              </p>
           </div>
         ) : (
-          <div /> // Prázdny div, aby tlačidlá zostali napravo
+          <div /> 
         )}
 
         {/* TLAČIDLÁ V PRAVOM HORNOM ROHU MATICE */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Nový rýchly export do Excelu vo fullscreene */}
+        <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
           {isFullScreen && (
-            <button
-              onClick={handleExcelExport}
-              className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
-              title="Stiahnuť dáta do Excelu"
-            >
-              <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
-            </button>
+            <>
+              <button
+                onClick={handlePdfExport}
+                className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-black/5 text-black hover:bg-black hover:text-white"
+                title="Stiahnuť tabuľku do PDF"
+              >
+                <Download className="w-4 h-4" /> <span className="hidden sm:inline">PDF</span>
+              </button>
+              <button
+                onClick={handleExcelExport}
+                className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all bg-brand/10 text-brand hover:bg-brand hover:text-white"
+                title="Stiahnuť dáta do Excelu"
+              >
+                <Download className="w-4 h-4" /> <span className="hidden sm:inline">Excel</span>
+              </button>
+            </>
           )}
 
           <button
@@ -348,25 +364,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   {area.title}
                 </h2>
                 
-                <div className="relative export-dropdown-container export-buttons print:hidden">
+                {/* PRIAMY EXCEL EXPORT (bez menu) */}
+                <div className="print:hidden">
                   <button
-                    onClick={() => setActiveExportMenu(!activeExportMenu)}
-                    className="flex items-center justify-center gap-2 px-3 py-2 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-black/60 hover:text-black"
+                    onClick={handleExcelExport}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand/10 hover:bg-brand/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-brand"
                   >
-                    <Download className="w-3 h-3" /> Export
-                    <ChevronDown className={`w-3 h-3 transition-transform ${activeExportMenu ? 'rotate-180' : ''}`} />
+                    <Download className="w-3 h-3" /> Excel Dáta
                   </button>
-                  
-                  {activeExportMenu && (
-                    <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 bg-white rounded-xl shadow-xl border border-black/5 p-2 z-50 flex flex-col gap-1 min-w-[120px] animate-fade-in">
-                        <button onClick={handlePdfExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-black/5 transition-colors">
-                          PDF Dokument
-                        </button>
-                        <button onClick={handleExcelExport} className="flex items-center gap-2 w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-brand/10 text-brand transition-colors">
-                          Excel Dáta
-                        </button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -429,7 +434,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
       )}
 
-      {/* RENDER OBSAHU ALEBO MATICE */}
+      {/* RENDER OBSAHU (Graf alebo Matica) */}
       {viewMode === 'DETAIL' ? (
         <div className="space-y-8 sm:space-y-10">
           
