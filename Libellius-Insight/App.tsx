@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import Dashboard from './components/Dashboard';
 import SatisfactionDashboard from './components/SatisfactionDashboard';
+import WelcomeGuide from './components/WelcomeGuide'; // PRIDANÝ IMPORT
 import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
@@ -21,6 +22,9 @@ const App: React.FC = () => {
   const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
 
   const [showSharedGoodbye, setShowSharedGoodbye] = useState<boolean>(false);
+  
+  // PRIDANÝ STAV PRE UVÍTACIU KARTU
+  const [showWelcomeGuide, setShowWelcomeGuide] = useState<boolean>(false);
 
   const [publicMeta, setPublicMeta] = useState<{
     client?: string;
@@ -136,6 +140,10 @@ const App: React.FC = () => {
       setPendingEncryptedPayload(null);
       setShowSharedGoodbye(false);
       setStatus(AppStatus.SUCCESS);
+      
+      // PRIDANÉ: Ukážeme sprievodcu po úspešnom zadaní hesla
+      setShowWelcomeGuide(true);
+      
     } catch (err: any) {
       setShareDecryptError(err?.message || 'Nepodarilo sa odomknúť report.');
     } finally {
@@ -206,6 +214,7 @@ const App: React.FC = () => {
     setShareDecryptError(null);
     setIsDecrypting(false);
     setPublicMeta(null);
+    setShowWelcomeGuide(false);
 
     if (isSharedLink) {
       sessionStorage.setItem('libellius_show_goodbye', 'true');
@@ -253,7 +262,6 @@ const App: React.FC = () => {
                 </p>
               </div>
             </div>
-            {/* Pätička vnútri Goodbye sekcie */}
             <div className="w-full max-w-5xl mx-auto mt-auto pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
               <div className="flex items-center gap-4">
                 <img src="/logo.png" alt="Libellius" className="h-16 md:h-20 w-auto object-contain opacity-80" />
@@ -400,7 +408,15 @@ const App: React.FC = () => {
         )}
 
         {status === AppStatus.SUCCESS && result && !showSharedGoodbye && (
-          <div className="w-full">
+          <div className="w-full relative">
+            {/* Vykreslenie Welcome modalu po úspešnom zadaní hesla */}
+            {showWelcomeGuide && (
+              <WelcomeGuide 
+                onClose={() => setShowWelcomeGuide(false)} 
+                clientName={publicMeta?.client} 
+              />
+            )}
+            
             {result.mode === '360_FEEDBACK' ? <Dashboard result={result} onReset={handleReset} /> : <SatisfactionDashboard result={result} onReset={handleReset} />}
           </div>
         )}
