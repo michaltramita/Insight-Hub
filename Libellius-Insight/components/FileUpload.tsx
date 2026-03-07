@@ -9,13 +9,12 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
-  // Funkcia na kontrolu, či je súbor podporovaný
   const isSupportedFile = (file: File) => {
     const supportedTypes = [
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel', // .xls
-      'application/json' // .json
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+      'application/vnd.ms-excel', 
+      'application/json' 
     ];
     const extension = file.name.split('.').pop()?.toLowerCase();
     return supportedTypes.includes(file.type) || 
@@ -60,8 +59,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
 
   return (
     <div 
-      className={`w-full max-w-4xl mx-auto p-8 md:p-20 border-[2px] md:border-[3px] border-dashed rounded-[2rem] md:rounded-[3rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
-        ${isAnalyzing ? 'border-brand/10 bg-brand/[0.02] cursor-wait' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
+      // Zmenšené max-w-4xl na max-w-2xl a zmenšené paddingy pre elegantnejší vzhľad
+      className={`w-full max-w-2xl mx-auto p-6 md:p-12 border-[2px] md:border-[3px] border-dashed rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
+        ${isAnalyzing ? 'border-brand/10 bg-brand/[0.02] cursor-wait py-10 md:py-14' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
       `}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
@@ -77,71 +77,66 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       
       <label htmlFor="file-upload" className="w-full flex flex-col items-center cursor-pointer group">
         {isAnalyzing ? (
-          // --- ZAČIATOK NOVEJ ANIMÁCIE (SLOT MACHINE) ---
-          <div className="flex flex-col items-center py-10 w-full animate-fade-in">
-            {/* Animovaná ikona nad textom */}
-            <div className="w-20 h-20 md:w-24 md:h-24 bg-brand/10 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center mb-8 sm:mb-12 shadow-inner border border-brand/20 relative overflow-hidden">
+          <div className="flex flex-col items-center w-full animate-fade-in">
+            {/* Zmenšená ikonka */}
+            <div className="w-14 h-14 md:w-16 md:h-16 bg-brand/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-brand/20 relative overflow-hidden">
               <div className="absolute inset-0 bg-brand/20 animate-pulse"></div>
-              <UploadCloud className="w-10 h-10 md:w-12 md:h-12 text-brand relative z-10" />
+              <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
             </div>
 
-            {/* Samotný Slot Machine Loader */}
-            <div className="flex items-center justify-center text-xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter w-full max-w-[90%] md:max-w-[80%] mx-auto">
-              <p className="text-black mr-3 sm:mr-4 shrink-0">Analyzujem:</p>
-              <div className="relative overflow-hidden h-[30px] md:h-[44px] lg:h-[52px] min-w-[200px] sm:min-w-[280px] text-left shrink-0">
-                {/* Gradient maska pre jemné miznutie slov na vrchu a na spodku */}
+            {/* Zmenšený a opravený Slot Machine Loader */}
+            <div className="flex items-center justify-center text-lg md:text-2xl font-black uppercase tracking-tighter w-full">
+              <p className="text-black mr-2 md:mr-3 shrink-0">Analyzujem:</p>
+              
+              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[180px] md:min-w-[210px] text-left shrink-0">
                 <div 
                   className="absolute inset-0 z-20 pointer-events-none" 
                   style={{ 
-                    background: 'linear-gradient(#ffffff 5%, transparent 25%, transparent 75%, #ffffff 95%)' 
+                    background: 'linear-gradient(#ffffff 0%, transparent 20%, transparent 80%, #ffffff 100%)' 
                   }}
                 />
-                <div className="slot-words absolute top-0 left-0 w-full">
-                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Čítam dokument...</span>
-                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Extrahujem dáta...</span>
-                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Kalkulujem skóre...</span>
-                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Šifrujem odkaz...</span>
-                  {/* Zopakované prvé slovo pre hladkú nekonečnú slučku */}
-                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Čítam dokument...</span>
+                
+                {/* flex-col zaistí, že sa slová ukladajú presne pod seba */}
+                <div className="slot-words flex flex-col">
+                  {/* whitespace-nowrap zakáže zalamovanie, takže sa text nikdy neprekryje */}
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Čítam dokument...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Kalkulujem skóre...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Šifrujem odkaz...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Čítam dokument...</span>
                 </div>
               </div>
             </div>
             
-            <p className="text-black/40 mt-8 md:mt-12 font-medium text-sm md:text-lg uppercase tracking-widest">
+            {/* Zmenšený podtext */}
+            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em]">
               Prosím nezatvárajte túto stránku
             </p>
 
-            {/* CSS pre animáciu točenia */}
+            {/* Vyladená animácia pre presné zastavovanie */}
             <style>{`
               .slot-words {
                 animation: spin_words 5s infinite cubic-bezier(0.87, 0, 0.13, 1);
               }
               @keyframes spin_words {
-                10% { transform: translateY(-20%); }
-                25% { transform: translateY(-20%); }
-                
-                35% { transform: translateY(-40%); }
-                50% { transform: translateY(-40%); }
-                
-                60% { transform: translateY(-60%); }
-                75% { transform: translateY(-60%); }
-                
-                85% { transform: translateY(-80%); }
+                0%, 15% { transform: translateY(0); }
+                25%, 40% { transform: translateY(-20%); }
+                50%, 65% { transform: translateY(-40%); }
+                75%, 90% { transform: translateY(-60%); }
                 100% { transform: translateY(-80%); }
               }
             `}</style>
           </div>
-          // --- KONIEC NOVEJ ANIMÁCIE ---
         ) : (
           <>
-            <div className="w-20 h-20 md:w-32 h-32 bg-brand rounded-full mb-6 md:mb-10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20">
-              <UploadCloud className="w-10 h-10 md:w-16 h-16 text-white" />
+            <div className="w-16 h-16 md:w-24 md:h-24 bg-brand rounded-full mb-6 md:mb-8 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20">
+              <UploadCloud className="w-8 h-8 md:w-12 md:h-12 text-white" />
             </div>
-            <h3 className="text-xl md:text-4xl font-black text-black mb-2 md:mb-4 px-2 tracking-tight uppercase leading-tight">{labels.title}</h3>
-            <p className="text-black/40 font-medium text-sm md:text-xl max-w-lg leading-relaxed mb-8 md:mb-12 px-4">
+            <h3 className="text-lg md:text-3xl font-black text-black mb-2 px-2 tracking-tight uppercase leading-tight">{labels.title}</h3>
+            <p className="text-black/40 font-medium text-xs md:text-lg max-w-md leading-relaxed mb-8 px-4">
               {labels.description}
             </p>
-            <div className="px-8 py-4 md:px-12 md:py-5 bg-black text-white rounded-full transition-all duration-300 font-black text-xs md:text-xl uppercase tracking-widest hover:bg-brand shadow-xl shadow-black/30 transform hover:-translate-y-1">
+            <div className="px-8 py-3 md:px-10 md:py-4 bg-black text-white rounded-full transition-all duration-300 font-black text-xs md:text-sm uppercase tracking-widest hover:bg-brand shadow-xl shadow-black/30 transform hover:-translate-y-1">
               Vybrať súbor
             </div>
           </>
