@@ -83,8 +83,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
             </div>
 
             <div className="flex items-center justify-center text-lg md:text-2xl font-black uppercase tracking-tighter w-full">
+              <p className="text-black mr-2 md:mr-3 shrink-0">Analyzujem:</p>
               
-              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[200px] md:min-w-[240px] text-center shrink-0">
+              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[200px] md:min-w-[280px] text-left shrink-0">
                 <div 
                   className="absolute inset-0 z-20 pointer-events-none" 
                   style={{ 
@@ -93,11 +94,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
                 />
                 
                 <div className="slot-words flex flex-col">
-                  {/* Tvoje nové texty: */}
+                  {/* Nové rozšírené texty: */}
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Triedim odpovede...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Vytváram grafy...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
                   
                   {/* Zopakovanie prvého textu pre nekonečnú slučku */}
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
@@ -111,15 +115,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
 
             <style>{`
               .slot-words {
-                /* Spomalenie animácie na 8 sekúnd pre lepšiu čitateľnosť */
-                animation: spin_words 8s infinite cubic-bezier(0.87, 0, 0.13, 1);
+                /* Nastavené na 16s podľa tvojho zadania */
+                animation: spin_words 16s infinite cubic-bezier(0.87, 0, 0.13, 1);
               }
+              /* Vypočítané percentá pre 8 položiek v kontajneri
+                Každá fráza zaberá 12.5% výšky a je tam presný čas na zastavenie
+              */
               @keyframes spin_words {
-                0%, 15% { transform: translateY(0); }
-                25%, 40% { transform: translateY(-20%); }
-                50%, 65% { transform: translateY(-40%); }
-                75%, 90% { transform: translateY(-60%); }
-                100% { transform: translateY(-80%); }
+                0%, 10% { transform: translateY(0); }
+                14%, 24% { transform: translateY(-12.5%); }
+                28%, 38% { transform: translateY(-25%); }
+                43%, 53% { transform: translateY(-37.5%); }
+                57%, 67% { transform: translateY(-50%); }
+                71%, 81% { transform: translateY(-62.5%); }
+                85%, 95% { transform: translateY(-75%); }
+                100% { transform: translateY(-87.5%); }
               }
             `}</style>
           </div>
