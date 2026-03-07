@@ -59,7 +59,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
 
   return (
     <div 
-      // Zmenšené max-w-4xl na max-w-2xl a zmenšené paddingy pre elegantnejší vzhľad
       className={`w-full max-w-2xl mx-auto p-6 md:p-12 border-[2px] md:border-[3px] border-dashed rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
         ${isAnalyzing ? 'border-brand/10 bg-brand/[0.02] cursor-wait py-10 md:py-14' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
       `}
@@ -78,17 +77,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       <label htmlFor="file-upload" className="w-full flex flex-col items-center cursor-pointer group">
         {isAnalyzing ? (
           <div className="flex flex-col items-center w-full animate-fade-in">
-            {/* Zmenšená ikonka */}
             <div className="w-14 h-14 md:w-16 md:h-16 bg-brand/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-brand/20 relative overflow-hidden">
               <div className="absolute inset-0 bg-brand/20 animate-pulse"></div>
               <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
             </div>
 
-            {/* Zmenšený a opravený Slot Machine Loader */}
             <div className="flex items-center justify-center text-lg md:text-2xl font-black uppercase tracking-tighter w-full">
-              <p className="text-black mr-2 md:mr-3 shrink-0">Analyzujem:</p>
               
-              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[180px] md:min-w-[210px] text-left shrink-0">
+              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[200px] md:min-w-[240px] text-center shrink-0">
                 <div 
                   className="absolute inset-0 z-20 pointer-events-none" 
                   style={{ 
@@ -96,27 +92,27 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
                   }}
                 />
                 
-                {/* flex-col zaistí, že sa slová ukladajú presne pod seba */}
                 <div className="slot-words flex flex-col">
-                  {/* whitespace-nowrap zakáže zalamovanie, takže sa text nikdy neprekryje */}
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Čítam dokument...</span>
+                  {/* Tvoje nové texty: */}
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                   <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Kalkulujem skóre...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Šifrujem odkaz...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Čítam dokument...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Triedim odpovede...</span>
+                  
+                  {/* Zopakovanie prvého textu pre nekonečnú slučku */}
+                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                 </div>
               </div>
             </div>
             
-            {/* Zmenšený podtext */}
             <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em]">
               Prosím nezatvárajte túto stránku
             </p>
 
-            {/* Vyladená animácia pre presné zastavovanie */}
             <style>{`
               .slot-words {
-                animation: spin_words 5s infinite cubic-bezier(0.87, 0, 0.13, 1);
+                /* Spomalenie animácie na 8 sekúnd pre lepšiu čitateľnosť */
+                animation: spin_words 8s infinite cubic-bezier(0.87, 0, 0.13, 1);
               }
               @keyframes spin_words {
                 0%, 15% { transform: translateY(0); }
