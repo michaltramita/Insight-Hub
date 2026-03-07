@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { UploadCloud, Loader2 } from 'lucide-react';
+import { UploadCloud } from 'lucide-react';
 import { AnalysisMode } from '../types';
 
 interface FileUploadProps {
@@ -9,7 +9,7 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
-  // Funkcia na kontrolu, či je súbor podporovaný (PRIDANÝ JSON)
+  // Funkcia na kontrolu, či je súbor podporovaný
   const isSupportedFile = (file: File) => {
     const supportedTypes = [
       'application/pdf',
@@ -61,14 +61,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   return (
     <div 
       className={`w-full max-w-4xl mx-auto p-8 md:p-20 border-[2px] md:border-[3px] border-dashed rounded-[2rem] md:rounded-[3rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
-        ${isAnalyzing ? 'border-brand/30 bg-brand/5 opacity-80 cursor-wait' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
+        ${isAnalyzing ? 'border-brand/10 bg-brand/[0.02] cursor-wait' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
       `}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
     >
       <input 
         type="file" 
-        // PRIDANÁ PODPORA PRE JSON A CSV DO VÝBEROVÉHO OKNA
         accept=".pdf,.xlsx,.xls,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
         className="hidden" 
         id="file-upload"
@@ -78,11 +77,61 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       
       <label htmlFor="file-upload" className="w-full flex flex-col items-center cursor-pointer group">
         {isAnalyzing ? (
-          <div className="flex flex-col items-center">
-            <Loader2 className="w-16 h-16 md:w-24 h-24 text-brand animate-spin mb-6 md:mb-8" />
-            <h3 className="text-2xl md:text-4xl font-black text-black px-4 uppercase tracking-tighter">Analyzujem Vaše dáta...</h3>
-            <p className="text-black/50 mt-2 md:mt-4 font-medium text-sm md:text-xl">Už len chvíľočku, Libellius AI práve pripravuje Váš report.</p>
+          // --- ZAČIATOK NOVEJ ANIMÁCIE (SLOT MACHINE) ---
+          <div className="flex flex-col items-center py-10 w-full animate-fade-in">
+            {/* Animovaná ikona nad textom */}
+            <div className="w-20 h-20 md:w-24 md:h-24 bg-brand/10 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center mb-8 sm:mb-12 shadow-inner border border-brand/20 relative overflow-hidden">
+              <div className="absolute inset-0 bg-brand/20 animate-pulse"></div>
+              <UploadCloud className="w-10 h-10 md:w-12 md:h-12 text-brand relative z-10" />
+            </div>
+
+            {/* Samotný Slot Machine Loader */}
+            <div className="flex items-center justify-center text-xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter w-full max-w-[90%] md:max-w-[80%] mx-auto">
+              <p className="text-black mr-3 sm:mr-4 shrink-0">Analyzujem:</p>
+              <div className="relative overflow-hidden h-[30px] md:h-[44px] lg:h-[52px] min-w-[200px] sm:min-w-[280px] text-left shrink-0">
+                {/* Gradient maska pre jemné miznutie slov na vrchu a na spodku */}
+                <div 
+                  className="absolute inset-0 z-20 pointer-events-none" 
+                  style={{ 
+                    background: 'linear-gradient(#ffffff 5%, transparent 25%, transparent 75%, #ffffff 95%)' 
+                  }}
+                />
+                <div className="slot-words absolute top-0 left-0 w-full">
+                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Čítam dokument...</span>
+                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Extrahujem dáta...</span>
+                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Kalkulujem skóre...</span>
+                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Šifrujem odkaz...</span>
+                  {/* Zopakované prvé slovo pre hladkú nekonečnú slučku */}
+                  <span className="block h-[30px] md:h-[44px] lg:h-[52px] leading-[30px] md:leading-[44px] lg:leading-[52px] text-brand">Čítam dokument...</span>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-black/40 mt-8 md:mt-12 font-medium text-sm md:text-lg uppercase tracking-widest">
+              Prosím nezatvárajte túto stránku
+            </p>
+
+            {/* CSS pre animáciu točenia */}
+            <style>{`
+              .slot-words {
+                animation: spin_words 5s infinite cubic-bezier(0.87, 0, 0.13, 1);
+              }
+              @keyframes spin_words {
+                10% { transform: translateY(-20%); }
+                25% { transform: translateY(-20%); }
+                
+                35% { transform: translateY(-40%); }
+                50% { transform: translateY(-40%); }
+                
+                60% { transform: translateY(-60%); }
+                75% { transform: translateY(-60%); }
+                
+                85% { transform: translateY(-80%); }
+                100% { transform: translateY(-80%); }
+              }
+            `}</style>
           </div>
+          // --- KONIEC NOVEJ ANIMÁCIE ---
         ) : (
           <>
             <div className="w-20 h-20 md:w-32 h-32 bg-brand rounded-full mb-6 md:mb-10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20">
