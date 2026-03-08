@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import Dashboard from './components/Dashboard';
 import SatisfactionDashboard from './components/SatisfactionDashboard';
-import WelcomeGuide from './components/WelcomeGuide'; // PRIDANÝ IMPORT
+import WelcomeGuide from './components/WelcomeGuide';
 import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
@@ -23,7 +23,7 @@ const App: React.FC = () => {
 
   const [showSharedGoodbye, setShowSharedGoodbye] = useState<boolean>(false);
   
-  // PRIDANÝ STAV PRE UVÍTACIU KARTU
+  // STAV PRE UVÍTACIU KARTU
   const [showWelcomeGuide, setShowWelcomeGuide] = useState<boolean>(false);
 
   const [publicMeta, setPublicMeta] = useState<{
@@ -141,7 +141,7 @@ const App: React.FC = () => {
       setShowSharedGoodbye(false);
       setStatus(AppStatus.SUCCESS);
       
-      // PRIDANÉ: Ukážeme sprievodcu po úspešnom zadaní hesla
+      // Ukážeme sprievodcu po úspešnom zadaní hesla
       setShowWelcomeGuide(true);
       
     } catch (err: any) {
@@ -415,6 +415,17 @@ const App: React.FC = () => {
                 onClose={() => setShowWelcomeGuide(false)} 
                 clientName={publicMeta?.client} 
               />
+            )}
+            
+            {/* Plávajúce tlačidlo pre opätovné otvorenie sprievodcu */}
+            {!showWelcomeGuide && (
+              <button
+                onClick={() => setShowWelcomeGuide(true)}
+                className="fixed bottom-6 left-6 z-[50] flex items-center gap-2 px-4 py-3 bg-white text-black border border-black/10 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-black hover:text-white hover:scale-105 transition-all duration-300 group"
+              >
+                <Sparkles className="w-4 h-4 text-brand group-hover:text-white transition-colors" />
+                <span className="hidden sm:inline">Sprievodca reportom</span>
+              </button>
             )}
             
             {result.mode === '360_FEEDBACK' ? <Dashboard result={result} onReset={handleReset} /> : <SatisfactionDashboard result={result} onReset={handleReset} />}
