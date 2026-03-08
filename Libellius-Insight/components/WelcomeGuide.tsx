@@ -21,11 +21,11 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     };
   }, []);
 
-  // Časovač, ktorý každé 3 sekundy posunie index pre prelínanie obrázkov/videí
+  // Časovač predĺžený na 5 sekúnd (5000 ms)
   useEffect(() => {
     const timer = setInterval(() => {
       setCycleIndex((prev) => prev + 1);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -34,14 +34,12 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     setTimeout(onClose, 300);
   };
 
-  // Zoznam 5 situácií s tvojimi vlastnými videami
   const features = [
     {
       id: 'engagement',
       title: 'Zapojenie účastníkov',
       desc: 'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
       icon: <Users className="w-5 h-5" />,
-      // Tvoje 3 videá k zapojeniu (presne ako si ich nazval):
       images: ['/zapojenie.mp4', '/kolac.mp4', '/karta-tim.mp4'] 
     },
     {
@@ -49,7 +47,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
       title: 'Otvorené otázky',
       desc: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si strategické odporúčania od AI.',
       icon: <MessageSquare className="w-5 h-5" />,
-      images: ['/preview-open-questions.png'] // Tu si potom môžeš doplniť vlastný obrázok/video
+      images: ['/preview-open-questions.png']
     },
     {
       id: 'team-eval',
@@ -83,6 +81,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
         onClick={handleClose}
       />
 
+      {/* Hlavná karta */}
       <div className={`relative w-full max-w-6xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.7)] overflow-hidden transition-all duration-500 transform flex flex-col md:flex-row ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-12'}`}>
         
         <button 
@@ -107,7 +106,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             Prejdite si, čo všetko nájdete v interaktívnom dashboarde.
           </p>
 
-          {/* Interaktívny zoznam */}
           <div className="space-y-2 mb-8 shrink-0">
             {features.map((feature, index) => (
               <div 
@@ -144,7 +142,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
         </div>
 
         {/* PRAVÁ STRANA: Dynamické obrázky a videá */}
-        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-8 lg:p-12">
+        {/* Zmenšené paddingy pre väčší priestor na video (p-4 lg:p-6 namiesto p-8 lg:p-12) */}
+        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-4 lg:p-6">
           {/* Dekoračné pozadie za obrázkom */}
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-brand/5 to-transparent pointer-events-none"></div>
           
@@ -170,7 +169,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                     return (
                       <div 
                         key={`${feature.id}-${imgIndex}`}
-                        className={`absolute inset-8 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
+                        // Zmenšené odsadenie videa od okraja (inset-4 namiesto inset-8) pre maximálnu veľkosť
+                        className={`absolute inset-4 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
                           isVisibleImage ? 'opacity-100' : 'opacity-0'
                         }`}
                       >
