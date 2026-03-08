@@ -21,7 +21,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     };
   }, []);
 
-  // Časovač, ktorý každé 3 sekundy posunie index pre prelínanie obrázkov
+  // Časovač, ktorý každé 3 sekundy posunie index pre prelínanie obrázkov/videí
   useEffect(() => {
     const timer = setInterval(() => {
       setCycleIndex((prev) => prev + 1);
@@ -34,22 +34,22 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     setTimeout(onClose, 300);
   };
 
-  // Tvoj zoznam 5 situácií (vrátane podpory pre viac obrázkov)
+  // Zoznam 5 situácií s tvojimi vlastnými videami
   const features = [
     {
       id: 'engagement',
       title: 'Zapojenie účastníkov',
       desc: 'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
       icon: <Users className="w-5 h-5" />,
-      // Prvá možnosť obsahuje 3 obrázky, ktoré sa budú prelínať
-      images: ['/preview-eng-table.png', '/preview-eng-chart.png', '/preview-eng-card.png'] 
+      // Tvoje 3 videá k zapojeniu (presne ako si ich nazval):
+      images: ['/zapojenie.mp4', '/kolac.mp4', '/karta-tim.mp4'] 
     },
     {
       id: 'open-questions',
       title: 'Otvorené otázky',
       desc: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si strategické odporúčania od AI.',
       icon: <MessageSquare className="w-5 h-5" />,
-      images: ['/preview-open-questions.png']
+      images: ['/preview-open-questions.png'] // Tu si potom môžeš doplniť vlastný obrázok/video
     },
     {
       id: 'team-eval',
@@ -107,7 +107,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             Prejdite si, čo všetko nájdete v interaktívnom dashboarde.
           </p>
 
-          {/* Interaktívny zoznam 5 položiek (Zmenšené paddingy a medzery pre dokonalé fitnutie) */}
+          {/* Interaktívny zoznam */}
           <div className="space-y-2 mb-8 shrink-0">
             {features.map((feature, index) => (
               <div 
@@ -143,7 +143,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
           </button>
         </div>
 
-        {/* PRAVÁ STRANA: Dynamické obrázky */}
+        {/* PRAVÁ STRANA: Dynamické obrázky a videá */}
         <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-8 lg:p-12">
           {/* Dekoračné pozadie za obrázkom */}
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-brand/5 to-transparent pointer-events-none"></div>
@@ -161,9 +161,11 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                       : 'opacity-0 translate-y-8 scale-95 pointer-events-none z-0'
                   }`}
                 >
-                  {/* Ak má feature viac obrázkov, tu sa cyklia (prelína sa ich priehľadnosť) */}
-                  {feature.images.map((imgSrc, imgIndex) => {
+                  {/* Ak má feature viac ukážok, tu sa cyklia */}
+                  {feature.images.map((mediaSrc, imgIndex) => {
                     const isVisibleImage = isActiveFeature && (cycleIndex % feature.images.length === imgIndex);
+                    // Zistenie, či ide o video na základe koncovky
+                    const isVideo = mediaSrc.toLowerCase().endsWith('.mp4') || mediaSrc.toLowerCase().endsWith('.webm');
                     
                     return (
                       <div 
@@ -172,21 +174,36 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                           isVisibleImage ? 'opacity-100' : 'opacity-0'
                         }`}
                       >
-                        <img 
-                          src={imgSrc} 
-                          alt={`${feature.title} - Ukážka ${imgIndex + 1}`}
-                          className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            e.currentTarget.parentElement?.classList.add('fallback-bg');
-                          }}
-                        />
+                        {isVideo ? (
+                          <video 
+                            src={mediaSrc} 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline
+                            className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
+                            onError={(e) => {
+                              (e.target as HTMLVideoElement).style.display = 'none';
+                              e.currentTarget.parentElement?.classList.add('fallback-bg');
+                            }}
+                          />
+                        ) : (
+                          <img 
+                            src={mediaSrc} 
+                            alt={`${feature.title} - Ukážka ${imgIndex + 1}`}
+                            className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              e.currentTarget.parentElement?.classList.add('fallback-bg');
+                            }}
+                          />
+                        )}
                         
-                        {/* Fallback ak obrázok ešte neexistuje v priečinku public */}
+                        {/* Fallback UI (ak chýba súbor) */}
                         <div className="absolute inset-0 border-2 border-dashed border-black/10 rounded-2xl flex flex-col items-center justify-center text-center -z-10 bg-white shadow-xl">
                           <div className="text-black/20 mb-3">{feature.icon}</div>
                           <p className="text-black/30 font-black uppercase tracking-widest text-[10px]">
-                            Tu sa zobrazí tvoj<br/>screenshot ({imgSrc})
+                            Tu sa zobrazí ukážka<br/>({mediaSrc})
                           </p>
                         </div>
                       </div>
