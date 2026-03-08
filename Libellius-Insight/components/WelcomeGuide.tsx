@@ -7,20 +7,16 @@ interface WelcomeGuideProps {
   clientName?: string;
 }
 
-// ----------------------------------------------------------------------
-// Pomocný komponent: Múdre video (prehráva sa len keď je zobrazené)
-// ----------------------------------------------------------------------
+// Pomocný komponent: Múdre video
 const ControlledVideo = ({ src, isActive }: { src: string; isActive: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (videoRef.current) {
       if (isActive) {
-        // Akonáhle je video aktívne, pretočíme ho na 0:00 a spustíme
         videoRef.current.currentTime = 0;
         videoRef.current.play().catch(e => console.log(e));
       } else {
-        // Ak je video skryté, pozastavíme ho
         videoRef.current.pause();
       }
     }
@@ -38,15 +34,11 @@ const ControlledVideo = ({ src, isActive }: { src: string; isActive: boolean }) 
   );
 };
 
-// ----------------------------------------------------------------------
-// Hlavný komponent WelcomeGuide
-// ----------------------------------------------------------------------
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeFeature, setActiveFeature] = useState<number>(0);
   const [cycleIndex, setCycleIndex] = useState<number>(0);
 
-  // Zobrazenie s animáciou a uzamknutie scrollu na pozadí
   useEffect(() => {
     setIsVisible(true);
     document.body.style.overflow = 'hidden';
@@ -102,7 +94,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     {
       id: 'export',
       title: 'Export súborov',
-      desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor.',
+      desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor pre ďalšiu prácu.',
       icon: <Download className="w-5 h-5" />,
       images: ['/preview-export.png']
     }
@@ -127,12 +119,15 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand/5 text-brand rounded-full mb-5 w-fit text-[10px] font-black tracking-widest uppercase shrink-0">
             <Sparkles className="w-3 h-3" /> Rýchly sprievodca
           </div>
+          
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-3 text-black shrink-0">
             Váš report je <span className="text-brand">pripravený</span>
           </h2>
+          
+          {/* NOVÝ TEXT */}
           <p className="text-black/50 font-medium text-xs sm:text-sm mb-6 max-w-md shrink-0">
             {clientName ? `Vitajte, ${clientName}. ` : ''} 
-            Prejdite si, čo všetko nájdete v interaktívnom dashboarde.
+            Vitajte v prostredí <span className="font-bold text-black">Libellius InsightHub</span>. Spoznajte kľúčové funkcie, ktoré vám uľahčia prácu s dátami.
           </p>
 
           <div className="space-y-2 mb-8 shrink-0">
@@ -180,10 +175,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                     isActiveFeature ? 'opacity-100 translate-y-0 scale-100 z-10' : 'opacity-0 translate-y-8 scale-95 pointer-events-none z-0'
                   }`}
                 >
-                  {/* Ak má sekcia viacero obrázkov/videí, zobrazíme šípky a guličky */}
                   {isActiveFeature && feature.images.length > 1 && (
                     <>
-                      {/* Šípky */}
                       <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between z-30 pointer-events-none">
                         <button 
                           onClick={(e) => handlePrev(e, feature.images.length)}
@@ -199,7 +192,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                         </button>
                       </div>
                       
-                      {/* Guličky (Indikátor) */}
                       <div className="absolute bottom-6 inset-x-0 flex justify-center gap-2 z-30">
                         {feature.images.map((_, dotIdx) => (
                           <div 
@@ -223,7 +215,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                         }`}
                       >
                         {isVideo ? (
-                          // Použitie nášho nového "Múdreho videa"
                           <ControlledVideo src={mediaSrc} isActive={isVisibleImage} />
                         ) : (
                           <img 
