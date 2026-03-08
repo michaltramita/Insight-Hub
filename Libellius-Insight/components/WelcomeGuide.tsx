@@ -62,6 +62,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     setCycleIndex((prev) => (prev - 1 + max) % max);
   };
 
+  // Zoznam s tvojimi vlastnými .mp4 videami
   const features = [
     {
       id: 'engagement',
@@ -75,28 +76,28 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
       title: 'Otvorené otázky',
       desc: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si strategické odporúčania od AI.',
       icon: <MessageSquare className="w-5 h-5" />,
-      images: ['/preview-open-questions.png']
+      images: ['/otazky.mp4']
     },
     {
       id: 'team-eval',
       title: 'Hodnotenie tímov',
       desc: 'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok a príležitostí.',
       icon: <Target className="w-5 h-5" />,
-      images: ['/preview-team-eval.png']
+      images: ['/tim.mp4']
     },
     {
       id: 'team-compare',
       title: 'Porovnávanie tímov',
       desc: 'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.',
       icon: <GitMerge className="w-5 h-5" />,
-      images: ['/preview-compare.png']
+      images: ['/porovnanie.mp4']
     },
     {
       id: 'export',
       title: 'Export súborov',
       desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor pre ďalšiu prácu.',
       icon: <Download className="w-5 h-5" />,
-      images: ['/preview-export.png']
+      images: ['/export.mp4']
     }
   ];
 
@@ -124,7 +125,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             Váš report je <span className="text-brand">pripravený</span>
           </h2>
           
-         {/* OPRAVENÝ ČISTÝ TEXT */}
+          {/* ČISTÝ UNIVERZÁLNY TEXT */}
           <p className="text-black/50 font-medium text-xs sm:text-sm mb-6 max-w-md shrink-0">
             Vitajte v prostredí <span className="font-bold text-black">Libellius InsightHub</span>. Spoznajte kľúčové funkcie, ktoré vám uľahčia prácu s dátami.
           </p>
