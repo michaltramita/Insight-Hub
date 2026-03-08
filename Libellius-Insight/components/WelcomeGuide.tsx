@@ -124,9 +124,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             Váš report je <span className="text-brand">pripravený</span>
           </h2>
           
-          {/* NOVÝ TEXT */}
+         {/* OPRAVENÝ ČISTÝ TEXT */}
           <p className="text-black/50 font-medium text-xs sm:text-sm mb-6 max-w-md shrink-0">
-            {clientName ? `Vitajte, ${clientName}. ` : ''} 
             Vitajte v prostredí <span className="font-bold text-black">Libellius InsightHub</span>. Spoznajte kľúčové funkcie, ktoré vám uľahčia prácu s dátami.
           </p>
 
