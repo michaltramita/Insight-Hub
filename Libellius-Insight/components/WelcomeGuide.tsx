@@ -1,12 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Sparkles, X, Users, MessageSquare, Target, GitMerge } from 'lucide-react';
+import { Download, Sparkles, X, Users, MessageSquare, Target, GitMerge, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface WelcomeGuideProps {
   onClose: () => void;
   clientName?: string;
 }
 
+// ----------------------------------------------------------------------
+// Pomocný komponent: Múdre video (prehráva sa len keď je zobrazené)
+// ----------------------------------------------------------------------
+const ControlledVideo = ({ src, isActive }: { src: string; isActive: boolean }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isActive) {
+        // Akonáhle je video aktívne, pretočíme ho na 0:00 a spustíme
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(e => console.log(e));
+      } else {
+        // Ak je video skryté, pozastavíme ho
+        videoRef.current.pause();
+      }
+    }
+  }, [isActive]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      loop
+      muted
+      playsInline
+      className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
+    />
+  );
+};
+
+// ----------------------------------------------------------------------
+// Hlavný komponent WelcomeGuide
+// ----------------------------------------------------------------------
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeFeature, setActiveFeature] = useState<number>(0);
@@ -21,17 +55,19 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     };
   }, []);
 
-  // Časovač predĺžený na 5 sekúnd (5000 ms)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCycleIndex((prev) => prev + 1);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
   const handleClose = () => {
     setIsVisible(false);
     setTimeout(onClose, 300);
+  };
+
+  const handleNext = (e: React.MouseEvent, max: number) => {
+    e.stopPropagation();
+    setCycleIndex((prev) => (prev + 1) % max);
+  };
+
+  const handlePrev = (e: React.MouseEvent, max: number) => {
+    e.stopPropagation();
+    setCycleIndex((prev) => (prev - 1 + max) % max);
   };
 
   const features = [
@@ -66,7 +102,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     {
       id: 'export',
       title: 'Export súborov',
-      desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor pre ďalšiu prácu.',
+      desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor.',
       icon: <Download className="w-5 h-5" />,
       images: ['/preview-export.png']
     }
@@ -75,13 +111,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
   const modalContent = (
     <div className={`fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* Rozmazané pozadie */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-md"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={handleClose} />
 
-      {/* Hlavná karta */}
       <div className={`relative w-full max-w-6xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.7)] overflow-hidden transition-all duration-500 transform flex flex-col md:flex-row ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-12'}`}>
         
         <button 
@@ -91,13 +122,11 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
           <X className="w-5 h-5" />
         </button>
 
-        {/* ĽAVÁ STRANA: Zoznam 5 situácií */}
+        {/* ĽAVÁ STRANA */}
         <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center max-h-[90vh] overflow-y-auto no-scrollbar">
-          
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand/5 text-brand rounded-full mb-5 w-fit text-[10px] font-black tracking-widest uppercase shrink-0">
             <Sparkles className="w-3 h-3" /> Rýchly sprievodca
           </div>
-
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-3 text-black shrink-0">
             Váš report je <span className="text-brand">pripravený</span>
           </h2>
@@ -113,9 +142,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                 onMouseEnter={() => { setActiveFeature(index); setCycleIndex(0); }}
                 onClick={() => { setActiveFeature(index); setCycleIndex(0); }}
                 className={`flex items-start gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-300 border-2 ${
-                  activeFeature === index 
-                    ? 'border-brand/20 bg-brand/5' 
-                    : 'border-transparent hover:bg-black/5'
+                  activeFeature === index ? 'border-brand/20 bg-brand/5' : 'border-transparent hover:bg-black/5'
                 }`}
               >
                 <div className={`mt-1 flex-shrink-0 transition-colors duration-300 ${activeFeature === index ? 'text-brand' : 'text-black/30'}`}>
@@ -133,18 +160,13 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             ))}
           </div>
 
-          <button 
-            onClick={handleClose}
-            className="w-full py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-brand transition-colors duration-300 shadow-xl shadow-black/20 shrink-0"
-          >
+          <button onClick={handleClose} className="w-full py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-brand transition-colors duration-300 shadow-xl shadow-black/20 shrink-0">
             Prejsť na výsledky analýzy
           </button>
         </div>
 
-        {/* PRAVÁ STRANA: Dynamické obrázky a videá */}
-        {/* Zmenšené paddingy pre väčší priestor na video (p-4 lg:p-6 namiesto p-8 lg:p-12) */}
-        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-4 lg:p-6">
-          {/* Dekoračné pozadie za obrázkom */}
+        {/* PRAVÁ STRANA */}
+        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-4 lg:p-6 group">
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-brand/5 to-transparent pointer-events-none"></div>
           
           <div className="relative w-full h-full flex items-center justify-center">
@@ -155,38 +177,54 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                 <div 
                   key={`container-${feature.id}`}
                   className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ease-in-out ${
-                    isActiveFeature 
-                      ? 'opacity-100 translate-y-0 scale-100 z-10' 
-                      : 'opacity-0 translate-y-8 scale-95 pointer-events-none z-0'
+                    isActiveFeature ? 'opacity-100 translate-y-0 scale-100 z-10' : 'opacity-0 translate-y-8 scale-95 pointer-events-none z-0'
                   }`}
                 >
-                  {/* Ak má feature viac ukážok, tu sa cyklia */}
+                  {/* Ak má sekcia viacero obrázkov/videí, zobrazíme šípky a guličky */}
+                  {isActiveFeature && feature.images.length > 1 && (
+                    <>
+                      {/* Šípky */}
+                      <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between z-30 pointer-events-none">
+                        <button 
+                          onClick={(e) => handlePrev(e, feature.images.length)}
+                          className="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
+                        >
+                          <ChevronLeft className="w-6 h-6" />
+                        </button>
+                        <button 
+                          onClick={(e) => handleNext(e, feature.images.length)}
+                          className="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
+                        >
+                          <ChevronRight className="w-6 h-6" />
+                        </button>
+                      </div>
+                      
+                      {/* Guličky (Indikátor) */}
+                      <div className="absolute bottom-6 inset-x-0 flex justify-center gap-2 z-30">
+                        {feature.images.map((_, dotIdx) => (
+                          <div 
+                            key={`dot-${dotIdx}`} 
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${cycleIndex === dotIdx ? 'bg-brand scale-125' : 'bg-black/20'}`} 
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   {feature.images.map((mediaSrc, imgIndex) => {
-                    const isVisibleImage = isActiveFeature && (cycleIndex % feature.images.length === imgIndex);
-                    // Zistenie, či ide o video na základe koncovky
+                    const isVisibleImage = isActiveFeature && cycleIndex === imgIndex;
                     const isVideo = mediaSrc.toLowerCase().endsWith('.mp4') || mediaSrc.toLowerCase().endsWith('.webm');
                     
                     return (
                       <div 
                         key={`${feature.id}-${imgIndex}`}
-                        // Zmenšené odsadenie videa od okraja (inset-4 namiesto inset-8) pre maximálnu veľkosť
                         className={`absolute inset-4 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
-                          isVisibleImage ? 'opacity-100' : 'opacity-0'
+                          isVisibleImage ? 'opacity-100 z-20' : 'opacity-0 z-10'
                         }`}
                       >
                         {isVideo ? (
-                          <video 
-                            src={mediaSrc} 
-                            autoPlay 
-                            loop 
-                            muted 
-                            playsInline
-                            className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
-                            onError={(e) => {
-                              (e.target as HTMLVideoElement).style.display = 'none';
-                              e.currentTarget.parentElement?.classList.add('fallback-bg');
-                            }}
-                          />
+                          // Použitie nášho nového "Múdreho videa"
+                          <ControlledVideo src={mediaSrc} isActive={isVisibleImage} />
                         ) : (
                           <img 
                             src={mediaSrc} 
@@ -198,14 +236,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                             }}
                           />
                         )}
-                        
-                        {/* Fallback UI (ak chýba súbor) */}
-                        <div className="absolute inset-0 border-2 border-dashed border-black/10 rounded-2xl flex flex-col items-center justify-center text-center -z-10 bg-white shadow-xl">
-                          <div className="text-black/20 mb-3">{feature.icon}</div>
-                          <p className="text-black/30 font-black uppercase tracking-widest text-[10px]">
-                            Tu sa zobrazí ukážka<br/>({mediaSrc})
-                          </p>
-                        </div>
                       </div>
                     );
                   })}
