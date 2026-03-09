@@ -82,12 +82,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
               <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
             </div>
 
-            {/* Čistý, plne responzívny kontajner len pre rotujúci text */}
-            <div className="flex items-center justify-center text-base sm:text-xl md:text-2xl font-black uppercase tracking-tighter w-full max-w-[320px] mx-auto">
+            {/* Úplne odstránený fixný max-w. Kontajner sa prispôsobí dĺžke textu */}
+            <div className="flex items-center justify-center text-base sm:text-xl md:text-2xl font-black uppercase tracking-tighter w-full px-4 mx-auto">
               
               <div className="relative overflow-hidden h-[24px] sm:h-[28px] md:h-[32px] w-full text-center">
-                
-                {/* Vizuálny "blok" (gradient) bol kompletne odstránený */}
                 
                 <div className="slot-words flex flex-col items-center">
                   <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
