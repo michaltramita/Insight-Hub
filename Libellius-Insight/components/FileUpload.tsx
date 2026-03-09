@@ -59,8 +59,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
 
   return (
     <div 
+      // VIZUÁLNY BLOK ODSTRÁNENÝ: bg-brand/[0.02] bol vymazaný, pozadie je biele (bg-white)
       className={`w-full max-w-2xl mx-auto p-6 md:p-12 border-[2px] md:border-[3px] border-dashed rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
-        ${isAnalyzing ? 'border-brand/10 bg-brand/[0.02] cursor-wait py-10 md:py-14' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
+        ${isAnalyzing ? 'border-brand/10 cursor-wait py-10 md:py-14' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
       `}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
@@ -82,25 +83,30 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
               <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
             </div>
 
-            {/* Úplne odstránený fixný max-w. Kontajner sa prispôsobí dĺžke textu */}
-            <div className="flex items-center justify-center text-base sm:text-xl md:text-2xl font-black uppercase tracking-tighter w-full px-4 mx-auto">
+            {/* Čistý, plne responzívny kontajner len pre rotujúci text.
+                VIDITEĽNOSŤ NA DESKTOPE: Pridané lg:text-4xl a lg:h-[42px] pre výrazne väčší text
+            */}
+            <div className="flex items-center justify-center text-base sm:text-xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter w-full px-4 mx-auto">
               
-              <div className="relative overflow-hidden h-[24px] sm:h-[28px] md:h-[32px] w-full text-center">
+              <div className="relative overflow-hidden h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] w-full text-center">
+                
+                {/* Vizuálny prekrývací "blok" (gradient) bol kompletne odstránený */}
                 
                 <div className="slot-words flex flex-col items-center">
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Triedim odpovede...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Vytváram grafy...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Triedim odpovede...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Vytváram grafy...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
+                  {/* Zopakovanie prvého pre nekonečnú slučku */}
+                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                 </div>
               </div>
             </div>
             
-            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-center w-full">
+            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-center w-full shrink-0">
               Prosím nezatvárajte túto stránku
             </p>
 
