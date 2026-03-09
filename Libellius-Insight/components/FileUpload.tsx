@@ -76,51 +76,40 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       
       <label htmlFor="file-upload" className="w-full flex flex-col items-center cursor-pointer group">
         {isAnalyzing ? (
-          <div className="flex flex-col items-center w-full animate-fade-in">
-            <div className="w-14 h-14 md:w-16 md:h-16 bg-brand/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-brand/20 relative overflow-hidden">
+          <div className="flex flex-col items-center w-full animate-fade-in px-2">
+            <div className="w-14 h-14 md:w-16 md:h-16 bg-brand/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-brand/20 relative overflow-hidden shrink-0">
               <div className="absolute inset-0 bg-brand/20 animate-pulse"></div>
               <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
             </div>
 
-            <div className="flex items-center justify-center text-lg md:text-2xl font-black uppercase tracking-tighter w-full">
-              <p className="text-black mr-2 md:mr-3 shrink-0">Analyzujem:</p>
+            {/* Čistý, plne responzívny kontajner len pre rotujúci text */}
+            <div className="flex items-center justify-center text-base sm:text-xl md:text-2xl font-black uppercase tracking-tighter w-full max-w-[320px] mx-auto">
               
-              <div className="relative overflow-hidden h-[28px] md:h-[32px] min-w-[200px] md:min-w-[280px] text-left shrink-0">
-                <div 
-                  className="absolute inset-0 z-20 pointer-events-none" 
-                  style={{ 
-                    background: 'linear-gradient(#ffffff 0%, transparent 20%, transparent 80%, #ffffff 100%)' 
-                  }}
-                />
+              <div className="relative overflow-hidden h-[24px] sm:h-[28px] md:h-[32px] w-full text-center">
                 
-                <div className="slot-words flex flex-col">
-                  {/* Nové rozšírené texty: */}
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Triedim odpovede...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Vytváram grafy...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
-                  
-                  {/* Zopakovanie prvého textu pre nekonečnú slučku */}
-                  <span className="block h-[28px] md:h-[32px] leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                {/* Vizuálny "blok" (gradient) bol kompletne odstránený */}
+                
+                <div className="slot-words flex flex-col items-center">
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Triedim odpovede...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Vytváram grafy...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
+                  <span className="block h-[24px] sm:h-[28px] md:h-[32px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                 </div>
               </div>
             </div>
             
-            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em]">
+            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-center w-full">
               Prosím nezatvárajte túto stránku
             </p>
 
             <style>{`
               .slot-words {
-                /* Nastavené na 16s podľa tvojho zadania */
                 animation: spin_words 16s infinite cubic-bezier(0.87, 0, 0.13, 1);
               }
-              /* Vypočítané percentá pre 8 položiek v kontajneri
-                Každá fráza zaberá 12.5% výšky a je tam presný čas na zastavenie
-              */
               @keyframes spin_words {
                 0%, 10% { transform: translateY(0); }
                 14%, 24% { transform: translateY(-12.5%); }
@@ -135,7 +124,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
           </div>
         ) : (
           <>
-            <div className="w-16 h-16 md:w-24 md:h-24 bg-brand rounded-full mb-6 md:mb-8 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20">
+            <div className="w-16 h-16 md:w-24 md:h-24 bg-brand rounded-full mb-6 md:mb-8 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20 shrink-0">
               <UploadCloud className="w-8 h-8 md:w-12 md:h-12 text-white" />
             </div>
             <h3 className="text-lg md:text-3xl font-black text-black mb-2 px-2 tracking-tight uppercase leading-tight">{labels.title}</h3>
