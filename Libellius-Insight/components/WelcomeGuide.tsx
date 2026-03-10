@@ -62,7 +62,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
     setCycleIndex((prev) => (prev - 1 + max) % max);
   };
 
-  // Zoznam s tvojimi vlastnými .mp4 videami
   const features = [
     {
       id: 'engagement',
@@ -102,35 +101,36 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
   ];
 
   const modalContent = (
-    <div className={`fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 md:p-8 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 md:p-8 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={handleClose} />
 
-      <div className={`relative w-full max-w-6xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.7)] overflow-hidden transition-all duration-500 transform flex flex-col md:flex-row ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-12'}`}>
+      {/* HLAVNÝ KONTAJNER: max-h zabezpečí, že nepretečie cez obrazovku, flex-col pre mobil, flex-row pre desktop */}
+      <div className={`relative w-full max-w-6xl max-h-[92vh] md:max-h-[85vh] bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.7)] overflow-hidden transition-all duration-500 transform flex flex-col md:flex-row ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-12'}`}>
         
+        {/* Tlačidlo X s bielym pozadím pre lepšiu viditeľnosť na videu */}
         <button 
           onClick={handleClose}
-          className="absolute top-4 right-4 md:top-6 md:right-6 p-2.5 bg-black/5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors z-50"
+          className="absolute top-3 right-3 md:top-6 md:right-6 p-2 md:p-2.5 bg-white/90 hover:bg-white backdrop-blur-md rounded-full text-black transition-all z-[60] shadow-lg border border-black/5"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 md:w-6 md:h-6" />
         </button>
 
-        {/* ĽAVÁ STRANA */}
-        <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center max-h-[90vh] overflow-y-auto no-scrollbar">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand/5 text-brand rounded-full mb-5 w-fit text-[10px] font-black tracking-widest uppercase shrink-0">
+        {/* TEXTOVÁ ČASŤ (na mobile bude dole - order-2, na desktope vľavo - order-1) */}
+        <div className="w-full md:w-1/2 p-5 sm:p-8 md:p-10 lg:p-12 flex flex-col flex-1 overflow-y-auto no-scrollbar order-2 md:order-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand/5 text-brand rounded-full mb-4 md:mb-5 w-fit text-[10px] font-black tracking-widest uppercase shrink-0">
             <Sparkles className="w-3 h-3" /> Rýchly sprievodca
           </div>
           
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-3 text-black shrink-0">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-2 md:mb-3 text-black shrink-0">
             Váš report je <span className="text-brand">pripravený</span>
           </h2>
           
-          {/* ČISTÝ UNIVERZÁLNY TEXT */}
-          <p className="text-black/50 font-medium text-xs sm:text-sm mb-6 max-w-md shrink-0">
+          <p className="text-black/50 font-medium text-xs sm:text-sm mb-5 md:mb-6 max-w-md shrink-0">
             Vitajte v prostredí <span className="font-bold text-black">Libellius InsightHub</span>. Spoznajte kľúčové funkcie, ktoré vám uľahčia prácu s dátami.
           </p>
 
-          <div className="space-y-2 mb-8 shrink-0">
+          <div className="space-y-2 mb-6 md:mb-8 shrink-0">
             {features.map((feature, index) => (
               <div 
                 key={feature.id}
@@ -155,13 +155,14 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
             ))}
           </div>
 
-          <button onClick={handleClose} className="w-full py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-brand transition-colors duration-300 shadow-xl shadow-black/20 shrink-0">
+          <button onClick={handleClose} className="w-full py-4 mt-auto bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-brand transition-colors duration-300 shadow-xl shadow-black/20 shrink-0">
             Prejsť na výsledky analýzy
           </button>
         </div>
 
-        {/* PRAVÁ STRANA */}
-        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative hidden md:block overflow-hidden p-4 lg:p-6 group">
+        {/* VIDEO ČASŤ (na mobile bude fixovaná hore - order-1, na desktope vpravo - order-2) */}
+        {/* Zmena: Odstránené "hidden md:block", pridaná pevná výška h-[260px] pre mobily */}
+        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative h-[260px] sm:h-[350px] md:h-auto flex-shrink-0 overflow-hidden p-3 md:p-6 group order-1 md:order-2 border-b md:border-b-0 border-black/5">
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-brand/5 to-transparent pointer-events-none"></div>
           
           <div className="relative w-full h-full flex items-center justify-center">
@@ -177,26 +178,26 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                 >
                   {isActiveFeature && feature.images.length > 1 && (
                     <>
-                      <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between z-30 pointer-events-none">
+                      <div className="absolute inset-x-2 md:inset-x-6 top-1/2 -translate-y-1/2 flex justify-between z-30 pointer-events-none">
                         <button 
                           onClick={(e) => handlePrev(e, feature.images.length)}
-                          className="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
+                          className="w-8 h-8 md:w-10 md:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
                         >
-                          <ChevronLeft className="w-6 h-6" />
+                          <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
                         <button 
                           onClick={(e) => handleNext(e, feature.images.length)}
-                          className="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
+                          className="w-8 h-8 md:w-10 md:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
                         >
-                          <ChevronRight className="w-6 h-6" />
+                          <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
                       </div>
                       
-                      <div className="absolute bottom-6 inset-x-0 flex justify-center gap-2 z-30">
+                      <div className="absolute bottom-2 md:bottom-6 inset-x-0 flex justify-center gap-2 z-30">
                         {feature.images.map((_, dotIdx) => (
                           <div 
                             key={`dot-${dotIdx}`} 
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${cycleIndex === dotIdx ? 'bg-brand scale-125' : 'bg-black/20'}`} 
+                            className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full transition-all duration-300 ${cycleIndex === dotIdx ? 'bg-brand scale-125' : 'bg-black/20'}`} 
                           />
                         ))}
                       </div>
@@ -210,7 +211,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
                     return (
                       <div 
                         key={`${feature.id}-${imgIndex}`}
-                        className={`absolute inset-4 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
+                        className={`absolute inset-2 md:inset-4 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
                           isVisibleImage ? 'opacity-100 z-20' : 'opacity-0 z-10'
                         }`}
                       >
