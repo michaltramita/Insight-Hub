@@ -131,7 +131,8 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  const visibleIndices = [-2, -1, 0, 1, 2];
+  // Návrat k lepšiemu výkonu
+  const visibleIndices = [-1, 0, 1];
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
@@ -145,7 +146,8 @@ const FocusRail: React.FC<{
       tabIndex={0}
       onKeyDown={onKeyDown}
       onWheel={onWheel}
-      className="relative min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden text-white outline-none select-none"
+      // Pevná výška a skrytý overflow podľa návrhu
+      className="relative h-[100dvh] w-full overflow-hidden text-white outline-none select-none"
     >
       <button
         onClick={onClose}
@@ -161,7 +163,8 @@ const FocusRail: React.FC<{
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-8">
+      {/* Wrapper flexibilne prispôsobený celej výške */}
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-14 md:px-8 md:pb-6 md:pt-6">
         {/* Horný onboarding blok */}
         <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6 shrink-0">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
@@ -179,14 +182,14 @@ const FocusRail: React.FC<{
           </p>
         </div>
 
-        {/* Stage - Tu bol odstránený overflow-hidden */}
+        {/* Stage s optimalizovanou výškou pomocou min() */}
         <div className="flex flex-1 items-center justify-center min-h-0 w-full">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.12}
             onDragEnd={onDragEnd}
-            className="relative flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            className="relative flex h-[min(54vh,460px)] sm:h-[min(56vh,520px)] md:h-[min(58vh,600px)] lg:h-[min(62vh,680px)] w-full items-center justify-center cursor-grab active:cursor-grabbing"
             style={{ perspective: 2200 }}
           >
             {visibleIndices.map((offset) => {
@@ -197,13 +200,12 @@ const FocusRail: React.FC<{
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
-              const isVisible = dist <= 1;
 
-              // Upravený xOffset pre lepšie prekrytie podľa pomeru výšky
               const xOffset = offset * (isMobile ? 180 : 360);
               const scale = isCenter ? 1 : 0.88;
               const rotateY = offset * -8;
-              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
+              // Keďže renderujeme len 3 karty, všetky sú aspoň čiastočne viditeľné
+              const opacity = isCenter ? 1 : 0.5;
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
@@ -222,17 +224,15 @@ const FocusRail: React.FC<{
                     val === 'scale' ? TAP_SPRING : BASE_SPRING
                   }
                   onClick={() => {
-                    if (isVisible && !isCenter) setActive((prev) => prev + offset);
+                    if (!isCenter) setActive((prev) => prev + offset);
                   }}
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
-                    pointerEvents: isVisible ? 'auto' : 'none',
                   }}
                   className={cn(
-                    'absolute overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[3/4] w-auto max-w-[85vw]',
-                    'h-[55vh] max-h-[480px] sm:h-[60vh] md:h-[62vh] md:max-h-[640px]',
+                    'absolute h-full overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
+                    'aspect-[3/4] w-auto', // Šírka sa dopočíta z výšky zachovaním pomeru strán
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
@@ -269,7 +269,7 @@ const FocusRail: React.FC<{
         </div>
 
         {/* Spodný blok */}
-        <div className="mt-4 shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:mt-6 md:p-6">
+        <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
               <AnimatePresence mode="wait">
