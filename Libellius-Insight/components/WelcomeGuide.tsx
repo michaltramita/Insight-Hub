@@ -58,7 +58,7 @@ const ControlledVideo = ({
       loop
       muted
       playsInline
-      preload="auto" // Pridané pre rýchlejšie prednačítanie
+      preload="auto"
       className={className}
     />
   );
@@ -131,8 +131,6 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  // Zmena: rozšírené o -2 a 2. Tieto karty nebudú viditeľné (opacity: 0), 
-  // ale ich video elementy sa prednačítajú v pozadí.
   const visibleIndices = [-2, -1, 0, 1, 2];
 
   const getMediaSrc = (item: FocusRailItem) =>
@@ -181,8 +179,8 @@ const FocusRail: React.FC<{
           </p>
         </div>
 
-        {/* Stage */}
-        <div className="flex flex-1 items-center justify-center min-h-0 w-full overflow-hidden">
+        {/* Stage - Tu bol odstránený overflow-hidden */}
+        <div className="flex flex-1 items-center justify-center min-h-0 w-full">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
@@ -199,12 +197,13 @@ const FocusRail: React.FC<{
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
-              const isVisible = dist <= 1; // Zobrazujeme iba strednú a bezprostredne susedné karty
+              const isVisible = dist <= 1;
 
-              const xOffset = offset * (isMobile ? 195 : 420);
+              // Upravený xOffset pre lepšie prekrytie podľa pomeru výšky
+              const xOffset = offset * (isMobile ? 180 : 360);
               const scale = isCenter ? 1 : 0.88;
               const rotateY = offset * -8;
-              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0; // Karty s dist >= 2 sú úplne priehľadné
+              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
@@ -228,11 +227,10 @@ const FocusRail: React.FC<{
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
-                    pointerEvents: isVisible ? 'auto' : 'none', // Skryté karty nesmú blokovať klikanie
+                    pointerEvents: isVisible ? 'auto' : 'none',
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
-                    // Zabezpečenie správneho zobrazenia bez ohľadu na výšku displeja
                     'aspect-[3/4] w-auto max-w-[85vw]',
                     'h-[55vh] max-h-[480px] sm:h-[60vh] md:h-[62vh] md:max-h-[640px]',
                     isCenter
@@ -240,7 +238,6 @@ const FocusRail: React.FC<{
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  {/* Zmena: bg-white -> bg-neutral-900 pre hladšie zobrazenie predtým ako sa stihne video načítať */}
                   <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-neutral-900 md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
