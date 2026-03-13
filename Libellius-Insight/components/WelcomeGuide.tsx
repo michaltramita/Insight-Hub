@@ -25,8 +25,8 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-const BASE_SPRING = { type: 'spring', stiffness: 260, damping: 30, mass: 1 };
-const TAP_SPRING = { type: 'spring', stiffness: 380, damping: 24, mass: 1 };
+const BASE_SPRING = { type: 'spring', stiffness: 130, damping: 22, mass: 1 };
+const TAP_SPRING = { type: 'spring', stiffness: 160, damping: 20, mass: 1 };
 
 const ControlledVideo = ({
   src,
@@ -131,7 +131,8 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  const visibleIndices = [-1, 0, 1];
+  // Návrat k 5 kartám (2 z nich sú neviditeľné, ale prednačítavajú videá)
+  const visibleIndices = [-2, -1, 0, 1, 2];
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
@@ -197,11 +198,12 @@ const FocusRail: React.FC<{
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
+              const isVisible = dist <= 1; // Viditeľné sú len stredná a bezprostredne susediace
 
               const xOffset = offset * (isMobile ? 180 : 360);
               const scale = isCenter ? 1 : 0.88;
               const rotateY = offset * -8;
-              const opacity = isCenter ? 1 : 0.5;
+              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0; // Krajné na indexe 2/-2 majú opacity 0
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
@@ -220,11 +222,16 @@ const FocusRail: React.FC<{
                     val === 'scale' ? TAP_SPRING : BASE_SPRING
                   }
                   onClick={() => {
-                    if (!isCenter) setActive((prev) => prev + offset);
+                    // Blokujeme kliknutie na neviditeľné karty
+                    if (isVisible && !isCenter) setActive((prev) => prev + offset);
                   }}
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
+                    willChange: 'transform, filter',
+                    backfaceVisibility: 'hidden',
+                    transformOrigin: 'center center',
+                    pointerEvents: isVisible ? 'auto' : 'none', // Skryté karty nebudú blokovať ťahanie
                   }}
                   className={cn(
                     'absolute h-full overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
@@ -234,20 +241,17 @@ const FocusRail: React.FC<{
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  {/* ZMENA TU: bg-black namiesto bg-neutral-900 */}
                   <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-black md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
                         isActive={isCenter}
-                        // ZMENA TU: object-cover a odstránené bg z classname
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        // ZMENA TU: object-cover
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     )}
