@@ -1,43 +1,223 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Sparkles, X, Users, MessageSquare, Target, GitMerge, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
+// --- TYPY A POMOCNÉ FUNKCIE ---
 interface WelcomeGuideProps {
   onClose: () => void;
   clientName?: string;
 }
 
-// Pomocný komponent: Múdre video
-const ControlledVideo = ({ src, isActive }: { src: string; isActive: boolean }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+type FocusRailItem = {
+  id: string | number;
+  title: string;
+  description?: string;
+  mediaSrc: string;
+  mobileImageSrc?: string;
+  meta?: string;
+};
+
+// Jednoduchá utilita na spájanie CSS tried namiesto externého cn.ts
+const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' ');
+
+function wrap(min: number, max: number, v: number) {
+  const rangeSize = max - min;
+  return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
+}
+
+const BASE_SPRING = { type: "spring", stiffness: 300, damping: 30, mass: 1 };
+const TAP_SPRING = { type: "spring", stiffness: 450, damping: 18, mass: 1 };
+
+// --- INTERNÝ KOMPONENT: FOCUS RAIL (3D Karusel) ---
+const FocusRail: React.FC<{
+  items: FocusRailItem[];
+  onClose: () => void;
+}> = ({ items, onClose }) => {
+  const [active, setActive] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const lastWheelTime = useRef<number>(0);
 
   useEffect(() => {
-    if (videoRef.current) {
-      if (isActive) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(e => console.log(e));
-      } else {
-        videoRef.current.pause();
-      }
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const count = items.length;
+  const activeIndex = wrap(0, count, active);
+  const activeItem = items[activeIndex];
+
+  const handlePrev = useCallback(() => {
+    setActive((p) => p - 1);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setActive((p) => p + 1);
+  }, []);
+
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    const now = Date.now();
+    if (now - lastWheelTime.current < 400) return;
+    const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+    const delta = isHorizontal ? e.deltaX : e.deltaY;
+    if (Math.abs(delta) > 20) {
+      delta > 0 ? handleNext() : handlePrev();
+      lastWheelTime.current = now;
     }
-  }, [isActive]);
+  }, [handleNext, handlePrev]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft") handlePrev();
+    if (e.key === "ArrowRight") handleNext();
+    if (e.key === "Escape") onClose();
+  };
+
+  const swipeConfidenceThreshold = 10000;
+  const swipePower = (offset: number, velocity: number) => Math.abs(offset) * velocity;
+
+  const onDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, { offset, velocity }: PanInfo) => {
+    const swipe = swipePower(offset.x, velocity.x);
+    if (swipe < -swipeConfidenceThreshold) handleNext();
+    else if (swipe > swipeConfidenceThreshold) handlePrev();
+  };
+
+  const visibleIndices = [-2, -1, 0, 1, 2];
+  
+  const getMediaSrc = (item: FocusRailItem) => {
+      return isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
+  };
+
+  const isVideo = (src: string) => src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm');
 
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      loop
-      muted
-      playsInline
-      className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
-    />
+    <div
+      className="group relative flex h-[100dvh] w-full flex-col overflow-hidden bg-neutral-950 text-white outline-none select-none overflow-x-hidden"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onWheel={onWheel}
+    >
+      {/* Zatváracie tlačidlo */}
+      <button onClick={onClose} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-brand backdrop-blur-md rounded-full text-white transition-all shadow-lg group-hover/close:scale-105">
+        <X className="w-6 h-6" />
+      </button>
+
+      {/* Rozmazané pozadie */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={`bg-${activeItem.id}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.3 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="absolute inset-0"
+          >
+            {isVideo(getMediaSrc(activeItem)) ? (
+               <video src={getMediaSrc(activeItem)} className="h-full w-full object-cover blur-[60px] saturate-150" muted loop autoPlay playsInline />
+            ) : (
+               <img src={getMediaSrc(activeItem)} alt="" className="h-full w-full object-cover blur-[60px] saturate-150" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent" />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Hlavný Stage pre karty */}
+      <div className="relative z-10 flex flex-1 flex-col justify-center px-0 md:px-8 mt-12 md:mt-0">
+        <motion.div
+          className="relative mx-auto flex h-[400px] md:h-[450px] w-full max-w-6xl items-center justify-center perspective-[1200px] cursor-grab active:cursor-grabbing"
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.2}
+          onDragEnd={onDragEnd}
+        >
+          {visibleIndices.map((offset) => {
+            const absIndex = active + offset;
+            const index = wrap(0, count, absIndex);
+            const item = items[index];
+            const mediaSrc = getMediaSrc(item);
+
+            const isCenter = offset === 0;
+            const dist = Math.abs(offset);
+            const xOffset = offset * (isMobile ? 220 : 340);
+            const zOffset = -dist * 180;
+            const scale = isCenter ? 1 : 0.85;
+            const rotateY = offset * -20;
+            const opacity = isCenter ? 1 : Math.max(0.1, 1 - dist * 0.5);
+            const blur = isCenter ? 0 : dist * 6;
+            const brightness = isCenter ? 1 : 0.4;
+
+            return (
+              <motion.div
+                key={absIndex}
+                className={cn(
+                  "absolute aspect-[3/4] md:aspect-video w-[240px] md:w-[600px] rounded-[2rem] border-t bg-neutral-900 transition-shadow duration-300 overflow-hidden",
+                  isCenter 
+                    ? "z-20 border-brand/50 shadow-[0_0_60px_-15px_rgba(0,0,0,0.5)] shadow-brand/20" 
+                    : "z-10 border-white/10 shadow-2xl"
+                )}
+                initial={false}
+                animate={{ x: xOffset, z: zOffset, scale: scale, rotateY: rotateY, opacity: opacity, filter: `blur(${blur}px) brightness(${brightness})` }}
+                transition={(val) => (val === "scale" ? TAP_SPRING : BASE_SPRING)}
+                style={{ transformStyle: "preserve-3d" }}
+                onClick={() => { if (offset !== 0) setActive((p) => p + offset); }}
+              >
+                {isVideo(mediaSrc) ? (
+                  <video src={mediaSrc} className="h-full w-full object-cover pointer-events-none" autoPlay={isCenter} muted loop playsInline />
+                ) : (
+                  <img src={mediaSrc} alt={item.title} className="h-full w-full object-cover pointer-events-none" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                {!isCenter && <div className="absolute inset-0 bg-black/60 pointer-events-none" />}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+
+        {/* Texty a ovládanie */}
+        <div className="mx-auto mt-12 flex w-full max-w-4xl flex-col items-center justify-between gap-6 md:flex-row pointer-events-auto px-6">
+          <div className="flex flex-1 flex-col items-center text-center md:items-start md:text-left h-32 justify-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeItem.id}
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3 }}
+                className="space-y-2"
+              >
+                {activeItem.meta && <span className="text-xs font-black uppercase tracking-widest text-brand">{activeItem.meta}</span>}
+                <h2 className="text-3xl font-black tracking-tight md:text-4xl text-white">{activeItem.title}</h2>
+                <p className="max-w-md text-neutral-400 font-medium">{activeItem.description}</p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 mt-4 md:mt-0">
+            <div className="flex items-center gap-1 rounded-full bg-neutral-900/80 p-1 ring-1 ring-white/10 backdrop-blur-md">
+              <button onClick={handlePrev} className="rounded-full p-3 text-neutral-400 transition hover:bg-brand hover:text-white active:scale-95"><ChevronLeft className="h-5 w-5" /></button>
+              <span className="min-w-[40px] text-center text-xs font-bold text-neutral-500">{activeIndex + 1} / {count}</span>
+              <button onClick={handleNext} className="rounded-full p-3 text-neutral-400 transition hover:bg-brand hover:text-white active:scale-95"><ChevronRight className="h-5 w-5" /></button>
+            </div>
+            
+            <button onClick={onClose} className="group flex items-center justify-center gap-2 rounded-full bg-brand px-8 py-3.5 text-sm font-black text-white transition-all hover:scale-105 active:scale-95 uppercase tracking-widest shadow-xl shadow-brand/30">
+              Zobraziť report
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
+// --- HLAVNÝ EXPORTOVANÝ KOMPONENT ---
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [activeFeature, setActiveFeature] = useState<number>(0);
-  const [cycleIndex, setCycleIndex] = useState<number>(0);
 
   useEffect(() => {
     setIsVisible(true);
@@ -49,200 +229,63 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, clientName }) => {
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 300);
+    setTimeout(onClose, 500); // Počkať na dobehnutie animácií
   };
 
-  const handleNext = (e: React.MouseEvent, max: number) => {
-    e.stopPropagation();
-    setCycleIndex((prev) => (prev + 1) % max);
-  };
-
-  const handlePrev = (e: React.MouseEvent, max: number) => {
-    e.stopPropagation();
-    setCycleIndex((prev) => (prev - 1 + max) % max);
-  };
-
-  const features = [
+  const GUIDE_ITEMS: FocusRailItem[] = [
     {
-      id: 'engagement',
-      title: 'Zapojenie účastníkov',
-      desc: 'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
-      icon: <Users className="w-5 h-5" />,
-      images: ['/zapojenie.mp4', '/kolac.mp4', '/karta-tim.mp4'] 
+      id: 1,
+      title: "Zapojenie účastníkov",
+      description: "Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.",
+      meta: "Funkcia 1",
+      mediaSrc: "/zapojenie.mp4", 
+      mobileImageSrc: "/zapojenie-mobil.mp4"
     },
     {
-      id: 'open-questions',
-      title: 'Otvorené otázky',
-      desc: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si strategické odporúčania od AI.',
-      icon: <MessageSquare className="w-5 h-5" />,
-      images: ['/otazky.mp4']
+      id: 2,
+      title: "Otvorené otázky",
+      description: "Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si odporúčania od AI.",
+      meta: "Analýza AI",
+      mediaSrc: "/otazky.mp4",
+      mobileImageSrc: "/otazky-mobil.mp4"
     },
     {
-      id: 'team-eval',
-      title: 'Hodnotenie tímov',
-      desc: 'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok a príležitostí.',
-      icon: <Target className="w-5 h-5" />,
-      images: ['/tim.mp4']
+      id: 3,
+      title: "Hodnotenie tímov",
+      description: "Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok.",
+      meta: "Detailný pohľad",
+      mediaSrc: "/tim.mp4",
+      mobileImageSrc: "/tim-mobil.mp4"
     },
     {
-      id: 'team-compare',
-      title: 'Porovnávanie tímov',
-      desc: 'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.',
-      icon: <GitMerge className="w-5 h-5" />,
-      images: ['/porovnanie.mp4']
+      id: 4,
+      title: "Porovnávanie tímov",
+      description: "Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.",
+      meta: "Súvislosti",
+      mediaSrc: "/porovnanie.mp4",
+      mobileImageSrc: "/porovnanie-mobil.mp4"
     },
     {
-      id: 'export',
-      title: 'Export súborov',
-      desc: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok alebo ako Excel súbor pre ďalšiu prácu.',
-      icon: <Download className="w-5 h-5" />,
-      images: ['/export.mp4']
-    }
+      id: 5,
+      title: "Export súborov",
+      description: "Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok.",
+      meta: "Prezentácia",
+      mediaSrc: "/export.mp4",
+      mobileImageSrc: "/export-mobil.mp4"
+    },
   ];
 
-  const modalContent = (
-    <div className={`fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 md:p-8 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-      
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={handleClose} />
-
-      {/* HLAVNÝ KONTAJNER: max-h zabezpečí, že nepretečie cez obrazovku, flex-col pre mobil, flex-row pre desktop */}
-      <div className={`relative w-full max-w-6xl max-h-[92vh] md:max-h-[85vh] bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.7)] overflow-hidden transition-all duration-500 transform flex flex-col md:flex-row ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-12'}`}>
-        
-        {/* Tlačidlo X s bielym pozadím pre lepšiu viditeľnosť na videu */}
-        <button 
-          onClick={handleClose}
-          className="absolute top-3 right-3 md:top-6 md:right-6 p-2 md:p-2.5 bg-white/90 hover:bg-white backdrop-blur-md rounded-full text-black transition-all z-[60] shadow-lg border border-black/5"
-        >
-          <X className="w-5 h-5 md:w-6 md:h-6" />
-        </button>
-
-        {/* TEXTOVÁ ČASŤ (na mobile bude dole - order-2, na desktope vľavo - order-1) */}
-        <div className="w-full md:w-1/2 p-5 sm:p-8 md:p-10 lg:p-12 flex flex-col flex-1 overflow-y-auto no-scrollbar order-2 md:order-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand/5 text-brand rounded-full mb-4 md:mb-5 w-fit text-[10px] font-black tracking-widest uppercase shrink-0">
-            <Sparkles className="w-3 h-3" /> Rýchly sprievodca
-          </div>
-          
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-[1.1] mb-2 md:mb-3 text-black shrink-0">
-            Váš report je <span className="text-brand">pripravený</span>
-          </h2>
-          
-          <p className="text-black/50 font-medium text-xs sm:text-sm mb-5 md:mb-6 max-w-md shrink-0">
-            Vitajte v prostredí <span className="font-bold text-black">Libellius InsightHub</span>. Spoznajte kľúčové funkcie, ktoré vám uľahčia prácu s dátami.
-          </p>
-
-          <div className="space-y-2 mb-6 md:mb-8 shrink-0">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.id}
-                onMouseEnter={() => { setActiveFeature(index); setCycleIndex(0); }}
-                onClick={() => { setActiveFeature(index); setCycleIndex(0); }}
-                className={`flex items-start gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-300 border-2 ${
-                  activeFeature === index ? 'border-brand/20 bg-brand/5' : 'border-transparent hover:bg-black/5'
-                }`}
-              >
-                <div className={`mt-1 flex-shrink-0 transition-colors duration-300 ${activeFeature === index ? 'text-brand' : 'text-black/30'}`}>
-                  {feature.icon}
-                </div>
-                <div>
-                  <h4 className={`text-sm font-black uppercase tracking-tight mb-0.5 transition-colors duration-300 ${activeFeature === index ? 'text-brand' : 'text-black'}`}>
-                    {feature.title}
-                  </h4>
-                  <p className="text-xs font-medium text-black/50 leading-relaxed">
-                    {feature.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button onClick={handleClose} className="w-full py-4 mt-auto bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-brand transition-colors duration-300 shadow-xl shadow-black/20 shrink-0">
-            Prejsť na výsledky analýzy
-          </button>
-        </div>
-
-        {/* VIDEO ČASŤ (na mobile bude fixovaná hore - order-1, na desktope vpravo - order-2) */}
-        {/* Zmena: Odstránené "hidden md:block", pridaná pevná výška h-[260px] pre mobily */}
-        <div className="w-full md:w-1/2 bg-[#f4f4f5] relative h-[260px] sm:h-[350px] md:h-auto flex-shrink-0 overflow-hidden p-3 md:p-6 group order-1 md:order-2 border-b md:border-b-0 border-black/5">
-          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-brand/5 to-transparent pointer-events-none"></div>
-          
-          <div className="relative w-full h-full flex items-center justify-center">
-            {features.map((feature, fIndex) => {
-              const isActiveFeature = activeFeature === fIndex;
-              
-              return (
-                <div 
-                  key={`container-${feature.id}`}
-                  className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ease-in-out ${
-                    isActiveFeature ? 'opacity-100 translate-y-0 scale-100 z-10' : 'opacity-0 translate-y-8 scale-95 pointer-events-none z-0'
-                  }`}
-                >
-                  {isActiveFeature && feature.images.length > 1 && (
-                    <>
-                      <div className="absolute inset-x-2 md:inset-x-6 top-1/2 -translate-y-1/2 flex justify-between z-30 pointer-events-none">
-                        <button 
-                          onClick={(e) => handlePrev(e, feature.images.length)}
-                          className="w-8 h-8 md:w-10 md:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
-                        >
-                          <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
-                        </button>
-                        <button 
-                          onClick={(e) => handleNext(e, feature.images.length)}
-                          className="w-8 h-8 md:w-10 md:h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 text-black pointer-events-auto transition-all"
-                        >
-                          <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-                        </button>
-                      </div>
-                      
-                      <div className="absolute bottom-2 md:bottom-6 inset-x-0 flex justify-center gap-2 z-30">
-                        {feature.images.map((_, dotIdx) => (
-                          <div 
-                            key={`dot-${dotIdx}`} 
-                            className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full transition-all duration-300 ${cycleIndex === dotIdx ? 'bg-brand scale-125' : 'bg-black/20'}`} 
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {feature.images.map((mediaSrc, imgIndex) => {
-                    const isVisibleImage = isActiveFeature && cycleIndex === imgIndex;
-                    const isVideo = mediaSrc.toLowerCase().endsWith('.mp4') || mediaSrc.toLowerCase().endsWith('.webm');
-                    
-                    return (
-                      <div 
-                        key={`${feature.id}-${imgIndex}`}
-                        className={`absolute inset-2 md:inset-4 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
-                          isVisibleImage ? 'opacity-100 z-20' : 'opacity-0 z-10'
-                        }`}
-                      >
-                        {isVideo ? (
-                          <ControlledVideo src={mediaSrc} isActive={isVisibleImage} />
-                        ) : (
-                          <img 
-                            src={mediaSrc} 
-                            alt={`${feature.title} - Ukážka ${imgIndex + 1}`}
-                            className="w-full max-h-full object-contain rounded-xl shadow-2xl border border-black/10 bg-white"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              e.currentTarget.parentElement?.classList.add('fallback-bg');
-                            }}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-      </div>
+  const content = (
+    <div className={`fixed inset-0 z-[99999] transition-opacity duration-500 bg-neutral-950 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <FocusRail 
+        items={GUIDE_ITEMS} 
+        onClose={handleClose}
+      />
     </div>
   );
 
   if (typeof document === 'undefined') return null;
-  return createPortal(modalContent, document.body);
+  return createPortal(content, document.body);
 };
 
 export default WelcomeGuide;
