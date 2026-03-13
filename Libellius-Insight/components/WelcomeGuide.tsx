@@ -25,8 +25,8 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-const BASE_SPRING = { type: 'spring', stiffness: 300, damping: 30, mass: 1 };
-const TAP_SPRING = { type: 'spring', stiffness: 450, damping: 18, mass: 1 };
+const BASE_SPRING = { type: 'spring', stiffness: 280, damping: 30, mass: 1 };
+const TAP_SPRING = { type: 'spring', stiffness: 420, damping: 24, mass: 1 };
 
 const ControlledVideo = ({
   src,
@@ -97,12 +97,12 @@ const FocusRail: React.FC<{
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       const now = Date.now();
-      if (now - lastWheelTime.current < 400) return;
+      if (now - lastWheelTime.current < 450) return;
 
       const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
       const delta = isHorizontal ? e.deltaX : e.deltaY;
 
-      if (Math.abs(delta) > 20) {
+      if (Math.abs(delta) > 24) {
         delta > 0 ? handleNext() : handlePrev();
         lastWheelTime.current = now;
       }
@@ -116,7 +116,7 @@ const FocusRail: React.FC<{
     if (e.key === 'Escape') onClose();
   };
 
-  const swipeConfidenceThreshold = 10000;
+  const swipeConfidenceThreshold = 9000;
   const swipePower = (offset: number, velocity: number) =>
     Math.abs(offset) * velocity;
 
@@ -129,7 +129,7 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  const visibleIndices = isMobile ? [-1, 0, 1] : [-2, -1, 0, 1, 2];
+  const visibleIndices = [-1, 0, 1];
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
@@ -152,17 +152,17 @@ const FocusRail: React.FC<{
         <X className="h-6 w-6" />
       </button>
 
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/35 to-black/75" />
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-10">
         <div className="flex flex-1 items-center justify-center">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.2}
+            dragElastic={0.14}
             onDragEnd={onDragEnd}
-            className="relative flex h-[300px] sm:h-[390px] md:h-[470px] w-full items-center justify-center cursor-grab active:cursor-grabbing"
-            style={{ perspective: 1200 }}
+            className="relative flex h-[62vh] sm:h-[66vh] md:h-[72vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            style={{ perspective: 1600 }}
           >
             {visibleIndices.map((offset) => {
               const absIndex = active + offset;
@@ -173,12 +173,12 @@ const FocusRail: React.FC<{
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
 
-              const xOffset = offset * (isMobile ? 170 : 300);
-              const scale = isCenter ? 1 : 0.88;
-              const rotateY = offset * -12;
-              const opacity = isCenter ? 1 : Math.max(0.18, 1 - dist * 0.38);
-              const blur = isCenter ? 0 : dist * 4;
-              const brightness = isCenter ? 1 : 0.55;
+              const xOffset = offset * (isMobile ? 180 : 420);
+              const scale = isCenter ? 1 : 0.84;
+              const rotateY = offset * -10;
+              const opacity = isCenter ? 1 : 0.3;
+              const blur = isCenter ? 0 : 2;
+              const brightness = isCenter ? 1 : 0.42;
 
               return (
                 <motion.div
@@ -202,38 +202,43 @@ const FocusRail: React.FC<{
                     zIndex: isCenter ? 30 : 20 - dist,
                   }}
                   className={cn(
-                    'absolute w-[calc(100%-16px)] md:w-[calc(100%-32px)] h-[260px] sm:h-[350px] md:h-[420px] max-w-[720px] overflow-hidden rounded-2xl border bg-neutral-900/95 p-2 md:rounded-[2rem] md:p-4',
+                    'absolute overflow-hidden rounded-[1.75rem] border bg-neutral-950/95 p-2 md:rounded-[2.25rem] md:p-3',
+                    'w-[78vw] h-[56vh] max-w-[380px] max-h-[720px]',
+                    'sm:w-[68vw] sm:h-[60vh] sm:max-w-[430px]',
+                    'md:w-[min(42vw,520px)] md:h-[min(68vh,760px)]',
                     isCenter
-                      ? 'border-brand/50 shadow-[0_0_60px_-15px_rgba(184,21,71,0.35)]'
+                      ? 'border-brand/55 shadow-[0_0_70px_-20px_rgba(184,21,71,0.45)]'
                       : 'border-white/10 shadow-2xl'
                   )}
                 >
-                  {isVideo(mediaSrc) ? (
-                    <ControlledVideo
-                      src={mediaSrc}
-                      isActive={isCenter}
-                      className="h-full w-full rounded-xl bg-white object-contain shadow-2xl border border-black/10 pointer-events-none"
-                    />
-                  ) : (
-                    <img
-                      src={mediaSrc}
-                      alt={item.title}
-                      className="h-full w-full rounded-xl bg-white object-contain shadow-2xl border border-black/10 pointer-events-none"
-                    />
-                  )}
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.15rem] bg-white md:rounded-[1.5rem]">
+                    {isVideo(mediaSrc) ? (
+                      <ControlledVideo
+                        src={mediaSrc}
+                        isActive={isCenter}
+                        className="h-full w-full object-contain bg-white pointer-events-none"
+                      />
+                    ) : (
+                      <img
+                        src={mediaSrc}
+                        alt={item.title}
+                        className="h-full w-full object-contain bg-white pointer-events-none"
+                      />
+                    )}
 
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
-                  {!isCenter && (
-                    <div className="pointer-events-none absolute inset-0 bg-black/55" />
-                  )}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-transparent" />
+                    {!isCenter && (
+                      <div className="pointer-events-none absolute inset-0 bg-black/45" />
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
           </motion.div>
         </div>
 
-        <div className="mt-6 rounded-3xl bg-black/25 p-4 backdrop-blur-sm md:mt-8 md:p-6">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="mt-5 rounded-[1.75rem] bg-black/70 p-4 backdrop-blur-xl md:mt-8 md:p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -241,11 +246,11 @@ const FocusRail: React.FC<{
                   initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.25 }}
+                  transition={{ duration: 0.22 }}
                   className="space-y-2 text-center md:text-left"
                 >
                   {activeItem.meta && (
-                    <span className="text-xs font-black uppercase tracking-widest text-brand">
+                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-brand">
                       {activeItem.meta}
                     </span>
                   )}
@@ -255,7 +260,7 @@ const FocusRail: React.FC<{
                   </h2>
 
                   {activeItem.description && (
-                    <p className="mx-auto max-w-2xl font-medium text-neutral-300 md:mx-0">
+                    <p className="mx-auto max-w-2xl text-sm font-medium text-neutral-300 md:mx-0 md:text-base">
                       {activeItem.description}
                     </p>
                   )}
@@ -264,7 +269,7 @@ const FocusRail: React.FC<{
             </div>
 
             <div className="flex flex-col items-center gap-4 sm:flex-row md:items-center">
-              <div className="flex items-center gap-1 rounded-full bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur-md">
+              <div className="flex items-center gap-1 rounded-full bg-white/8 p-1 ring-1 ring-white/15 backdrop-blur-md">
                 <button
                   onClick={handlePrev}
                   className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
@@ -272,7 +277,7 @@ const FocusRail: React.FC<{
                   <ChevronLeft className="h-5 w-5" />
                 </button>
 
-                <span className="min-w-[52px] text-center text-xs font-bold text-neutral-300">
+                <span className="min-w-[56px] text-center text-xs font-bold text-neutral-300">
                   {activeIndex + 1} / {count}
                 </span>
 
@@ -366,7 +371,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const content = (
     <div
       className={cn(
-        'fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md transition-opacity duration-300',
+        'fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md transition-opacity duration-300',
         isVisible ? 'opacity-100' : 'opacity-0'
       )}
     >
