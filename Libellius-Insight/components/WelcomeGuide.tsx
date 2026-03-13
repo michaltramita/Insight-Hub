@@ -94,7 +94,6 @@ const FocusRail: React.FC<{
 
   return (
     <div
-      // Odstránili sme bg-neutral-950 a nahradili bg-transparent, pretože rozmazanie robí rodič
       className="group relative flex h-[100dvh] w-full flex-col overflow-hidden bg-transparent text-white outline-none select-none overflow-x-hidden"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -102,18 +101,15 @@ const FocusRail: React.FC<{
       onKeyDown={onKeyDown}
       onWheel={onWheel}
     >
-      {/* Zatváracie tlačidlo */}
       <button onClick={onClose} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-brand backdrop-blur-md rounded-full text-white transition-all shadow-lg group-hover/close:scale-105">
         <X className="w-6 h-6" />
       </button>
 
-      {/* Jemný gradient, aby text dole bol vždy čitateľný */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
 
-      {/* Hlavný Stage pre karty (Zmenená výška pre vertikálne karty) */}
       <div className="relative z-10 flex flex-1 flex-col justify-center px-0 md:px-8 mt-12 md:mt-0">
         <motion.div
-          className="relative mx-auto flex h-[420px] md:h-[550px] w-full max-w-6xl items-center justify-center perspective-[1200px] cursor-grab active:cursor-grabbing"
+          className="relative mx-auto flex h-[350px] md:h-[450px] w-full max-w-6xl items-center justify-center perspective-[1200px] cursor-grab active:cursor-grabbing"
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
@@ -128,9 +124,9 @@ const FocusRail: React.FC<{
             const isCenter = offset === 0;
             const dist = Math.abs(offset);
             
-            // Zmenšený rozostup, keďže karty sú teraz na šírku užšie (vertikálne)
-            const xOffset = offset * (isMobile ? 160 : 220);
-            const zOffset = -dist * 140;
+            // Rozostupy prispôsobené pre ŠIROKÉ karty
+            const xOffset = offset * (isMobile ? 260 : 420);
+            const zOffset = -dist * 180;
             const scale = isCenter ? 1 : 0.85;
             const rotateY = offset * -15;
             const opacity = isCenter ? 1 : Math.max(0.1, 1 - dist * 0.5);
@@ -141,8 +137,8 @@ const FocusRail: React.FC<{
               <motion.div
                 key={absIndex}
                 className={cn(
-                  // TU JE ZMENA: aspect-[9/16] (vertikálne) a užšia šírka
-                  "absolute aspect-[9/16] w-[200px] md:w-[280px] rounded-[2rem] border-t bg-neutral-900 transition-shadow duration-300 overflow-hidden",
+                  // OPRAVA FORMÁTU KARTY: Teraz sú opäť širokouhlé (aspect-video) a širšie (w-[280px] -> w-[600px] na desktope)
+                  "absolute aspect-video w-[280px] sm:w-[400px] md:w-[600px] rounded-2xl md:rounded-[2rem] border-t bg-neutral-900 transition-shadow duration-300 overflow-hidden flex items-center justify-center p-2 md:p-4",
                   isCenter 
                     ? "z-20 border-brand/50 shadow-[0_0_60px_-15px_rgba(0,0,0,0.5)] shadow-brand/20" 
                     : "z-10 border-white/10 shadow-2xl"
@@ -154,9 +150,10 @@ const FocusRail: React.FC<{
                 onClick={() => { if (offset !== 0) setActive((p) => p + offset); }}
               >
                 {isVideo(mediaSrc) ? (
-                  <video src={mediaSrc} className="h-full w-full object-cover pointer-events-none" autoPlay={isCenter} muted loop playsInline />
+                  // Použitý object-contain ako v pôvodnom bielom dizajne, aby video nebolo orezané, plus biele pozadie pod ním
+                  <video src={mediaSrc} className="w-full max-h-full object-contain rounded-xl shadow-md bg-white pointer-events-none" autoPlay={isCenter} muted loop playsInline />
                 ) : (
-                  <img src={mediaSrc} alt={item.title} className="h-full w-full object-cover pointer-events-none" />
+                  <img src={mediaSrc} alt={item.title} className="w-full max-h-full object-contain rounded-xl shadow-md bg-white pointer-events-none" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                 {!isCenter && <div className="absolute inset-0 bg-black/60 pointer-events-none" />}
@@ -165,7 +162,6 @@ const FocusRail: React.FC<{
           })}
         </motion.div>
 
-        {/* Texty a ovládanie */}
         <div className="mx-auto mt-8 md:mt-12 flex w-full max-w-4xl flex-col items-center justify-between gap-6 md:flex-row pointer-events-auto px-6">
           <div className="flex flex-1 flex-col items-center text-center md:items-start md:text-left h-32 justify-center">
             <AnimatePresence mode="wait">
@@ -262,7 +258,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   ];
 
   const content = (
-    // TU JE ZMENA POZADIA: bg-black/70 a backdrop-blur-xl zabezpečia, že vidíš rozmazaný dashboard pod tým
     <div className={`fixed inset-0 z-[99999] transition-opacity duration-500 bg-black/70 backdrop-blur-xl ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <FocusRail 
         items={GUIDE_ITEMS} 
