@@ -40,13 +40,14 @@ const ControlledVideo = ({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
 
     if (isActive) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => null);
+      video.currentTime = 0;
+      video.play().catch(() => null);
     } else {
-      videoRef.current.pause();
+      video.pause();
     }
   }, [isActive, src]);
 
@@ -87,11 +88,11 @@ const FocusRail: React.FC<{
   const activeItem = items[activeIndex];
 
   const handlePrev = useCallback(() => {
-    setActive((p) => p - 1);
+    setActive((prev) => prev - 1);
   }, []);
 
   const handleNext = useCallback(() => {
-    setActive((p) => p + 1);
+    setActive((prev) => prev + 1);
   }, []);
 
   const onWheel = useCallback(
@@ -148,21 +149,43 @@ const FocusRail: React.FC<{
       <button
         onClick={onClose}
         className="absolute right-4 top-4 z-50 rounded-full bg-white/10 p-3 text-white shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-brand md:right-6 md:top-6"
+        aria-label="Zavrieť sprievodcu"
       >
         <X className="h-6 w-6" />
       </button>
 
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/35 to-black/75" />
+      {/* Silnejšie utopenie dashboardu v pozadí */}
+      <div className="pointer-events-none absolute inset-0 z-0 bg-black/82 backdrop-blur-[10px]" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/70 via-black/45 to-black/85" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04),transparent_35%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-10">
+        {/* Horný intro blok */}
+        <div className="mx-auto mb-5 w-full max-w-3xl text-center md:mb-7">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
+            Rýchly sprievodca
+          </div>
+
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+            Vitajte v Libellius InsightHub
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-relaxed text-neutral-300 md:text-base">
+            Váš report je pripravený. Pozrite si krátky prehľad hlavných
+            funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie a
+            naplno využijete možnosti reportu.
+          </p>
+        </div>
+
+        {/* Stage pre karusel */}
         <div className="flex flex-1 items-center justify-center">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.14}
             onDragEnd={onDragEnd}
-            className="relative flex h-[62vh] sm:h-[66vh] md:h-[72vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
-            style={{ perspective: 1600 }}
+            className="relative flex h-[58vh] sm:h-[62vh] md:h-[68vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            style={{ perspective: 1800 }}
           >
             {visibleIndices.map((offset) => {
               const absIndex = active + offset;
@@ -173,12 +196,12 @@ const FocusRail: React.FC<{
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
 
-              const xOffset = offset * (isMobile ? 180 : 420);
-              const scale = isCenter ? 1 : 0.84;
+              const xOffset = offset * (isMobile ? 210 : 480);
+              const scale = isCenter ? 1 : 0.82;
               const rotateY = offset * -10;
-              const opacity = isCenter ? 1 : 0.3;
+              const opacity = isCenter ? 1 : 0.18;
               const blur = isCenter ? 0 : 2;
-              const brightness = isCenter ? 1 : 0.42;
+              const brightness = isCenter ? 1 : 0.38;
 
               return (
                 <motion.div
@@ -195,19 +218,19 @@ const FocusRail: React.FC<{
                     val === 'scale' ? TAP_SPRING : BASE_SPRING
                   }
                   onClick={() => {
-                    if (!isCenter) setActive((p) => p + offset);
+                    if (!isCenter) setActive((prev) => prev + offset);
                   }}
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
                   }}
                   className={cn(
-                    'absolute overflow-hidden rounded-[1.75rem] border bg-neutral-950/95 p-2 md:rounded-[2.25rem] md:p-3',
-                    'w-[78vw] h-[56vh] max-w-[380px] max-h-[720px]',
-                    'sm:w-[68vw] sm:h-[60vh] sm:max-w-[430px]',
-                    'md:w-[min(42vw,520px)] md:h-[min(68vh,760px)]',
+                    'absolute overflow-hidden rounded-[1.75rem] border bg-neutral-950/96 p-2 md:rounded-[2.25rem] md:p-3',
+                    'w-[84vw] h-[50vh] max-w-[500px] max-h-[760px]',
+                    'sm:w-[76vw] sm:h-[54vh] sm:max-w-[560px]',
+                    'md:w-[min(54vw,760px)] md:h-[min(62vh,760px)]',
                     isCenter
-                      ? 'border-brand/55 shadow-[0_0_70px_-20px_rgba(184,21,71,0.45)]'
+                      ? 'border-brand/55 shadow-[0_0_80px_-20px_rgba(184,21,71,0.48)]'
                       : 'border-white/10 shadow-2xl'
                   )}
                 >
@@ -228,7 +251,7 @@ const FocusRail: React.FC<{
 
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-transparent" />
                     {!isCenter && (
-                      <div className="pointer-events-none absolute inset-0 bg-black/45" />
+                      <div className="pointer-events-none absolute inset-0 bg-black/55" />
                     )}
                   </div>
                 </motion.div>
@@ -237,7 +260,8 @@ const FocusRail: React.FC<{
           </motion.div>
         </div>
 
-        <div className="mt-5 rounded-[1.75rem] bg-black/70 p-4 backdrop-blur-xl md:mt-8 md:p-6">
+        {/* Spodný informačný blok */}
+        <div className="mt-5 rounded-[1.75rem] bg-black/72 p-4 backdrop-blur-xl md:mt-8 md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
               <AnimatePresence mode="wait">
@@ -273,6 +297,7 @@ const FocusRail: React.FC<{
                 <button
                   onClick={handlePrev}
                   className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  aria-label="Predchádzajúca ukážka"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -284,6 +309,7 @@ const FocusRail: React.FC<{
                 <button
                   onClick={handleNext}
                   className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  aria-label="Ďalšia ukážka"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -371,7 +397,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const content = (
     <div
       className={cn(
-        'fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md transition-opacity duration-300',
+        'fixed inset-0 z-[99999] transition-opacity duration-300',
         isVisible ? 'opacity-100' : 'opacity-0'
       )}
     >
