@@ -18,7 +18,7 @@ type FocusRailItem = {
   meta?: string;
 };
 
-// Jednoduchá utilita na spájanie CSS tried namiesto externého cn.ts
+// Jednoduchá utilita na spájanie CSS tried
 const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' ');
 
 function wrap(min: number, max: number, v: number) {
@@ -94,7 +94,8 @@ const FocusRail: React.FC<{
 
   return (
     <div
-      className="group relative flex h-[100dvh] w-full flex-col overflow-hidden bg-neutral-950 text-white outline-none select-none overflow-x-hidden"
+      // Odstránili sme bg-neutral-950 a nahradili bg-transparent, pretože rozmazanie robí rodič
+      className="group relative flex h-[100dvh] w-full flex-col overflow-hidden bg-transparent text-white outline-none select-none overflow-x-hidden"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       tabIndex={0}
@@ -106,31 +107,13 @@ const FocusRail: React.FC<{
         <X className="w-6 h-6" />
       </button>
 
-      {/* Rozmazané pozadie */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={`bg-${activeItem.id}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.3 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="absolute inset-0"
-          >
-            {isVideo(getMediaSrc(activeItem)) ? (
-               <video src={getMediaSrc(activeItem)} className="h-full w-full object-cover blur-[60px] saturate-150" muted loop autoPlay playsInline />
-            ) : (
-               <img src={getMediaSrc(activeItem)} alt="" className="h-full w-full object-cover blur-[60px] saturate-150" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent" />
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      {/* Jemný gradient, aby text dole bol vždy čitateľný */}
+      <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
 
-      {/* Hlavný Stage pre karty */}
+      {/* Hlavný Stage pre karty (Zmenená výška pre vertikálne karty) */}
       <div className="relative z-10 flex flex-1 flex-col justify-center px-0 md:px-8 mt-12 md:mt-0">
         <motion.div
-          className="relative mx-auto flex h-[400px] md:h-[450px] w-full max-w-6xl items-center justify-center perspective-[1200px] cursor-grab active:cursor-grabbing"
+          className="relative mx-auto flex h-[420px] md:h-[550px] w-full max-w-6xl items-center justify-center perspective-[1200px] cursor-grab active:cursor-grabbing"
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
@@ -144,10 +127,12 @@ const FocusRail: React.FC<{
 
             const isCenter = offset === 0;
             const dist = Math.abs(offset);
-            const xOffset = offset * (isMobile ? 220 : 340);
-            const zOffset = -dist * 180;
+            
+            // Zmenšený rozostup, keďže karty sú teraz na šírku užšie (vertikálne)
+            const xOffset = offset * (isMobile ? 160 : 220);
+            const zOffset = -dist * 140;
             const scale = isCenter ? 1 : 0.85;
-            const rotateY = offset * -20;
+            const rotateY = offset * -15;
             const opacity = isCenter ? 1 : Math.max(0.1, 1 - dist * 0.5);
             const blur = isCenter ? 0 : dist * 6;
             const brightness = isCenter ? 1 : 0.4;
@@ -156,7 +141,8 @@ const FocusRail: React.FC<{
               <motion.div
                 key={absIndex}
                 className={cn(
-                  "absolute aspect-[3/4] md:aspect-video w-[240px] md:w-[600px] rounded-[2rem] border-t bg-neutral-900 transition-shadow duration-300 overflow-hidden",
+                  // TU JE ZMENA: aspect-[9/16] (vertikálne) a užšia šírka
+                  "absolute aspect-[9/16] w-[200px] md:w-[280px] rounded-[2rem] border-t bg-neutral-900 transition-shadow duration-300 overflow-hidden",
                   isCenter 
                     ? "z-20 border-brand/50 shadow-[0_0_60px_-15px_rgba(0,0,0,0.5)] shadow-brand/20" 
                     : "z-10 border-white/10 shadow-2xl"
@@ -180,7 +166,7 @@ const FocusRail: React.FC<{
         </motion.div>
 
         {/* Texty a ovládanie */}
-        <div className="mx-auto mt-12 flex w-full max-w-4xl flex-col items-center justify-between gap-6 md:flex-row pointer-events-auto px-6">
+        <div className="mx-auto mt-8 md:mt-12 flex w-full max-w-4xl flex-col items-center justify-between gap-6 md:flex-row pointer-events-auto px-6">
           <div className="flex flex-1 flex-col items-center text-center md:items-start md:text-left h-32 justify-center">
             <AnimatePresence mode="wait">
               <motion.div
@@ -193,16 +179,16 @@ const FocusRail: React.FC<{
               >
                 {activeItem.meta && <span className="text-xs font-black uppercase tracking-widest text-brand">{activeItem.meta}</span>}
                 <h2 className="text-3xl font-black tracking-tight md:text-4xl text-white">{activeItem.title}</h2>
-                <p className="max-w-md text-neutral-400 font-medium">{activeItem.description}</p>
+                <p className="max-w-md text-neutral-300 font-medium">{activeItem.description}</p>
               </motion.div>
             </AnimatePresence>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 mt-4 md:mt-0">
-            <div className="flex items-center gap-1 rounded-full bg-neutral-900/80 p-1 ring-1 ring-white/10 backdrop-blur-md">
-              <button onClick={handlePrev} className="rounded-full p-3 text-neutral-400 transition hover:bg-brand hover:text-white active:scale-95"><ChevronLeft className="h-5 w-5" /></button>
-              <span className="min-w-[40px] text-center text-xs font-bold text-neutral-500">{activeIndex + 1} / {count}</span>
-              <button onClick={handleNext} className="rounded-full p-3 text-neutral-400 transition hover:bg-brand hover:text-white active:scale-95"><ChevronRight className="h-5 w-5" /></button>
+          <div className="flex flex-col sm:flex-row items-center gap-4 mt-2 md:mt-0">
+            <div className="flex items-center gap-1 rounded-full bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur-md">
+              <button onClick={handlePrev} className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"><ChevronLeft className="h-5 w-5" /></button>
+              <span className="min-w-[40px] text-center text-xs font-bold text-neutral-300">{activeIndex + 1} / {count}</span>
+              <button onClick={handleNext} className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"><ChevronRight className="h-5 w-5" /></button>
             </div>
             
             <button onClick={onClose} className="group flex items-center justify-center gap-2 rounded-full bg-brand px-8 py-3.5 text-sm font-black text-white transition-all hover:scale-105 active:scale-95 uppercase tracking-widest shadow-xl shadow-brand/30">
@@ -229,7 +215,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 500); // Počkať na dobehnutie animácií
+    setTimeout(onClose, 500);
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
@@ -276,7 +262,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   ];
 
   const content = (
-    <div className={`fixed inset-0 z-[99999] transition-opacity duration-500 bg-neutral-950 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    // TU JE ZMENA POZADIA: bg-black/70 a backdrop-blur-xl zabezpečia, že vidíš rozmazaný dashboard pod tým
+    <div className={`fixed inset-0 z-[99999] transition-opacity duration-500 bg-black/70 backdrop-blur-xl ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <FocusRail 
         items={GUIDE_ITEMS} 
         onClose={handleClose}
