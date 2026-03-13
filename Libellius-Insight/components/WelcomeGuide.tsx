@@ -58,6 +58,7 @@ const ControlledVideo = ({
       loop
       muted
       playsInline
+      preload="auto" // Pridané pre rýchlejšie prednačítanie
       className={className}
     />
   );
@@ -130,7 +131,9 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  const visibleIndices = [-1, 0, 1];
+  // Zmena: rozšírené o -2 a 2. Tieto karty nebudú viditeľné (opacity: 0), 
+  // ale ich video elementy sa prednačítajú v pozadí.
+  const visibleIndices = [-2, -1, 0, 1, 2];
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
@@ -154,7 +157,7 @@ const FocusRail: React.FC<{
         <X className="h-6 w-6" />
       </button>
 
-      {/* Výrazne tmavšie a menej čitateľné pozadie */}
+      {/* Pozadie */}
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/90 backdrop-blur-[14px]" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
@@ -162,7 +165,7 @@ const FocusRail: React.FC<{
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-8">
         {/* Horný onboarding blok */}
-        <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6">
+        <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6 shrink-0">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
             Rýchly sprievodca
           </div>
@@ -179,13 +182,13 @@ const FocusRail: React.FC<{
         </div>
 
         {/* Stage */}
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-1 items-center justify-center min-h-0 w-full overflow-hidden">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.12}
             onDragEnd={onDragEnd}
-            className="relative flex h-[60vh] sm:h-[64vh] md:h-[72vh] lg:h-[74vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            className="relative flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
             style={{ perspective: 2200 }}
           >
             {visibleIndices.map((offset) => {
@@ -196,11 +199,12 @@ const FocusRail: React.FC<{
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
+              const isVisible = dist <= 1; // Zobrazujeme iba strednú a bezprostredne susedné karty
 
               const xOffset = offset * (isMobile ? 195 : 420);
               const scale = isCenter ? 1 : 0.88;
               const rotateY = offset * -8;
-              const opacity = isCenter ? 1 : 0.5;
+              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0; // Karty s dist >= 2 sú úplne priehľadné
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
@@ -219,36 +223,36 @@ const FocusRail: React.FC<{
                     val === 'scale' ? TAP_SPRING : BASE_SPRING
                   }
                   onClick={() => {
-                    if (!isCenter) setActive((prev) => prev + offset);
+                    if (isVisible && !isCenter) setActive((prev) => prev + offset);
                   }}
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
+                    pointerEvents: isVisible ? 'auto' : 'none', // Skryté karty nesmú blokovať klikanie
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[3/4]',
-                    'w-[86vw] max-w-[440px]',
-                    'sm:w-[76vw] sm:max-w-[520px]',
-                    'md:w-[min(40vw,620px)]',
-                    'lg:w-[min(42vw,660px)]',
+                    // Zabezpečenie správneho zobrazenia bez ohľadu na výšku displeja
+                    'aspect-[3/4] w-auto max-w-[85vw]',
+                    'h-[55vh] max-h-[480px] sm:h-[60vh] md:h-[62vh] md:max-h-[640px]',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-white md:rounded-[1.65rem]">
+                  {/* Zmena: bg-white -> bg-neutral-900 pre hladšie zobrazenie predtým ako sa stihne video načítať */}
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-neutral-900 md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
                         isActive={isCenter}
-                        className="h-full w-full object-contain bg-white pointer-events-none"
+                        className="h-full w-full object-contain bg-neutral-900 pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        className="h-full w-full object-contain bg-white pointer-events-none"
+                        className="h-full w-full object-contain bg-neutral-900 pointer-events-none"
                       />
                     )}
 
@@ -268,7 +272,7 @@ const FocusRail: React.FC<{
         </div>
 
         {/* Spodný blok */}
-        <div className="mt-4 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:mt-6 md:p-6">
+        <div className="mt-4 shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:mt-6 md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
               <AnimatePresence mode="wait">
