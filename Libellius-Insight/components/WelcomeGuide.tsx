@@ -131,7 +131,6 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  // Návrat k lepšiemu výkonu
   const visibleIndices = [-1, 0, 1];
 
   const getMediaSrc = (item: FocusRailItem) =>
@@ -146,7 +145,6 @@ const FocusRail: React.FC<{
       tabIndex={0}
       onKeyDown={onKeyDown}
       onWheel={onWheel}
-      // Pevná výška a skrytý overflow podľa návrhu
       className="relative h-[100dvh] w-full overflow-hidden text-white outline-none select-none"
     >
       <button
@@ -163,7 +161,6 @@ const FocusRail: React.FC<{
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
 
-      {/* Wrapper flexibilne prispôsobený celej výške */}
       <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-14 md:px-8 md:pb-6 md:pt-6">
         {/* Horný onboarding blok */}
         <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6 shrink-0">
@@ -182,7 +179,7 @@ const FocusRail: React.FC<{
           </p>
         </div>
 
-        {/* Stage s optimalizovanou výškou pomocou min() */}
+        {/* Stage */}
         <div className="flex flex-1 items-center justify-center min-h-0 w-full">
           <motion.div
             drag="x"
@@ -204,7 +201,6 @@ const FocusRail: React.FC<{
               const xOffset = offset * (isMobile ? 180 : 360);
               const scale = isCenter ? 1 : 0.88;
               const rotateY = offset * -8;
-              // Keďže renderujeme len 3 karty, všetky sú aspoň čiastočne viditeľné
               const opacity = isCenter ? 1 : 0.5;
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
@@ -232,24 +228,27 @@ const FocusRail: React.FC<{
                   }}
                   className={cn(
                     'absolute h-full overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[3/4] w-auto', // Šírka sa dopočíta z výšky zachovaním pomeru strán
+                    'aspect-[3/4] w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-neutral-900 md:rounded-[1.65rem]">
+                  {/* ZMENA TU: bg-black namiesto bg-neutral-900 */}
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-black md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
                         isActive={isCenter}
-                        className="h-full w-full object-contain bg-neutral-900 pointer-events-none"
+                        // ZMENA TU: object-cover a odstránené bg z classname
+                        className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        className="h-full w-full object-contain bg-neutral-900 pointer-events-none"
+                        // ZMENA TU: object-cover
+                        className="h-full w-full object-cover pointer-events-none"
                       />
                     )}
 
