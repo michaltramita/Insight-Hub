@@ -25,8 +25,8 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-const BASE_SPRING = { type: 'spring', stiffness: 280, damping: 30, mass: 1 };
-const TAP_SPRING = { type: 'spring', stiffness: 420, damping: 24, mass: 1 };
+const BASE_SPRING = { type: 'spring', stiffness: 260, damping: 30, mass: 1 };
+const TAP_SPRING = { type: 'spring', stiffness: 380, damping: 24, mass: 1 };
 
 const ControlledVideo = ({
   src,
@@ -98,7 +98,7 @@ const FocusRail: React.FC<{
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       const now = Date.now();
-      if (now - lastWheelTime.current < 450) return;
+      if (now - lastWheelTime.current < 420) return;
 
       const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
       const delta = isHorizontal ? e.deltaX : e.deltaY;
@@ -117,7 +117,7 @@ const FocusRail: React.FC<{
     if (e.key === 'Escape') onClose();
   };
 
-  const swipeConfidenceThreshold = 9000;
+  const swipeConfidenceThreshold = 8500;
   const swipePower = (offset: number, velocity: number) =>
     Math.abs(offset) * velocity;
 
@@ -154,14 +154,15 @@ const FocusRail: React.FC<{
         <X className="h-6 w-6" />
       </button>
 
-      {/* Silnejšie utopenie dashboardu v pozadí */}
-      <div className="pointer-events-none absolute inset-0 z-0 bg-black/82 backdrop-blur-[10px]" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/70 via-black/45 to-black/85" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04),transparent_35%)]" />
+      {/* Výrazne tmavšie a menej čitateľné pozadie */}
+      <div className="pointer-events-none absolute inset-0 z-0 bg-black/90 backdrop-blur-[14px]" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-10">
-        {/* Horný intro blok */}
-        <div className="mx-auto mb-5 w-full max-w-3xl text-center md:mb-7">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 pb-8 pt-20 md:px-8 md:pb-10 md:pt-8">
+        {/* Horný onboarding blok */}
+        <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
             Rýchly sprievodca
           </div>
@@ -177,15 +178,15 @@ const FocusRail: React.FC<{
           </p>
         </div>
 
-        {/* Stage pre karusel */}
+        {/* Stage */}
         <div className="flex flex-1 items-center justify-center">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.14}
+            dragElastic={0.12}
             onDragEnd={onDragEnd}
-            className="relative flex h-[58vh] sm:h-[62vh] md:h-[68vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
-            style={{ perspective: 1800 }}
+            className="relative flex h-[60vh] sm:h-[64vh] md:h-[72vh] lg:h-[74vh] w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            style={{ perspective: 2200 }}
           >
             {visibleIndices.map((offset) => {
               const absIndex = active + offset;
@@ -196,12 +197,12 @@ const FocusRail: React.FC<{
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
 
-              const xOffset = offset * (isMobile ? 210 : 480);
-              const scale = isCenter ? 1 : 0.82;
-              const rotateY = offset * -10;
-              const opacity = isCenter ? 1 : 0.18;
-              const blur = isCenter ? 0 : 2;
-              const brightness = isCenter ? 1 : 0.38;
+              const xOffset = offset * (isMobile ? 195 : 420);
+              const scale = isCenter ? 1 : 0.88;
+              const rotateY = offset * -8;
+              const opacity = isCenter ? 1 : 0.5;
+              const blur = isCenter ? 0 : 0.6;
+              const brightness = isCenter ? 1 : 0.68;
 
               return (
                 <motion.div
@@ -225,16 +226,18 @@ const FocusRail: React.FC<{
                     zIndex: isCenter ? 30 : 20 - dist,
                   }}
                   className={cn(
-                    'absolute overflow-hidden rounded-[1.75rem] border bg-neutral-950/96 p-2 md:rounded-[2.25rem] md:p-3',
-                    'w-[84vw] h-[50vh] max-w-[500px] max-h-[760px]',
-                    'sm:w-[76vw] sm:h-[54vh] sm:max-w-[560px]',
-                    'md:w-[min(54vw,760px)] md:h-[min(62vh,760px)]',
+                    'absolute overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
+                    'aspect-[3/4]',
+                    'w-[86vw] max-w-[440px]',
+                    'sm:w-[76vw] sm:max-w-[520px]',
+                    'md:w-[min(40vw,620px)]',
+                    'lg:w-[min(42vw,660px)]',
                     isCenter
-                      ? 'border-brand/55 shadow-[0_0_80px_-20px_rgba(184,21,71,0.48)]'
-                      : 'border-white/10 shadow-2xl'
+                      ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
+                      : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  <div className="relative h-full w-full overflow-hidden rounded-[1.15rem] bg-white md:rounded-[1.5rem]">
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-white md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
@@ -250,8 +253,12 @@ const FocusRail: React.FC<{
                     )}
 
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-transparent" />
+
                     {!isCenter && (
-                      <div className="pointer-events-none absolute inset-0 bg-black/55" />
+                      <>
+                        <div className="pointer-events-none absolute inset-0 bg-black/28" />
+                        <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />
+                      </>
                     )}
                   </div>
                 </motion.div>
@@ -260,8 +267,8 @@ const FocusRail: React.FC<{
           </motion.div>
         </div>
 
-        {/* Spodný informačný blok */}
-        <div className="mt-5 rounded-[1.75rem] bg-black/72 p-4 backdrop-blur-xl md:mt-8 md:p-6">
+        {/* Spodný blok */}
+        <div className="mt-4 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:mt-6 md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
               <AnimatePresence mode="wait">
