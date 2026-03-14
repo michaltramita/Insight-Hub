@@ -360,15 +360,15 @@ const FocusRail: React.FC<{
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
   const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
-
-  // Zistenie, ci ide o sdielany view, len pre zobrazenie FAB
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+  const hasAutoStarted = useRef(false); // Toto zabráni opätovnému spusteniu
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
-    // Upravené, aby sa to spúšťalo s delayom len ak je to povolené (napr. na začiatku)
-    if (autoStartDelay > 0 && isSharedView && !isVisible) {
+    // Spustí sa LEN RAZ (hasAutoStarted.current === false) a len pre klienta
+    if (autoStartDelay > 0 && isSharedView && !hasAutoStarted.current) {
+      hasAutoStarted.current = true;
       timer = setTimeout(() => {
         setIsVisible(true);
       }, autoStartDelay);
@@ -377,7 +377,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [autoStartDelay, isSharedView, isVisible]);
+  }, [autoStartDelay, isSharedView]);
 
   useEffect(() => {
     if (isVisible) {
@@ -393,7 +393,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
 
   const handleClose = () => {
     setIsVisible(false);
-    // Zachovanie povodneho onClose po dobehu animacie, ak tam nejake je.
     setTimeout(onClose, 1500); 
   };
 
@@ -454,10 +453,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
 
   return createPortal(
     <>
-      {/* PLÁVAJÚCE TLAČIDLO (FAB)
-        Viditeľné len vtedy, keď je samotný sprievodca zatvorený (!isVisible) 
-        a keď sa naň pozerá klient (isSharedView) 
-      */}
+      {/* PLÁVAJÚCE TLAČIDLO (FAB) */}
       {!isVisible && isSharedView && (
         <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
           {/* DESKTOP */}
