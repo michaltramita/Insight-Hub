@@ -14,6 +14,9 @@ type FocusRailItem = {
   description?: string;
   mediaSrc: string;
   mobileImageSrc?: string;
+  // NOVÉ: Pridaná podpora pre statický obrázok
+  posterSrc?: string; 
+  mobilePosterSrc?: string;
   meta?: string;
 };
 
@@ -25,53 +28,48 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
+// Ponechané plynulé a rozvážne animácie
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
 const ControlledVideo = ({
   src,
+  poster,
   isActive,
   className,
-  onReady, // Nový prop pre oznámenie, že video je pripravené
 }: {
   src: string;
+  poster?: string;
   isActive: boolean;
   className?: string;
-  onReady?: () => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Spustenie/zastavenie videa
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     if (isActive) {
       video.currentTime = 0;
-      video.play().catch(() => null);
+      // Pridaný malý timeout pre istotu, aby prehliadač stihol spracovať zmenu stavu
+      setTimeout(() => {
+        video.play().catch(() => null);
+      }, 50);
     } else {
       video.pause();
     }
   }, [isActive, src]);
 
-  // Kontrola, či už video nie je v cachi (okamžité načítanie)
-  useEffect(() => {
-    if (videoRef.current && videoRef.current.readyState >= 2) {
-      onReady?.();
-    }
-  }, [src, onReady]);
-
   return (
     <video
       ref={videoRef}
       src={src}
+      poster={poster} // Prehliadač ukáže tento obrázok okamžite, kým sťahuje video
       loop
       muted
       playsInline
       preload="auto"
       className={className}
-      // Vystrelí udalosť hneď, ako prehliadač stiahne prvý obrázok videa
-      onLoadedData={() => onReady?.()} 
     />
   );
 };
@@ -79,8 +77,7 @@ const ControlledVideo = ({
 const FocusRail: React.FC<{
   items: FocusRailItem[];
   onClose: () => void;
-  onReady: () => void; // Prijímame onReady zhora
-}> = ({ items, onClose, onReady }) => {
+}> = ({ items, onClose }) => {
   const [active, setActive] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const lastWheelTime = useRef<number>(0);
@@ -148,6 +145,9 @@ const FocusRail: React.FC<{
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
+    
+  const getPosterSrc = (item: FocusRailItem) =>
+    isMobile && item.mobilePosterSrc ? item.mobilePosterSrc : item.posterSrc;
 
   const isVideo = (src: string) =>
     src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm');
@@ -204,6 +204,7 @@ const FocusRail: React.FC<{
               const index = wrap(0, count, absIndex);
               const item = items[index];
               const mediaSrc = getMediaSrc(item);
+              const posterSrc = getPosterSrc(item);
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
@@ -216,9 +217,6 @@ const FocusRail: React.FC<{
               const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
-
-              // Zistíme, či ide úplne prvú štartovaciu kartu v strede obrazovky
-              const isInitialCenterCard = offset === 0 && active === 0;
 
               return (
                 <motion.div
@@ -257,15 +255,14 @@ const FocusRail: React.FC<{
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
+                        poster={posterSrc}
                         isActive={isCenter}
-                        onReady={isInitialCenterCard ? onReady : undefined}
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        onLoad={isInitialCenterCard ? onReady : undefined}
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     )}
@@ -287,6 +284,7 @@ const FocusRail: React.FC<{
 
         <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            {/* Fixná výška proti poskakovaniu textu */}
             <div className="h-[160px] sm:h-[140px] md:h-[120px] flex-1">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -354,27 +352,16 @@ const FocusRail: React.FC<{
 };
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
-  // Pôvodne sa zobrazovalo hneď, teraz čakáme (false)
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Vrátené okamžité zobrazenie po namountovaní
+    setIsVisible(true);
     document.body.style.overflow = 'hidden';
 
-    // Poistka: Ak by načítanie videa zlyhalo alebo trvalo pridlho (> 1 sekundu),
-    // zobrazíme okno aj tak, aby sme nenechali používateľa pozerať do prázdna.
-    const fallbackTimer = setTimeout(() => {
-      setIsVisible(true);
-    }, 1000);
-
     return () => {
-      clearTimeout(fallbackTimer);
       document.body.style.overflow = '';
     };
-  }, []);
-
-  // Táto funkcia sa zavolá zospodu, keď prvé video úspešne stiahne prvý frame
-  const handleReady = useCallback(() => {
-    setIsVisible(true);
   }, []);
 
   const handleClose = () => {
@@ -391,6 +378,9 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Funkcia 1',
       mediaSrc: '/zapojenie.mp4',
       mobileImageSrc: '/zapojenie-mobil.mp4',
+      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
+      posterSrc: '/zapojenie-poster.png',
+      mobilePosterSrc: '/zapojenie-mobil-poster.png',
     },
     {
       id: 2,
@@ -400,6 +390,9 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Analýza AI',
       mediaSrc: '/otazky.mp4',
       mobileImageSrc: '/otazky-mobil.mp4',
+      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
+      posterSrc: '/otazky-poster.png',
+      mobilePosterSrc: '/otazky-mobil-poster.png',
     },
     {
       id: 3,
@@ -409,6 +402,9 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Detailný pohľad',
       mediaSrc: '/tim.mp4',
       mobileImageSrc: '/tim-mobil.mp4',
+      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
+      posterSrc: '/tim-poster.png',
+      mobilePosterSrc: '/tim-mobil-poster.png',
     },
     {
       id: 4,
@@ -418,6 +414,9 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Súvislosti',
       mediaSrc: '/porovnanie.mp4',
       mobileImageSrc: '/porovnanie-mobil.mp4',
+      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
+      posterSrc: '/porovnanie-poster.png',
+      mobilePosterSrc: '/porovnanie-mobil-poster.png',
     },
     {
       id: 5,
@@ -427,18 +426,20 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Prezentácia',
       mediaSrc: '/export.mp4',
       mobileImageSrc: '/export-mobil.mp4',
+      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
+      posterSrc: '/export-poster.png',
+      mobilePosterSrc: '/export-mobil-poster.png',
     },
   ];
 
   const content = (
     <div
       className={cn(
-        // Trošku predĺžený transition (500ms) pre naozaj krémové a plynulé zobrazenie
-        'fixed inset-0 z-[99999] transition-opacity duration-500 ease-out',
+        'fixed inset-0 z-[99999] transition-opacity duration-300',
         isVisible ? 'opacity-100' : 'opacity-0'
       )}
     >
-      <FocusRail items={GUIDE_ITEMS} onClose={handleClose} onReady={handleReady} />
+      <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
     </div>
   );
 
