@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 interface WelcomeGuideProps {
   onClose: () => void;
   clientName?: string;
-  // NOVÉ: Možnosť nastaviť odložený štart v milisekundách (napr. 1500)
   autoStartDelay?: number; 
 }
 
@@ -360,15 +359,12 @@ const FocusRail: React.FC<{
   );
 };
 
-// ZMENA: autoStartDelay defaultne 0 (okamžité spustenie po kliku z menu)
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 0 }) => {
-  // Ak je delay 0, komponent sa zobrazí hneď. Ak je väčší, čaká.
   const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
-    // Ak sme poslali autoStartDelay z rodiča, zapneme odpočet
     if (autoStartDelay > 0) {
       timer = setTimeout(() => {
         setIsVisible(true);
@@ -380,7 +376,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 0
     };
   }, [autoStartDelay]);
 
-  // Posúvanie na stránke uzamkneme AŽ VTEDY, keď sprievodca reálne prekryje obrazovku
   useEffect(() => {
     if (isVisible) {
       document.body.style.overflow = 'hidden';
