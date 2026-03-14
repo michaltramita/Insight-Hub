@@ -4,8 +4,10 @@ import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
+// ZMENA: Importni si WelcomeGuide a ikonku HelpCircle (alebo akúkoľvek inú z lucide-react)
+import WelcomeGuide from './WelcomeGuide'; // <--- UPRAV CESTU AK JE INÁ
 import {
-  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare
+  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare, HelpCircle
 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +24,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [copyStatus, setCopyStatus] = useState(false);
+  
+  // ZMENA: Stav pre ovládanie sprievodcu. Defaultne je true, čiže po načítaní Dashboardu sa hneď pripravuje.
+  const [showGuide, setShowGuide] = useState(true);
+  // ZMENA: Stav, ktorý nám hovorí, či sprievodcu zapol používateľ kliknutím (vtedy nechceme 2s čakať)
+  const [isGuideStartedManually, setIsGuideStartedManually] = useState(false);
 
   const generateShareLink = async () => {
     try {
@@ -74,6 +81,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       });
   }, [data]);
 
+  // Funkcia pre manuálne otvorenie sprievodcu z menu
+  const openGuideManually = () => {
+    setIsGuideStartedManually(true);
+    setShowGuide(true);
+  };
+
   if (!data) return null;
 
   const areaTabs = (data.areas || []).map((area: any, idx: number) => {
@@ -89,6 +102,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+      {/* ZMENA: Podmienka na zobrazenie WelcomeGuide */}
+      {showGuide && (
+        <WelcomeGuide 
+          onClose={() => setShowGuide(false)} 
+          // Ak ho otvoril používateľ klikom, delay je 0. Ak sa otvára sám po štarte, čaká 2000ms
+          autoStartDelay={isGuideStartedManually ? 0 : 2000} 
+        />
+      )}
+
       <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
         <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
 
@@ -125,6 +147,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
+              {/* ZMENA: Tlačidlo na manuálne otvorenie sprievodcu kedykoľvek neskôr */}
+              <button onClick={openGuideManually} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-brand text-white hover:bg-brand/90 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl">
+                <HelpCircle className="w-4 h-4" /> Sprievodca reportom
+              </button>
+              
               {!isSharedView && (
                 <>
                   <button onClick={generateShareLink} className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
