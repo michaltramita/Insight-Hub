@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ArrowRight } from 'lucide-react';
 
 interface WelcomeGuideProps {
-  onClose: () => void;
+  onClose?: () => void;
   clientName?: string;
   autoStartDelay?: number;
 }
@@ -358,16 +358,15 @@ const FocusRail: React.FC<{
   );
 };
 
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
-  const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) => {
+  const [isVisible, setIsVisible] = useState(false);
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
-  const hasAutoStarted = useRef(false); // Toto zabráni opätovnému spusteniu
+  const hasAutoStarted = useRef(false);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
-    // Spustí sa LEN RAZ (hasAutoStarted.current === false) a len pre klienta
-    if (autoStartDelay > 0 && isSharedView && !hasAutoStarted.current) {
+    if (isSharedView && autoStartDelay > 0 && !hasAutoStarted.current) {
       hasAutoStarted.current = true;
       timer = setTimeout(() => {
         setIsVisible(true);
@@ -385,7 +384,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     } else {
       document.body.style.overflow = '';
     }
-
     return () => {
       document.body.style.overflow = '';
     };
@@ -393,15 +391,13 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 1500); 
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
     {
       id: 1,
       title: 'Zapojenie účastníkov',
-      description:
-        'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
+      description: 'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
       meta: 'Funkcia 1',
       mediaSrc: '/zapojenie.mp4',
       mobileImageSrc: '/zapojenie-mobil.mp4',
@@ -410,8 +406,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     {
       id: 2,
       title: 'Otvorené otázky',
-      description:
-        'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si odporúčania od AI.',
+      description: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si odporúčania od AI.',
       meta: 'Analýza AI',
       mediaSrc: '/otazky.mp4',
       mobileImageSrc: '/otazky-mobil.mp4',
@@ -420,8 +415,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     {
       id: 3,
       title: 'Hodnotenie tímov',
-      description:
-        'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok.',
+      description: 'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok.',
       meta: 'Detailný pohľad',
       mediaSrc: '/tim.mp4',
       mobileImageSrc: '/tim-mobil.mp4',
@@ -430,8 +424,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     {
       id: 4,
       title: 'Porovnávanie tímov',
-      description:
-        'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.',
+      description: 'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.',
       meta: 'Súvislosti',
       mediaSrc: '/porovnanie.mp4',
       mobileImageSrc: '/porovnanie-mobil.mp4',
@@ -440,8 +433,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     {
       id: 5,
       title: 'Export súborov',
-      description:
-        'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok.',
+      description: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok.',
       meta: 'Prezentácia',
       mediaSrc: '/export.mp4',
       mobileImageSrc: '/export-mobil.mp4',
@@ -453,34 +445,33 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
 
   return createPortal(
     <>
-      {/* PLÁVAJÚCE TLAČIDLO (FAB) */}
+      {/* PLÁVAJÚCE TLAČIDLO (MOTION BUTTON STYLE) */}
       {!isVisible && isSharedView && (
         <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
-          {/* DESKTOP */}
           <button
             onClick={() => setIsVisible(true)}
-            className="hidden xl:flex group items-center bg-white border border-black/5 rounded-full h-[54px] pl-4 pr-4 hover:pr-6 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-[0_8px_30px_rgb(0,0,0,0.12)] cursor-pointer"
+            className="group relative flex h-14 w-60 cursor-pointer items-center rounded-full bg-white/90 p-1 outline-none border border-black/5 shadow-xl backdrop-blur-sm transition-all hover:w-64"
           >
-            <Sparkles className="w-6 h-6 text-brand shrink-0" />
-            <div className="grid grid-cols-[0fr] group-hover:grid-cols-[1fr] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
-              <span className="overflow-hidden whitespace-nowrap font-black text-[11px] sm:text-[12px] uppercase tracking-[0.15em] text-black flex items-center">
-                <span className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                  Sprievodca reportom
-                </span>
-              </span>
-            </div>
-          </button>
+            {/* Animovaný kruh s ikonou */}
+            <span
+              className="absolute left-1 top-1 block h-12 w-12 rounded-full bg-brand duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:w-[calc(100%-8px)]"
+              aria-hidden="true"
+            ></span>
 
-          {/* MOBIL */}
-          <button
-            onClick={() => setIsVisible(true)}
-            className="xl:hidden flex items-center justify-center bg-white border border-black/5 rounded-full h-[54px] w-[54px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-brand active:scale-95 transition-transform"
-          >
-            <Sparkles className="w-6 h-6" />
+            {/* Ikona šípky (z tvojho MotionButton dizajnu) */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1">
+              <ArrowRight className="h-6 w-6 text-white" />
+            </div>
+
+            {/* Text tlačidla */}
+            <span className="absolute left-1/2 top-1/2 ml-4 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-[10px] font-black uppercase tracking-widest text-black transition-colors duration-500 group-hover:text-white">
+              Sprievodca reportom
+            </span>
           </button>
         </div>
       )}
 
+      {/* SAMOTNÝ SPRIEVODCA (WELCOME GUIDE) */}
       <AnimatePresence>
         {isVisible && (
           <>
