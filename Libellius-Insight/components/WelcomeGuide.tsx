@@ -292,14 +292,14 @@ const FocusRail: React.FC<{
           </motion.div>
         </div>
 
-        <div className="mt-auto shrink-0 rounded-[1.25rem] bg-black/78 p-3 sm:p-4 backdrop-blur-xl md:rounded-[1.75rem] md:p-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="relative mt-auto shrink-0 p-3 sm:p-4 md:p-6">
+          <div className="pointer-events-none absolute inset-0 z-0 rounded-[1.25rem] bg-black/78 backdrop-blur-xl md:rounded-[1.75rem]" />
+
+          <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="h-[75px] sm:h-[80px] md:h-[120px] flex-1">
-              {/* ZMENA: initial={false} zabráni počiatočnej animácii pri štarte */}
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={activeItem.id}
-                  // ZMENA: Odstránený 'filter blur' kvôli čiernemu glitchu v Safari/Chrome
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -363,10 +363,10 @@ const FocusRail: React.FC<{
 };
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
-  const [isVisible, setIsVisible] = useState(false);
+  // PREDTÝM: false. TERAZ: true - Framer Motion sa postará o prvotný fade-in
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    setIsVisible(true);
     document.body.style.overflow = 'hidden';
 
     return () => {
@@ -375,8 +375,10 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   }, []);
 
   const handleClose = () => {
+    // Spustí exit animáciu
     setIsVisible(false);
-    setTimeout(onClose, 300);
+    // Počkáme 800ms kým animácia dobehne, a až potom komponent reálne odpojíme z DOM-u
+    setTimeout(onClose, 800);
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
@@ -433,14 +435,20 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   ];
 
   const content = (
-    <div
-      className={cn(
-        'fixed inset-0 z-[99999] transition-opacity duration-300',
-        isVisible ? 'opacity-100' : 'opacity-0'
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          // TOTO RIEŠI PLYNULÝ VSTUP A VÝSTUP (fade in / fade out na 0.8 sekundy)
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8, ease: [0.25, 1, 0.5, 1] }}
+          className="fixed inset-0 z-[99999]"
+        >
+          <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+        </motion.div>
       )}
-    >
-      <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
-    </div>
+    </AnimatePresence>
   );
 
   if (typeof document === 'undefined') return null;
