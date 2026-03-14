@@ -231,9 +231,10 @@ const FocusRail: React.FC<{
               return (
                 <motion.div
                   key={`${item.id}-${absIndex}`}
-                  initial={false}
+                  initial={{ opacity: 0, scale: 0.85, y: 30, x: xOffset, rotateY }}
                   animate={{
                     x: xOffset,
+                    y: 0,
                     scale,
                     rotateY,
                     opacity,
@@ -255,7 +256,9 @@ const FocusRail: React.FC<{
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[1638/2186] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
+                    // ZMENA: Karta je teraz užšia (aspect-[2/3]).
+                    // Ak by si chcel extrémne úzku (mobilný formát bez pruhov), prepíš to na 'aspect-[9/16]'
+                    'aspect-[2/3] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
@@ -363,7 +366,6 @@ const FocusRail: React.FC<{
 };
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
-  // PREDTÝM: false. TERAZ: true - Framer Motion sa postará o prvotný fade-in
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -375,10 +377,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   }, []);
 
   const handleClose = () => {
-    // Spustí exit animáciu
     setIsVisible(false);
-    // Počkáme 800ms kým animácia dobehne, a až potom komponent reálne odpojíme z DOM-u
-    setTimeout(onClose, 800);
+    setTimeout(onClose, 1500);
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
@@ -438,11 +438,10 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          // TOTO RIEŠI PLYNULÝ VSTUP A VÝSTUP (fade in / fade out na 0.8 sekundy)
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: [0.25, 1, 0.5, 1] }}
+          transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
           className="fixed inset-0 z-[99999]"
         >
           <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
