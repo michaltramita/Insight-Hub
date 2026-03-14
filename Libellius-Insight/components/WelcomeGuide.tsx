@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
 
 interface WelcomeGuideProps {
   onClose: () => void;
   clientName?: string;
-  autoStartDelay?: number; 
+  autoStartDelay?: number;
 }
 
 type FocusRailItem = {
@@ -15,7 +15,7 @@ type FocusRailItem = {
   description?: string;
   mediaSrc: string;
   mobileImageSrc?: string;
-  posterSrc?: string; 
+  posterSrc?: string;
   mobilePosterSrc?: string;
   meta?: string;
 };
@@ -71,7 +71,7 @@ const ControlledVideo = ({
           )}
         />
       )}
-      
+
       <video
         ref={videoRef}
         src={src}
@@ -157,7 +157,7 @@ const FocusRail: React.FC<{
 
   const getMediaSrc = (item: FocusRailItem) =>
     isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
-    
+
   const getPosterSrc = (item: FocusRailItem) =>
     isMobile && item.mobilePosterSrc ? item.mobilePosterSrc : item.posterSrc;
 
@@ -191,8 +191,7 @@ const FocusRail: React.FC<{
           </h1>
 
           <p className="mx-auto mt-2 max-w-2xl text-xs sm:text-sm font-medium leading-relaxed text-neutral-300 md:text-base">
-            Váš report je pripravený. Pozrite si krátky prehľad hlavných
-            funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie.
+            Váš report je pripravený. Pozrite si krátky prehľad hlavných funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie.
           </p>
         </div>
 
@@ -218,7 +217,7 @@ const FocusRail: React.FC<{
 
               const xOffset = Math.round(offset * (isMobile ? 140 : 360));
               const rotateY = Math.round(offset * -8);
-              
+
               const scale = isCenter ? 1 : 0.88;
               const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
               const blur = isCenter ? 0 : 0.6;
@@ -238,7 +237,7 @@ const FocusRail: React.FC<{
                   }}
                   transition={{
                     default: BASE_SPRING,
-                    scale: TAP_SPRING
+                    scale: TAP_SPRING,
                   }}
                   onClick={() => {
                     if (isVisible && !isCenter) setActive((prev) => prev + offset);
@@ -362,10 +361,14 @@ const FocusRail: React.FC<{
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
   const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
 
+  // Zistenie, ci ide o sdielany view, len pre zobrazenie FAB
+  const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
-    if (autoStartDelay > 0) {
+    // Upravené, aby sa to spúšťalo s delayom len ak je to povolené (napr. na začiatku)
+    if (autoStartDelay > 0 && isSharedView && !isVisible) {
       timer = setTimeout(() => {
         setIsVisible(true);
       }, autoStartDelay);
@@ -374,7 +377,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [autoStartDelay]);
+  }, [autoStartDelay, isSharedView, isVisible]);
 
   useEffect(() => {
     if (isVisible) {
@@ -390,7 +393,8 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 1500);
+    // Zachovanie povodneho onClose po dobehu animacie, ak tam nejake je.
+    setTimeout(onClose, 1500); 
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
@@ -446,38 +450,71 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1
     },
   ];
 
-  const content = (
-    <AnimatePresence>
-      {isVisible && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
-            className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
-            <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
-            className="fixed inset-0 z-[99999] pointer-events-auto"
-          >
-            <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-
   if (typeof document === 'undefined') return null;
-  return createPortal(content, document.body);
+
+  return createPortal(
+    <>
+      {/* PLÁVAJÚCE TLAČIDLO (FAB)
+        Viditeľné len vtedy, keď je samotný sprievodca zatvorený (!isVisible) 
+        a keď sa naň pozerá klient (isSharedView) 
+      */}
+      {!isVisible && isSharedView && (
+        <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
+          {/* DESKTOP */}
+          <button
+            onClick={() => setIsVisible(true)}
+            className="hidden xl:flex group items-center bg-white border border-black/5 rounded-full h-[54px] pl-4 pr-4 hover:pr-6 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-[0_8px_30px_rgb(0,0,0,0.12)] cursor-pointer"
+          >
+            <Sparkles className="w-6 h-6 text-brand shrink-0" />
+            <div className="grid grid-cols-[0fr] group-hover:grid-cols-[1fr] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
+              <span className="overflow-hidden whitespace-nowrap font-black text-[11px] sm:text-[12px] uppercase tracking-[0.15em] text-black flex items-center">
+                <span className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+                  Sprievodca reportom
+                </span>
+              </span>
+            </div>
+          </button>
+
+          {/* MOBIL */}
+          <button
+            onClick={() => setIsVisible(true)}
+            className="xl:hidden flex items-center justify-center bg-white border border-black/5 rounded-full h-[54px] w-[54px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-brand active:scale-95 transition-transform"
+          >
+            <Sparkles className="w-6 h-6" />
+          </button>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {isVisible && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+              className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
+              <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+              className="fixed inset-0 z-[99999] pointer-events-auto"
+            >
+              <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>,
+    document.body
+  );
 };
 
 export default WelcomeGuide;
