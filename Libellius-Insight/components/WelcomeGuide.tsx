@@ -25,7 +25,7 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-// Výrazne spomalené animácie (viac ako dvojnásobný čas) pre kľudnejší prechod
+// Výrazne spomalené animácie pre kľudnejší a plynulejší prechod
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
@@ -197,6 +197,7 @@ const FocusRail: React.FC<{
               const dist = Math.abs(offset);
               const isVisible = dist <= 1;
 
+              // Zaokrúhlenie pre plynulejší render
               const xOffset = Math.round(offset * (isMobile ? 180 : 360));
               const rotateY = Math.round(offset * -8);
               
@@ -216,9 +217,11 @@ const FocusRail: React.FC<{
                     opacity,
                     filter: `blur(${blur}px) brightness(${brightness})`,
                   }}
-                  transition={(val) =>
-                    val === 'scale' ? TAP_SPRING : BASE_SPRING
-                  }
+                  // SPRÁVNY ZÁPIS transition - teraz bude fungovať spomalenie
+                  transition={{
+                    default: BASE_SPRING,
+                    scale: TAP_SPRING
+                  }}
                   onClick={() => {
                     if (isVisible && !isCenter) setActive((prev) => prev + offset);
                   }}
