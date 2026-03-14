@@ -4,8 +4,9 @@ import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
+import WelcomeGuide from './WelcomeGuide'; // Pridaný import Sprievodcu
 import {
-  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare
+  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare, HelpCircle
 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +23,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [copyStatus, setCopyStatus] = useState(false);
+
+  // Stav pre Sprievodcu - automaticky sa zapne len ak ide o klientský náhľad
+  const [showGuide, setShowGuide] = useState(isSharedView);
+  // Stav na sledovanie, či bol Sprievodca spustený manuálne z tlačidla
+  const [isGuideStartedManually, setIsGuideStartedManually] = useState(false);
 
   const generateShareLink = async () => {
     try {
@@ -74,6 +80,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       });
   }, [data]);
 
+  // Funkcia pre ručné otvorenie sprievodcu (bez zdržania)
+  const openGuideManually = () => {
+    setIsGuideStartedManually(true);
+    setShowGuide(true);
+  };
+
   if (!data) return null;
 
   const areaTabs = (data.areas || []).map((area: any, idx: number) => {
@@ -89,6 +101,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   return (
     <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+      {/* Inštancia WelcomeGuide. Bude viditeľná len keď je showGuide = true.
+          Ak ju zapol manuálne (cez tlačidlo), delay bude 0. Inak použije svoj prednastavený (1500). */}
+      {showGuide && (
+        <WelcomeGuide
+          onClose={() => setShowGuide(false)}
+          autoStartDelay={isGuideStartedManually ? 0 : undefined}
+        />
+      )}
       <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
         <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
 
@@ -125,6 +145,33 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:gap-3 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-1 sm:pt-2 md:pt-4 xl:pt-0">
+              {/* TLAČIDLÁ PRE KLIENTA (IBA NA ZDIEĽANOM LINKU) */}
+              {isSharedView && (
+                <>
+                  <button 
+                    onClick={openGuideManually} 
+                    className="hidden xl:flex group items-center justify-center bg-brand text-white rounded-full h-[54px] px-4 hover:px-7 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-xl overflow-hidden ml-auto origin-right"
+                  >
+                    <HelpCircle className="w-5 h-5 shrink-0" />
+                    <div className="grid grid-cols-[0fr] group-hover:grid-cols-[1fr] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
+                      <span className="overflow-hidden whitespace-nowrap font-black text-[11px] uppercase tracking-widest flex items-center">
+                        <span className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+                          Sprievodca reportom
+                        </span>
+                      </span>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={openGuideManually} 
+                    className="xl:hidden w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-brand text-white hover:bg-brand/90 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl"
+                  >
+                    <HelpCircle className="w-4 h-4" /> Sprievodca reportom
+                  </button>
+                </>
+              )}
+
+              {/* TLAČIDLÁ PRE ADMINA */}
               {!isSharedView && (
                 <>
                   <button onClick={generateShareLink} className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${copyStatus ? 'bg-green-600 text-white scale-105' : 'bg-white border-2 border-brand text-brand hover:bg-brand hover:text-white'}`}>
@@ -136,6 +183,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   </button>
                 </>
               )}
+              
               <button onClick={onReset} className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group">
                 <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
                 {isSharedView ? 'Zavrieť report' : 'Zavrieť'}
