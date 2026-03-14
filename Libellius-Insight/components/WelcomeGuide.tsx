@@ -32,13 +32,16 @@ const ControlledVideo = ({
   src,
   isActive,
   className,
+  onReady, // Nový prop pre oznámenie, že video je pripravené
 }: {
   src: string;
   isActive: boolean;
   className?: string;
+  onReady?: () => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Spustenie/zastavenie videa
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -51,6 +54,13 @@ const ControlledVideo = ({
     }
   }, [isActive, src]);
 
+  // Kontrola, či už video nie je v cachi (okamžité načítanie)
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      onReady?.();
+    }
+  }, [src, onReady]);
+
   return (
     <video
       ref={videoRef}
@@ -60,6 +70,8 @@ const ControlledVideo = ({
       playsInline
       preload="auto"
       className={className}
+      // Vystrelí udalosť hneď, ako prehliadač stiahne prvý obrázok videa
+      onLoadedData={() => onReady?.()} 
     />
   );
 };
@@ -67,7 +79,8 @@ const ControlledVideo = ({
 const FocusRail: React.FC<{
   items: FocusRailItem[];
   onClose: () => void;
-}> = ({ items, onClose }) => {
+  onReady: () => void; // Prijímame onReady zhora
+}> = ({ items, onClose, onReady }) => {
   const [active, setActive] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const lastWheelTime = useRef<number>(0);
@@ -204,6 +217,9 @@ const FocusRail: React.FC<{
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
+              // Zistíme, či ide úplne prvú štartovaciu kartu v strede obrazovky
+              const isInitialCenterCard = offset === 0 && active === 0;
+
               return (
                 <motion.div
                   key={`${item.id}-${absIndex}`}
@@ -242,12 +258,14 @@ const FocusRail: React.FC<{
                       <ControlledVideo
                         src={mediaSrc}
                         isActive={isCenter}
+                        onReady={isInitialCenterCard ? onReady : undefined}
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
+                        onLoad={isInitialCenterCard ? onReady : undefined}
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     )}
@@ -269,7 +287,6 @@ const FocusRail: React.FC<{
 
         <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            {/* ZMENA TU: Pevná výška textového kontajnera zabráni posúvaniu Stage-u */}
             <div className="h-[160px] sm:h-[140px] md:h-[120px] flex-1">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -337,15 +354,27 @@ const FocusRail: React.FC<{
 };
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
+  // Pôvodne sa zobrazovalo hneď, teraz čakáme (false)
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    setIsVisible(true);
     document.body.style.overflow = 'hidden';
 
+    // Poistka: Ak by načítanie videa zlyhalo alebo trvalo pridlho (> 1 sekundu),
+    // zobrazíme okno aj tak, aby sme nenechali používateľa pozerať do prázdna.
+    const fallbackTimer = setTimeout(() => {
+      setIsVisible(true);
+    }, 1000);
+
     return () => {
+      clearTimeout(fallbackTimer);
       document.body.style.overflow = '';
     };
+  }, []);
+
+  // Táto funkcia sa zavolá zospodu, keď prvé video úspešne stiahne prvý frame
+  const handleReady = useCallback(() => {
+    setIsVisible(true);
   }, []);
 
   const handleClose = () => {
@@ -404,11 +433,12 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const content = (
     <div
       className={cn(
-        'fixed inset-0 z-[99999] transition-opacity duration-300',
+        // Trošku predĺžený transition (500ms) pre naozaj krémové a plynulé zobrazenie
+        'fixed inset-0 z-[99999] transition-opacity duration-500 ease-out',
         isVisible ? 'opacity-100' : 'opacity-0'
       )}
     >
-      <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+      <FocusRail items={GUIDE_ITEMS} onClose={handleClose} onReady={handleReady} />
     </div>
   );
 
