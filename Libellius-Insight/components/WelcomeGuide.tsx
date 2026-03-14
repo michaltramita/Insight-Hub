@@ -25,7 +25,6 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-// Výrazne spomalené animácie pre kľudnejší a plynulejší prechod
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
@@ -197,7 +196,6 @@ const FocusRail: React.FC<{
               const dist = Math.abs(offset);
               const isVisible = dist <= 1;
 
-              // Zaokrúhlenie pre plynulejší render
               const xOffset = Math.round(offset * (isMobile ? 180 : 360));
               const rotateY = Math.round(offset * -8);
               
@@ -217,7 +215,6 @@ const FocusRail: React.FC<{
                     opacity,
                     filter: `blur(${blur}px) brightness(${brightness})`,
                   }}
-                  // SPRÁVNY ZÁPIS transition - teraz bude fungovať spomalenie
                   transition={{
                     default: BASE_SPRING,
                     scale: TAP_SPRING
@@ -272,7 +269,8 @@ const FocusRail: React.FC<{
 
         <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="min-h-[110px] flex-1">
+            {/* ZMENA TU: Pevná výška textového kontajnera zabráni posúvaniu Stage-u */}
+            <div className="h-[160px] sm:h-[140px] md:h-[120px] flex-1">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeItem.id}
