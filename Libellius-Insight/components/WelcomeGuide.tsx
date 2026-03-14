@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
 
 interface WelcomeGuideProps {
   onClose?: () => void;
@@ -360,6 +360,7 @@ const FocusRail: React.FC<{
 
 const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
   const hasAutoStarted = useRef(false);
 
@@ -445,28 +446,47 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) =>
 
   return createPortal(
     <>
-      {/* PLÁVAJÚCE TLAČIDLO (MOTION BUTTON STYLE) */}
+      {/* PLÁVAJÚCE TLAČIDLO (ANIMOVANÉ ROZBALENIE) */}
       {!isVisible && isSharedView && (
         <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
-          <button
-            onClick={() => setIsVisible(true)}
-            className="group relative flex h-14 w-60 cursor-pointer items-center rounded-full bg-white/90 p-1 outline-none border border-black/5 shadow-xl backdrop-blur-sm transition-all hover:w-64"
+          <button 
+            onClick={() => setIsVisible(true)} 
+            className="relative flex items-center justify-center outline-none border-none bg-transparent"
           >
-            {/* Animovaný kruh s ikonou */}
-            <span
-              className="absolute left-1 top-1 block h-12 w-12 rounded-full bg-brand duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:w-[calc(100%-8px)]"
-              aria-hidden="true"
-            ></span>
+            <motion.div
+              initial={{ width: 64, height: 64 }}
+              whileHover={{ width: 260 }}
+              onHoverStart={() => setIsHovered(true)}
+              onHoverEnd={() => setIsHovered(false)}
+              transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+              className="bg-white flex items-center justify-center overflow-hidden relative shadow-2xl border border-black/5"
+              style={{ borderRadius: 32 }}
+            >
+              {/* IKONA V STREDE GULIČKY (zmizne pri hoveri) */}
+              <motion.div
+                className="absolute"
+                animate={{ 
+                  opacity: isHovered ? 0 : 1,
+                  scale: isHovered ? 0.8 : 1,
+                }}
+                transition={{ duration: 0.2 }}
+              >
+                <Sparkles className="text-brand w-7 h-7" />
+              </motion.div>
 
-            {/* Ikona šípky (z tvojho MotionButton dizajnu) */}
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1">
-              <ArrowRight className="h-6 w-6 text-white" />
-            </div>
-
-            {/* Text tlačidla */}
-            <span className="absolute left-1/2 top-1/2 ml-4 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-[10px] font-black uppercase tracking-widest text-black transition-colors duration-500 group-hover:text-white">
-              Sprievodca reportom
-            </span>
+              {/* OBSAH PRI ROZTIAHNUTÍ (zjaví sa pri hoveri) */}
+              <motion.div
+                className="w-full flex justify-center items-center gap-3 px-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isHovered ? 1 : 0 }}
+                transition={{ duration: 0.3, delay: isHovered ? 0.1 : 0 }}
+              >
+                <Sparkles className="text-brand w-6 h-6 shrink-0" />
+                <span className="text-black text-[11px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
+                  Sprievodca reportom
+                </span>
+              </motion.div>
+            </motion.div>
           </button>
         </div>
       )}
