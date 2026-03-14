@@ -25,8 +25,10 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-const BASE_SPRING = { type: 'spring', stiffness: 130, damping: 22, mass: 1 };
-const TAP_SPRING = { type: 'spring', stiffness: 160, damping: 20, mass: 1 };
+// 1. ZMENA: Prechod z 'spring' na 'tween' s elegantnou spomaľovacou krivkou.
+// Toto garantuje, že karta na konci neodskočí ani nezavibruje a pôjde pomalšie.
+const BASE_SPRING = { type: 'tween', ease: [0.16, 1, 0.3, 1], duration: 0.55 };
+const TAP_SPRING = { type: 'tween', ease: [0.16, 1, 0.3, 1], duration: 0.45 };
 
 const ControlledVideo = ({
   src,
@@ -131,7 +133,6 @@ const FocusRail: React.FC<{
     else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
-  // Návrat k 5 kartám (2 z nich sú neviditeľné, ale prednačítavajú videá)
   const visibleIndices = [-2, -1, 0, 1, 2];
 
   const getMediaSrc = (item: FocusRailItem) =>
@@ -156,14 +157,12 @@ const FocusRail: React.FC<{
         <X className="h-6 w-6" />
       </button>
 
-      {/* Pozadie */}
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/90 backdrop-blur-[14px]" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
 
       <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-14 md:px-8 md:pb-6 md:pt-6">
-        {/* Horný onboarding blok */}
         <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6 shrink-0">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
             Rýchly sprievodca
@@ -180,7 +179,6 @@ const FocusRail: React.FC<{
           </p>
         </div>
 
-        {/* Stage */}
         <div className="flex flex-1 items-center justify-center min-h-0 w-full">
           <motion.div
             drag="x"
@@ -198,12 +196,14 @@ const FocusRail: React.FC<{
 
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
-              const isVisible = dist <= 1; // Viditeľné sú len stredná a bezprostredne susediace
+              const isVisible = dist <= 1;
 
-              const xOffset = offset * (isMobile ? 180 : 360);
+              // 2. ZMENA: Math.round zabráni výpočtom na desatinné miesta pixelov
+              const xOffset = Math.round(offset * (isMobile ? 180 : 360));
+              const rotateY = Math.round(offset * -8);
+              
               const scale = isCenter ? 1 : 0.88;
-              const rotateY = offset * -8;
-              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0; // Krajné na indexe 2/-2 majú opacity 0
+              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
               const blur = isCenter ? 0 : 0.6;
               const brightness = isCenter ? 1 : 0.68;
 
@@ -222,16 +222,15 @@ const FocusRail: React.FC<{
                     val === 'scale' ? TAP_SPRING : BASE_SPRING
                   }
                   onClick={() => {
-                    // Blokujeme kliknutie na neviditeľné karty
                     if (isVisible && !isCenter) setActive((prev) => prev + offset);
                   }}
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
-                    willChange: 'transform, filter',
+                    // Odstránil som 'filter' z willChange, aby nedochádzalo ku konfliktom v zaostrovaní
+                    willChange: 'transform',
                     backfaceVisibility: 'hidden',
-                    transformOrigin: 'center center',
-                    pointerEvents: isVisible ? 'auto' : 'none', // Skryté karty nebudú blokovať ťahanie
+                    pointerEvents: isVisible ? 'auto' : 'none',
                   }}
                   className={cn(
                     'absolute h-full overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
@@ -271,7 +270,6 @@ const FocusRail: React.FC<{
           </motion.div>
         </div>
 
-        {/* Spodný blok */}
         <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-h-[110px] flex-1">
