@@ -1,17 +1,120 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Lightbulb, ChevronDown, MessageCircle, Quote } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lightbulb, ChevronDown, MessageCircle, Quote, X } from 'lucide-react';
 
 interface Props {
   openQuestions: any[];
   masterTeams: string[];
 }
 
+// --------------------------------------------------------------------------
+// PRÉMIOVÝ VÝSUVNÝ PANEL PRE MOBILY
+// --------------------------------------------------------------------------
+const MobileBottomSheet = ({
+  isOpen,
+  onClose,
+  themeData,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  themeData: { theme: string; count: number; percentage: number } | null;
+}) => {
+  // Zámok scrollovania pri otvorenom paneli
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (typeof document === 'undefined' || !themeData) return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop - Tmavé pozadie klikateľné na zavretie */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm"
+          />
+
+          {/* Samotný panel */}
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            // Umožní zatvorenie potiahnutím nadol
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100) onClose();
+            }}
+            className="fixed bottom-0 left-0 right-0 z-[99999] bg-white rounded-t-[2rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)] touch-none"
+          >
+            {/* Indikátor pre swipovanie */}
+            <div className="w-full flex justify-center pt-4 pb-2 active:cursor-grabbing cursor-grab">
+              <div className="w-12 h-1.5 bg-black/15 rounded-full" />
+            </div>
+
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 bg-black/5 rounded-full text-black/40 hover:text-black hover:bg-black/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="px-6 pb-10 pt-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand mb-2">
+                Detail témy
+              </p>
+              <h3 className="text-xl font-black text-black leading-tight mb-6">
+                {themeData.theme}
+              </h3>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between bg-black/5 p-4 rounded-xl">
+                  <span className="text-sm font-bold text-black/50">Výskyt</span>
+                  <span className="text-lg font-black">{themeData.count}x</span>
+                </div>
+                <div className="flex items-center justify-between bg-black/5 p-4 rounded-xl">
+                  <span className="text-sm font-bold text-black/50">Podiel</span>
+                  <span className="text-lg font-black">{themeData.percentage}%</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
+};
+// --------------------------------------------------------------------------
+
 const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => {
   const [openQuestionsTeam, setOpenQuestionsTeam] = useState<string>('');
   const [selectedQuestionText, setSelectedQuestionText] = useState<string>('');
   const [expandedRecIndex, setExpandedRecIndex] = useState<number | null>(null);
+
+  // Detekcia, či sme na mobile
+  const [isMobile, setIsMobile] = useState(false);
   
+  // Tento stav drží dáta, keď na mobile používateľ ťukne na tému
+  const [mobileSelectedTheme, setMobileSelectedTheme] = useState<{
+    theme: string;
+    count: number;
+    percentage: number;
+  } | null>(null);
+
+  // Klasický tooltip pre PC zostal zachovaný
   const [themeTooltip, setThemeTooltip] = useState<{
     x: number;
     y: number;
@@ -19,6 +122,14 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
     count: number;
     percentage: number;
   } | null>(null);
+
+  // Sledovanie veľkosti okna
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Inicializácia tímu
   useEffect(() => {
@@ -44,12 +155,13 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
     setExpandedRecIndex(null);
   }, [openQuestionsTeam, openQuestions, selectedQuestionText]);
 
-  // Vypnutie tooltipu pri kliknutí inde
+  // Vypnutie PC tooltipu pri kliknutí inde
   useEffect(() => {
+    if (isMobile) return; // Na mobile to neriešime, tam máme panel
     const handleGlobalClick = () => setThemeTooltip(null);
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
+  }, [isMobile]);
 
   const getThemeCloud = (question: any) => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
@@ -84,6 +196,16 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
 
   return (
     <div className="space-y-8 sm:space-y-10 animate-fade-in print:hidden">
+      
+      {/* VÝSUVNÝ PANEL PRE MOBIL */}
+      {isMobile && (
+        <MobileBottomSheet
+          isOpen={!!mobileSelectedTheme}
+          onClose={() => setMobileSelectedTheme(null)}
+          themeData={mobileSelectedTheme}
+        />
+      )}
+
       <div className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
         <div className="flex flex-col lg:flex-row justify-between items-start gap-6 sm:gap-8">
           <div className="space-y-4 sm:space-y-6 w-full lg:w-1/2 min-w-0">
@@ -144,7 +266,9 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
                   {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
                     <span
                       key={tIdx}
+                      // Hover udalosti pobežia iba na PC. Na mobile to ignorujeme, aby neblikali
                       onMouseEnter={(e) => {
+                        if (isMobile) return;
                         setThemeTooltip({
                           x: e.clientX,
                           y: e.clientY,
@@ -154,30 +278,43 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
                         });
                       }}
                       onMouseMove={(e) => {
+                        if (isMobile) return;
                         setThemeTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
                       }}
-                      onMouseLeave={() => setThemeTooltip(null)}
+                      onMouseLeave={() => {
+                        if (isMobile) return;
+                        setThemeTooltip(null);
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setThemeTooltip((prev) => {
-                          if (prev?.theme === theme.theme) return null;
-                          return { theme: theme.theme, count: theme.count, percentage: theme.percentage, x: e.clientX, y: e.clientY };
-                        });
+                        // Ak sme na mobile, klik otvorí výsuvný panel
+                        if (isMobile) {
+                          setMobileSelectedTheme({
+                            theme: theme.theme,
+                            count: theme.count,
+                            percentage: theme.percentage,
+                          });
+                        } else {
+                          // Na PC pre istotu po kliknutí zachováme bublinu (ak by niekto klikol náhodou)
+                          setThemeTooltip({ theme: theme.theme, count: theme.count, percentage: theme.percentage, x: e.clientX, y: e.clientY });
+                        }
                       }}
                       className={`
                         inline-flex items-center rounded-xl px-3 py-1.5
-                        font-black tracking-tight cursor-help select-none transition-all
-                        ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white'}
+                        font-black tracking-tight cursor-pointer md:cursor-help select-none transition-all
+                        ${tIdx < 2 ? 'text-brand bg-brand/10' : 'text-black bg-white shadow-sm'}
                         ${getThemeFontSizeClass(theme.count, selectedQuestionMaxThemeCount)}
-                        hover:scale-[1.03]
+                        hover:scale-[1.03] active:scale-95
                       `}
                     >
                       {theme.theme}
                     </span>
                   ))}
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 mt-4">
-                  Veľkosť témy zodpovedá frekvencii výskytu
+                
+                {/* Dynamická nápoveda */}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 mt-5 text-center sm:text-left">
+                  {isMobile ? 'Ťuknite na tému pre detaily' : 'Veľkosť témy zodpovedá frekvencii výskytu'}
                 </p>
               </div>
             </div>
@@ -242,8 +379,8 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
         </div>
       )}
 
-      {/* Portál pre Tooltip vysunutý úplne von */}
-      {themeTooltip && typeof document !== 'undefined' && createPortal(
+      {/* Portál pre PC Tooltip - vykreslí sa len ak nie sme na mobile */}
+      {!isMobile && themeTooltip && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{
