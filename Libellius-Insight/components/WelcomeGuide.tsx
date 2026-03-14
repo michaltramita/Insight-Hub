@@ -25,10 +25,9 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-// 1. ZMENA: Prechod z 'spring' na 'tween' s elegantnou spomaľovacou krivkou.
-// Toto garantuje, že karta na konci neodskočí ani nezavibruje a pôjde pomalšie.
-const BASE_SPRING = { type: 'tween', ease: [0.16, 1, 0.3, 1], duration: 0.55 };
-const TAP_SPRING = { type: 'tween', ease: [0.16, 1, 0.3, 1], duration: 0.45 };
+// Výrazne spomalené animácie (viac ako dvojnásobný čas) pre kľudnejší prechod
+const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
+const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
 const ControlledVideo = ({
   src,
@@ -198,7 +197,6 @@ const FocusRail: React.FC<{
               const dist = Math.abs(offset);
               const isVisible = dist <= 1;
 
-              // 2. ZMENA: Math.round zabráni výpočtom na desatinné miesta pixelov
               const xOffset = Math.round(offset * (isMobile ? 180 : 360));
               const rotateY = Math.round(offset * -8);
               
@@ -227,7 +225,6 @@ const FocusRail: React.FC<{
                   style={{
                     transformStyle: 'preserve-3d',
                     zIndex: isCenter ? 30 : 20 - dist,
-                    // Odstránil som 'filter' z willChange, aby nedochádzalo ku konfliktom v zaostrovaní
                     willChange: 'transform',
                     backfaceVisibility: 'hidden',
                     pointerEvents: isVisible ? 'auto' : 'none',
