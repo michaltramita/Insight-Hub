@@ -179,11 +179,6 @@ const FocusRail: React.FC<{
         <X className="h-5 w-5 md:h-6 md:w-6" />
       </button>
 
-      <div className="pointer-events-none absolute inset-0 z-0 bg-black/90 backdrop-blur-[14px]" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
-      <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
-
       <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-10 sm:pt-14 md:px-8 md:pb-6 md:pt-6">
         <div className="mx-auto mb-2 w-full max-w-3xl text-center md:mb-6 shrink-0">
           <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
@@ -231,7 +226,8 @@ const FocusRail: React.FC<{
               return (
                 <motion.div
                   key={`${item.id}-${absIndex}`}
-                  initial={{ opacity: 0, scale: 0.85, y: 30, x: xOffset, rotateY }}
+                  // TOTO zabezpečí luxusné, jemné vynorenie kariet
+                  initial={{ opacity: 0, scale: 0.85, y: 40, x: xOffset, rotateY }}
                   animate={{
                     x: xOffset,
                     y: 0,
@@ -256,9 +252,8 @@ const FocusRail: React.FC<{
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
-                    // ZMENA: Karta je teraz užšia (aspect-[2/3]).
-                    // Ak by si chcel extrémne úzku (mobilný formát bez pruhov), prepíš to na 'aspect-[9/16]'
-                    'aspect-[2/3] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
+                    // ZMENA: Formát 3:4 a object-cover zaručia, že video je roztiahnuté na celú kartu
+                    'aspect-[3/4] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
@@ -270,13 +265,14 @@ const FocusRail: React.FC<{
                         src={mediaSrc}
                         poster={posterSrc}
                         isActive={isCenter}
-                        className="h-full w-full object-contain pointer-events-none"
+                        // ZMENA: object-cover
+                        className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        className="h-full w-full object-contain pointer-events-none"
+                        className="h-full w-full object-cover pointer-events-none"
                       />
                     )}
 
@@ -296,7 +292,10 @@ const FocusRail: React.FC<{
         </div>
 
         <div className="relative mt-auto shrink-0 p-3 sm:p-4 md:p-6">
-          <div className="pointer-events-none absolute inset-0 z-0 rounded-[1.25rem] bg-black/78 backdrop-blur-xl md:rounded-[1.75rem]" />
+          {/* ZMENA (Oprava pre čierny obdĺžnik): 
+              Odstránený backdrop-blur, použitá elegantná pevná tmavá farba. 
+              Vďaka tomuto už animácia textu nikdy nevyvolá grafickú chybu. */}
+          <div className="pointer-events-none absolute inset-0 z-0 rounded-[1.25rem] bg-neutral-900/95 ring-1 ring-white/5 md:rounded-[1.75rem]" />
 
           <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="h-[75px] sm:h-[80px] md:h-[120px] flex-1">
@@ -437,15 +436,33 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const content = (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
-          className="fixed inset-0 z-[99999]"
-        >
-          <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
-        </motion.div>
+        <>
+          {/* ZMENA: Oddelená vrstva pre rozmazané pozadie. 
+            Toto je ultimátny fix, prečo už stmievanie nebude sekať a "skákať" do rozmazania.
+          */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
+            <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
+          </motion.div>
+
+          {/* Samostatná vrstva pre interaktívny obsah */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99999] pointer-events-auto"
+          >
+            <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
