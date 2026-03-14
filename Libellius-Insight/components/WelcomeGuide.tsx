@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { motion, PanInfo } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface WelcomeGuideProps {
   onClose: () => void;
+  clientName?: string;
+  autoStartDelay?: number; 
 }
 
 type FocusRailItem = {
@@ -26,6 +29,7 @@ function wrap(min: number, max: number, v: number) {
 }
 
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
+const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
 const ControlledVideo = ({
   src,
@@ -67,6 +71,7 @@ const ControlledVideo = ({
           )}
         />
       )}
+      
       <video
         ref={videoRef}
         src={src}
@@ -87,6 +92,8 @@ const FocusRail: React.FC<{
 }> = ({ items, onClose }) => {
   const [active, setActive] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const lastWheelTime = useRef<number>(0);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -95,43 +102,105 @@ const FocusRail: React.FC<{
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  useEffect(() => {
+    rootRef.current?.focus();
+  }, []);
+
   const count = items.length;
   const activeIndex = wrap(0, count, active);
+  const activeItem = items[activeIndex];
 
-  const handlePrev = useCallback(() => setActive((prev) => prev - 1), []);
-  const handleNext = useCallback(() => setActive((prev) => prev + 1), []);
+  const handlePrev = useCallback(() => {
+    setActive((prev) => prev - 1);
+  }, []);
 
-  const onDragEnd = (_e: any, { offset, velocity }: PanInfo) => {
-    const swipe = Math.abs(offset.x) * velocity.x;
-    if (swipe < -8500) handleNext();
-    else if (swipe > 8500) handlePrev();
+  const handleNext = useCallback(() => {
+    setActive((prev) => prev + 1);
+  }, []);
+
+  const onWheel = useCallback(
+    (e: React.WheelEvent) => {
+      const now = Date.now();
+      if (now - lastWheelTime.current < 420) return;
+
+      const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const delta = isHorizontal ? e.deltaX : e.deltaY;
+
+      if (Math.abs(delta) > 24) {
+        delta > 0 ? handleNext() : handlePrev();
+        lastWheelTime.current = now;
+      }
+    },
+    [handleNext, handlePrev]
+  );
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') handlePrev();
+    if (e.key === 'ArrowRight') handleNext();
+    if (e.key === 'Escape') onClose();
+  };
+
+  const swipeConfidenceThreshold = 8500;
+  const swipePower = (offset: number, velocity: number) =>
+    Math.abs(offset) * velocity;
+
+  const onDragEnd = (
+    _e: MouseEvent | TouchEvent | PointerEvent,
+    { offset, velocity }: PanInfo
+  ) => {
+    const swipe = swipePower(offset.x, velocity.x);
+    if (swipe < -swipeConfidenceThreshold) handleNext();
+    else if (swipe > swipeConfidenceThreshold) handlePrev();
   };
 
   const visibleIndices = [-2, -1, 0, 1, 2];
 
+  const getMediaSrc = (item: FocusRailItem) =>
+    isMobile && item.mobileImageSrc ? item.mobileImageSrc : item.mediaSrc;
+    
+  const getPosterSrc = (item: FocusRailItem) =>
+    isMobile && item.mobilePosterSrc ? item.mobilePosterSrc : item.posterSrc;
+
+  const isVideo = (src: string) =>
+    src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm');
+
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden text-white outline-none select-none">
+    <div
+      ref={rootRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onWheel={onWheel}
+      className="relative h-[100dvh] w-full overflow-hidden text-white outline-none select-none"
+    >
       <button
         onClick={onClose}
-        className="absolute right-6 top-6 z-[100] rounded-full bg-white/10 p-3 text-white shadow-lg backdrop-blur-md transition-all hover:bg-brand"
+        className="absolute right-4 top-4 z-50 rounded-full bg-white/10 p-2.5 sm:p-3 text-white shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-brand md:right-6 md:top-6"
+        aria-label="Zavrieť sprievodcu"
       >
-        <X className="h-6 w-6" />
+        <X className="h-5 w-5 md:h-6 md:w-6" />
       </button>
 
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 sm:px-8 py-4 sm:py-6">
-        <div className="mx-auto mb-4 sm:mb-6 w-full max-w-3xl text-center shrink-0">
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-brand">
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-10 sm:pt-14 md:px-8 md:pb-6 md:pt-6">
+        <div className="mx-auto mb-2 w-full max-w-3xl text-center md:mb-6 shrink-0">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
             Rýchly sprievodca
           </div>
-          <h1 className="mt-2 sm:mt-4 text-2xl sm:text-3xl md:text-5xl font-black tracking-tight text-white leading-tight">
+
+          <h1 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl md:mt-4 md:text-5xl">
             Vitajte v Libellius InsightHub
           </h1>
+
+          <p className="mx-auto mt-2 max-w-2xl text-xs sm:text-sm font-medium leading-relaxed text-neutral-300 md:text-base">
+            Váš report je pripravený. Pozrite si krátky prehľad hlavných
+            funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie.
+          </p>
         </div>
 
         <div className="flex flex-1 items-center justify-center min-h-0 w-full py-2">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.12}
             onDragEnd={onDragEnd}
             className="relative flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
             style={{ perspective: 2200 }}
@@ -140,66 +209,276 @@ const FocusRail: React.FC<{
               const absIndex = active + offset;
               const index = wrap(0, count, absIndex);
               const item = items[index];
+              const mediaSrc = getMediaSrc(item);
+              const posterSrc = getPosterSrc(item);
+
               const isCenter = offset === 0;
               const dist = Math.abs(offset);
               const isVisible = dist <= 1;
 
+              const xOffset = Math.round(offset * (isMobile ? 140 : 360));
+              const rotateY = Math.round(offset * -8);
+              
+              const scale = isCenter ? 1 : 0.88;
+              const opacity = isCenter ? 1 : isVisible ? 0.5 : 0;
+              const blur = isCenter ? 0 : 0.6;
+              const brightness = isCenter ? 1 : 0.68;
+
               return (
                 <motion.div
                   key={`${item.id}-${absIndex}`}
+                  initial={{ opacity: 0, scale: 0.85, y: 40, x: xOffset, rotateY }}
                   animate={{
-                    x: offset * (isMobile ? 140 : 360),
-                    scale: isCenter ? 1 : 0.88,
-                    opacity: isCenter ? 1 : isVisible ? 0.5 : 0,
-                    rotateY: offset * -8,
+                    x: xOffset,
+                    y: 0,
+                    scale,
+                    rotateY,
+                    opacity,
+                    filter: `blur(${blur}px) brightness(${brightness})`,
                   }}
-                  transition={BASE_SPRING}
+                  transition={{
+                    default: BASE_SPRING,
+                    scale: TAP_SPRING
+                  }}
+                  onClick={() => {
+                    if (isVisible && !isCenter) setActive((prev) => prev + offset);
+                  }}
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    zIndex: isCenter ? 30 : 20 - dist,
+                    willChange: 'transform',
+                    backfaceVisibility: 'hidden',
+                    pointerEvents: isVisible ? 'auto' : 'none',
+                  }}
                   className={cn(
-                    'absolute overflow-hidden rounded-[1.5rem] sm:rounded-[2.4rem] border p-2 sm:p-3 aspect-[3/4] h-full max-h-[45vh] sm:max-h-[62vh]',
-                    isCenter ? 'border-brand/60 shadow-2xl' : 'border-white/10'
+                    'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
+                    'aspect-[3/4] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
+                    isCenter
+                      ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
+                      : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  <ControlledVideo src={item.mediaSrc} isActive={isCenter} className="h-full w-full object-cover rounded-[1.1rem] sm:rounded-[1.65rem]" />
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.1rem] bg-black md:rounded-[1.65rem]">
+                    {isVideo(mediaSrc) ? (
+                      <ControlledVideo
+                        src={mediaSrc}
+                        poster={posterSrc}
+                        isActive={isCenter}
+                        className="h-full w-full object-cover pointer-events-none"
+                      />
+                    ) : (
+                      <img
+                        src={mediaSrc}
+                        alt={item.title}
+                        className="h-full w-full object-cover pointer-events-none"
+                      />
+                    )}
+
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-transparent" />
+
+                    {!isCenter && (
+                      <>
+                        <div className="pointer-events-none absolute inset-0 bg-black/28" />
+                        <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />
+                      </>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
           </motion.div>
         </div>
 
-        <div className="relative mt-auto p-4 sm:p-6 bg-neutral-900/95 rounded-[1.25rem] sm:rounded-[1.75rem] flex flex-col md:flex-row justify-between items-center gap-4">
-           <div className="text-center md:text-left">
-              <h2 className="text-xl sm:text-2xl font-black text-white">{items[activeIndex].title}</h2>
-              <p className="text-neutral-300 text-xs sm:text-sm max-w-xl line-clamp-2 md:line-clamp-none">{items[activeIndex].description}</p>
-           </div>
-           <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-1 sm:gap-2 bg-white/5 rounded-full p-1 border border-white/10">
-                <button onClick={handlePrev} className="p-2 hover:text-brand transition"><ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" /></button>
-                <span className="text-[10px] sm:text-xs font-bold w-10 sm:w-12 text-center">{activeIndex + 1} / {count}</span>
-                <button onClick={handleNext} className="p-2 hover:text-brand transition"><ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" /></button>
+        <div className="relative mt-auto shrink-0 p-3 sm:p-4 md:p-6">
+          <div className="pointer-events-none absolute inset-0 z-0 rounded-[1.25rem] bg-neutral-900/95 ring-1 ring-white/5 md:rounded-[1.75rem]" />
+
+          <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="h-[75px] sm:h-[80px] md:h-[120px] flex-1">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeItem.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.22 }}
+                  className="space-y-1 md:space-y-2 text-center md:text-left"
+                >
+                  {activeItem.meta && (
+                    <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.22em] text-brand">
+                      {activeItem.meta}
+                    </span>
+                  )}
+
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white md:text-4xl">
+                    {activeItem.title}
+                  </h2>
+
+                  {activeItem.description && (
+                    <p className="mx-auto max-w-2xl text-[11px] sm:text-xs font-medium text-neutral-300 md:mx-0 md:text-base line-clamp-2 md:line-clamp-none">
+                      {activeItem.description}
+                    </p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="flex flex-col items-center gap-4 sm:flex-row md:items-center">
+              <div className="flex items-center gap-1 rounded-full bg-white/8 p-1 ring-1 ring-white/15 backdrop-blur-md">
+                <button
+                  onClick={handlePrev}
+                  className="rounded-full p-2 md:p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  aria-label="Predchádzajúca ukážka"
+                >
+                  <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+
+                <span className="min-w-[48px] md:min-w-[56px] text-center text-[10px] md:text-xs font-bold text-neutral-300">
+                  {activeIndex + 1} / {count}
+                </span>
+
+                <button
+                  onClick={handleNext}
+                  className="rounded-full p-2 md:p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  aria-label="Ďalšia ukážka"
+                >
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
               </div>
-              <button onClick={onClose} className="bg-brand px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-black uppercase tracking-widest text-[10px] sm:text-sm">Zobraziť report</button>
-           </div>
+
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-[11px] md:text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-brand/30 transition-all hover:scale-105 active:scale-95 md:px-8 md:py-3.5"
+              >
+                Zobraziť report
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
+// ZMENA TU: predvolená hodnota 1500 namiesto 2000
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
+  const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (autoStartDelay > 0) {
+      timer = setTimeout(() => {
+        setIsVisible(true);
+      }, autoStartDelay);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [autoStartDelay]);
+
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isVisible]);
+
+  const handleClose = () => {
+    setIsVisible(false);
+    setTimeout(onClose, 1500);
+  };
+
   const GUIDE_ITEMS: FocusRailItem[] = [
-    { id: 1, title: 'Zapojenie účastníkov', description: 'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.', mediaSrc: '/zapojenie.mp4' },
-    { id: 2, title: 'Otvorené otázky', description: 'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si odporúčania od AI.', mediaSrc: '/otazky.mp4' },
-    { id: 3, title: 'Hodnotenie tímov', description: 'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok.', mediaSrc: '/tim.mp4' },
-    { id: 4, title: 'Porovnávanie tímov', description: 'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.', mediaSrc: '/porovnanie.mp4' },
-    { id: 5, title: 'Export súborov', description: 'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok.', mediaSrc: '/export.mp4' },
+    {
+      id: 1,
+      title: 'Zapojenie účastníkov',
+      description:
+        'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
+      meta: 'Funkcia 1',
+      mediaSrc: '/zapojenie.mp4',
+      mobileImageSrc: '/zapojenie-mobil.mp4',
+      posterSrc: '/zapojenie-poster.png',
+    },
+    {
+      id: 2,
+      title: 'Otvorené otázky',
+      description:
+        'Spoznajte najčastejšie témy cez mapu početnosti tvrdení a prečítajte si odporúčania od AI.',
+      meta: 'Analýza AI',
+      mediaSrc: '/otazky.mp4',
+      mobileImageSrc: '/otazky-mobil.mp4',
+      posterSrc: '/otazky-poster.png',
+    },
+    {
+      id: 3,
+      title: 'Hodnotenie tímov',
+      description:
+        'Podrobné zhrnutie každej oblasti pre konkrétny tím, vrátane identifikácie silných stránok.',
+      meta: 'Detailný pohľad',
+      mediaSrc: '/tim.mp4',
+      mobileImageSrc: '/tim-mobil.mp4',
+      posterSrc: '/tim-poster.png',
+    },
+    {
+      id: 4,
+      title: 'Porovnávanie tímov',
+      description:
+        'Porovnajte si v danej oblasti viacero tímov naraz a odhaľte kľúčové rozdiely vo výsledkoch.',
+      meta: 'Súvislosti',
+      mediaSrc: '/porovnanie.mp4',
+      mobileImageSrc: '/porovnanie-mobil.mp4',
+      posterSrc: '/porovnanie-poster.png',
+    },
+    {
+      id: 5,
+      title: 'Export súborov',
+      description:
+        'Každý graf alebo tabuľku si stiahnete jedným kliknutím ako čistý PNG obrázok.',
+      meta: 'Prezentácia',
+      mediaSrc: '/export.mp4',
+      mobileImageSrc: '/export-mobil.mp4',
+      posterSrc: '/export-poster.png',
+    },
   ];
 
-  return (
-    <div className="fixed inset-0 z-[99999]">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/90 backdrop-blur-[14px]" />
-      <FocusRail items={GUIDE_ITEMS} onClose={onClose} />
-    </div>
+  const content = (
+    <AnimatePresence>
+      {isVisible && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
+            <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99999] pointer-events-auto"
+          >
+            <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 };
 
 export default WelcomeGuide;
