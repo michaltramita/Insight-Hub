@@ -359,8 +359,8 @@ const FocusRail: React.FC<{
   );
 };
 
-// ZMENA TU: autoStartDelay má teraz defaultnú hodnotu 2000 milisekúnd.
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 2000 }) => {
+// ZMENA TU: predvolená hodnota 1500 namiesto 2000
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
   const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
 
   useEffect(() => {
