@@ -14,7 +14,7 @@ type FocusRailItem = {
   description?: string;
   mediaSrc: string;
   mobileImageSrc?: string;
-  // NOVÉ: Pridaná podpora pre statický obrázok
+  // NOVÉ: Pridaná podpora pre statický obrázok (poster)
   posterSrc?: string; 
   mobilePosterSrc?: string;
   meta?: string;
@@ -28,7 +28,6 @@ function wrap(min: number, max: number, v: number) {
   return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
 }
 
-// Ponechané plynulé a rozvážne animácie
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
@@ -50,8 +49,7 @@ const ControlledVideo = ({
     if (!video) return;
 
     if (isActive) {
-      video.currentTime = 0;
-      // Pridaný malý timeout pre istotu, aby prehliadač stihol spracovať zmenu stavu
+      // video.currentTime = 0; // Odstránené, aby sme nechali poster urobiť svoju prácu.
       setTimeout(() => {
         video.play().catch(() => null);
       }, 50);
@@ -162,10 +160,10 @@ const FocusRail: React.FC<{
     >
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 z-50 rounded-full bg-white/10 p-3 text-white shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-brand md:right-6 md:top-6"
+        className="absolute right-4 top-4 z-50 rounded-full bg-white/10 p-2.5 sm:p-3 text-white shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-brand md:right-6 md:top-6"
         aria-label="Zavrieť sprievodcu"
       >
-        <X className="h-6 w-6" />
+        <X className="h-5 w-5 md:h-6 md:w-6" />
       </button>
 
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/90 backdrop-blur-[14px]" />
@@ -173,30 +171,29 @@ const FocusRail: React.FC<{
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 z-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
 
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-14 md:px-8 md:pb-6 md:pt-6">
-        <div className="mx-auto mb-4 w-full max-w-3xl text-center md:mb-6 shrink-0">
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pb-4 pt-10 sm:pt-14 md:px-8 md:pb-6 md:pt-6">
+        <div className="mx-auto mb-2 w-full max-w-3xl text-center md:mb-6 shrink-0">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-brand backdrop-blur-md">
             Rýchly sprievodca
           </div>
 
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+          <h1 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl md:mt-4 md:text-5xl">
             Vitajte v Libellius InsightHub
           </h1>
 
-          <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-relaxed text-neutral-300 md:text-base">
+          <p className="mx-auto mt-2 max-w-2xl text-xs sm:text-sm font-medium leading-relaxed text-neutral-300 md:text-base">
             Váš report je pripravený. Pozrite si krátky prehľad hlavných
-            funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie a
-            naplno využijete možnosti reportu.
+            funkcií, vďaka ktorým sa vo výsledkoch zorientujete rýchlejšie.
           </p>
         </div>
 
-        <div className="flex flex-1 items-center justify-center min-h-0 w-full">
+        <div className="flex flex-1 items-center justify-center min-h-0 w-full py-2">
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.12}
             onDragEnd={onDragEnd}
-            className="relative flex h-[min(54vh,460px)] sm:h-[min(56vh,520px)] md:h-[min(58vh,600px)] lg:h-[min(62vh,680px)] w-full items-center justify-center cursor-grab active:cursor-grabbing"
+            className="relative flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
             style={{ perspective: 2200 }}
           >
             {visibleIndices.map((offset) => {
@@ -210,7 +207,7 @@ const FocusRail: React.FC<{
               const dist = Math.abs(offset);
               const isVisible = dist <= 1;
 
-              const xOffset = Math.round(offset * (isMobile ? 180 : 360));
+              const xOffset = Math.round(offset * (isMobile ? 140 : 360));
               const rotateY = Math.round(offset * -8);
               
               const scale = isCenter ? 1 : 0.88;
@@ -244,14 +241,14 @@ const FocusRail: React.FC<{
                     pointerEvents: isVisible ? 'auto' : 'none',
                   }}
                   className={cn(
-                    'absolute h-full overflow-hidden rounded-[1.9rem] border bg-neutral-950/96 p-2 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[3/4] w-auto',
+                    'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
+                    'aspect-[3/4] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
                   )}
                 >
-                  <div className="relative h-full w-full overflow-hidden rounded-[1.2rem] bg-black md:rounded-[1.65rem]">
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.1rem] bg-black md:rounded-[1.65rem]">
                     {isVideo(mediaSrc) ? (
                       <ControlledVideo
                         src={mediaSrc}
@@ -282,10 +279,9 @@ const FocusRail: React.FC<{
           </motion.div>
         </div>
 
-        <div className="mt-auto shrink-0 rounded-[1.75rem] bg-black/78 p-4 backdrop-blur-xl md:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            {/* Fixná výška proti poskakovaniu textu */}
-            <div className="h-[160px] sm:h-[140px] md:h-[120px] flex-1">
+        <div className="mt-auto shrink-0 rounded-[1.25rem] bg-black/78 p-3 sm:p-4 backdrop-blur-xl md:rounded-[1.75rem] md:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="h-[75px] sm:h-[80px] md:h-[120px] flex-1">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeItem.id}
@@ -293,20 +289,20 @@ const FocusRail: React.FC<{
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
                   transition={{ duration: 0.22 }}
-                  className="space-y-2 text-center md:text-left"
+                  className="space-y-1 md:space-y-2 text-center md:text-left"
                 >
                   {activeItem.meta && (
-                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-brand">
+                    <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.22em] text-brand">
                       {activeItem.meta}
                     </span>
                   )}
 
-                  <h2 className="text-2xl font-black tracking-tight text-white md:text-4xl">
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white md:text-4xl">
                     {activeItem.title}
                   </h2>
 
                   {activeItem.description && (
-                    <p className="mx-auto max-w-2xl text-sm font-medium text-neutral-300 md:mx-0 md:text-base">
+                    <p className="mx-auto max-w-2xl text-[11px] sm:text-xs font-medium text-neutral-300 md:mx-0 md:text-base line-clamp-2 md:line-clamp-none">
                       {activeItem.description}
                     </p>
                   )}
@@ -318,22 +314,22 @@ const FocusRail: React.FC<{
               <div className="flex items-center gap-1 rounded-full bg-white/8 p-1 ring-1 ring-white/15 backdrop-blur-md">
                 <button
                   onClick={handlePrev}
-                  className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  className="rounded-full p-2 md:p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
                   aria-label="Predchádzajúca ukážka"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
 
-                <span className="min-w-[56px] text-center text-xs font-bold text-neutral-300">
+                <span className="min-w-[48px] md:min-w-[56px] text-center text-[10px] md:text-xs font-bold text-neutral-300">
                   {activeIndex + 1} / {count}
                 </span>
 
                 <button
                   onClick={handleNext}
-                  className="rounded-full p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
+                  className="rounded-full p-2 md:p-3 text-neutral-300 transition hover:bg-brand hover:text-white active:scale-95"
                   aria-label="Ďalšia ukážka"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                 </button>
               </div>
 
@@ -355,7 +351,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Vrátené okamžité zobrazenie po namountovaní
     setIsVisible(true);
     document.body.style.overflow = 'hidden';
 
@@ -374,13 +369,13 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       id: 1,
       title: 'Zapojenie účastníkov',
       description:
-        'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
+        'Prezrite si účasť cez prehládnu tabuľku, interaktívny graf alebo detailné karty stredísk.',
       meta: 'Funkcia 1',
       mediaSrc: '/zapojenie.mp4',
       mobileImageSrc: '/zapojenie-mobil.mp4',
       // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/zapojenie-poster.png',
-      mobilePosterSrc: '/zapojenie-mobil-poster.png',
+      // mobilePosterSrc: '/zapojenie-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 2,
@@ -392,7 +387,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       mobileImageSrc: '/otazky-mobil.mp4',
       // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/otazky-poster.png',
-      mobilePosterSrc: '/otazky-mobil-poster.png',
+      // mobilePosterSrc: '/otazky-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 3,
@@ -404,7 +399,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       mobileImageSrc: '/tim-mobil.mp4',
       // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/tim-poster.png',
-      mobilePosterSrc: '/tim-mobil-poster.png',
+      // mobilePosterSrc: '/tim-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 4,
@@ -416,7 +411,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       mobileImageSrc: '/porovnanie-mobil.mp4',
       // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/porovnanie-poster.png',
-      mobilePosterSrc: '/porovnanie-mobil-poster.png',
+      // mobilePosterSrc: '/porovnanie-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 5,
@@ -428,7 +423,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       mobileImageSrc: '/export-mobil.mp4',
       // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/export-poster.png',
-      mobilePosterSrc: '/export-mobil-poster.png',
+      // mobilePosterSrc: '/export-mobil-poster.png', // Odporúčaný mobile poster
     },
   ];
 
