@@ -30,7 +30,6 @@ function wrap(min: number, max: number, v: number) {
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
-// UPRAVENÝ KOMPONENT: Bulletproof vlastný plagát
 const ControlledVideo = ({
   src,
   poster,
@@ -55,13 +54,11 @@ const ControlledVideo = ({
       }, 50);
     } else {
       video.pause();
-      // Pri pauznutí nezobrazujeme naspäť plagát, necháme posledný záber
     }
   }, [isActive, src]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      {/* Náš "nepriestrelný" obrázok, ktorý zmizne, AŽ KEĎ video reálne začne hrať */}
       {poster && (
         <img
           src={poster}
@@ -77,13 +74,11 @@ const ControlledVideo = ({
       <video
         ref={videoRef}
         src={src}
-        // Natívny poster už nepoužívame, máme vlastný
         loop
         muted
         playsInline
         preload="auto"
         className={cn(className, "absolute inset-0 z-0")}
-        // Event, ktorý odpáli skrývanie obrázka až vtedy, keď nabehne obraz
         onPlaying={() => setIsVideoPlaying(true)}
       />
     </div>
@@ -260,7 +255,7 @@ const FocusRail: React.FC<{
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
-                    'aspect-[3/4] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
+                    'aspect-[1638/2186] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
                       : 'border-white/14 shadow-[0_18px_60px_-18px_rgba(0,0,0,0.8)]'
@@ -272,13 +267,13 @@ const FocusRail: React.FC<{
                         src={mediaSrc}
                         poster={posterSrc}
                         isActive={isCenter}
-                        className="h-full w-full object-cover pointer-events-none"
+                        className="h-full w-full object-contain pointer-events-none"
                       />
                     ) : (
                       <img
                         src={mediaSrc}
                         alt={item.title}
-                        className="h-full w-full object-cover pointer-events-none"
+                        className="h-full w-full object-contain pointer-events-none"
                       />
                     )}
 
@@ -300,12 +295,14 @@ const FocusRail: React.FC<{
         <div className="mt-auto shrink-0 rounded-[1.25rem] bg-black/78 p-3 sm:p-4 backdrop-blur-xl md:rounded-[1.75rem] md:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="h-[75px] sm:h-[80px] md:h-[120px] flex-1">
-              <AnimatePresence mode="wait">
+              {/* ZMENA: initial={false} zabráni počiatočnej animácii pri štarte */}
+              <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={activeItem.id}
-                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                  // ZMENA: Odstránený 'filter blur' kvôli čiernemu glitchu v Safari/Chrome
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.22 }}
                   className="space-y-1 md:space-y-2 text-center md:text-left"
                 >
