@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface WelcomeGuideProps {
-  onClose?: () => void;
+  onClose: () => void;
   clientName?: string;
   autoStartDelay?: number;
 }
@@ -358,9 +358,8 @@ const FocusRail: React.FC<{
   );
 };
 
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 1500 }) => {
+  const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
   const isSharedView = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
   const hasAutoStarted = useRef(false);
 
@@ -392,6 +391,9 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) =>
 
   const handleClose = () => {
     setIsVisible(false);
+    if (onClose) {
+      setTimeout(onClose, 1500);
+    }
   };
 
   const GUIDE_ITEMS: FocusRailItem[] = [
@@ -445,81 +447,33 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ autoStartDelay = 1500 }) =>
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <>
-      {/* PLÁVAJÚCE TLAČIDLO (ANIMOVANÉ ROZBALENIE) */}
-      {!isVisible && isSharedView && (
-        <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
-          <button 
-            onClick={() => setIsVisible(true)} 
-            className="relative flex items-center justify-center outline-none border-none bg-transparent"
+    <AnimatePresence>
+      {isVisible && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
           >
-            <motion.div
-              initial={{ width: 64, height: 64 }}
-              whileHover={{ width: 260 }}
-              onHoverStart={() => setIsHovered(true)}
-              onHoverEnd={() => setIsHovered(false)}
-              transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
-              className="bg-white flex items-center justify-center overflow-hidden relative shadow-2xl border border-black/5"
-              style={{ borderRadius: 32 }}
-            >
-              {/* IKONA V STREDE GULIČKY (zmizne pri hoveri) */}
-              <motion.div
-                className="absolute"
-                animate={{ 
-                  opacity: isHovered ? 0 : 1,
-                  scale: isHovered ? 0.8 : 1,
-                }}
-                transition={{ duration: 0.2 }}
-              >
-                <Sparkles className="text-brand w-7 h-7" />
-              </motion.div>
+            <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
+            <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
+          </motion.div>
 
-              {/* OBSAH PRI ROZTIAHNUTÍ (zjaví sa pri hoveri) */}
-              <motion.div
-                className="w-full flex justify-center items-center gap-3 px-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovered ? 1 : 0 }}
-                transition={{ duration: 0.3, delay: isHovered ? 0.1 : 0 }}
-              >
-                <Sparkles className="text-brand w-6 h-6 shrink-0" />
-                <span className="text-black text-[11px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
-                  Sprievodca reportom
-                </span>
-              </motion.div>
-            </motion.div>
-          </button>
-        </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+            className="fixed inset-0 z-[99999] pointer-events-auto"
+          >
+            <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
+          </motion.div>
+        </>
       )}
-
-      {/* SAMOTNÝ SPRIEVODCA (WELCOME GUIDE) */}
-      <AnimatePresence>
-        {isVisible && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
-              className="fixed inset-0 z-[99998] bg-black/90 backdrop-blur-[14px]"
-            >
-              <div className="absolute inset-0 bg-gradient-to-b from-black/86 via-black/72 to-black/92" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_30%)]" />
-              <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
-              className="fixed inset-0 z-[99999] pointer-events-auto"
-            >
-              <FocusRail items={GUIDE_ITEMS} onClose={handleClose} />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </>,
+    </AnimatePresence>,
     document.body
   );
 };
