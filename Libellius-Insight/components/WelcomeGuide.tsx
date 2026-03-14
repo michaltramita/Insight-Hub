@@ -14,7 +14,6 @@ type FocusRailItem = {
   description?: string;
   mediaSrc: string;
   mobileImageSrc?: string;
-  // NOVÉ: Pridaná podpora pre statický obrázok (poster)
   posterSrc?: string; 
   mobilePosterSrc?: string;
   meta?: string;
@@ -31,6 +30,7 @@ function wrap(min: number, max: number, v: number) {
 const BASE_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.2 };
 const TAP_SPRING = { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 1.0 };
 
+// UPRAVENÝ KOMPONENT: Bulletproof vlastný plagát
 const ControlledVideo = ({
   src,
   poster,
@@ -43,32 +43,50 @@ const ControlledVideo = ({
   className?: string;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     if (isActive) {
-      // video.currentTime = 0; // Odstránené, aby sme nechali poster urobiť svoju prácu.
       setTimeout(() => {
         video.play().catch(() => null);
       }, 50);
     } else {
       video.pause();
+      // Pri pauznutí nezobrazujeme naspäť plagát, necháme posledný záber
     }
   }, [isActive, src]);
 
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      poster={poster} // Prehliadač ukáže tento obrázok okamžite, kým sťahuje video
-      loop
-      muted
-      playsInline
-      preload="auto"
-      className={className}
-    />
+    <div className="relative h-full w-full overflow-hidden">
+      {/* Náš "nepriestrelný" obrázok, ktorý zmizne, AŽ KEĎ video reálne začne hrať */}
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          className={cn(
+            className,
+            "absolute inset-0 z-10 transition-opacity duration-500",
+            isVideoPlaying ? "opacity-0" : "opacity-100"
+          )}
+        />
+      )}
+      
+      <video
+        ref={videoRef}
+        src={src}
+        // Natívny poster už nepoužívame, máme vlastný
+        loop
+        muted
+        playsInline
+        preload="auto"
+        className={cn(className, "absolute inset-0 z-0")}
+        // Event, ktorý odpáli skrývanie obrázka až vtedy, keď nabehne obraz
+        onPlaying={() => setIsVideoPlaying(true)}
+      />
+    </div>
   );
 };
 
@@ -335,7 +353,7 @@ const FocusRail: React.FC<{
 
               <button
                 onClick={onClose}
-                className="flex items-center justify-center gap-2 rounded-full bg-brand px-8 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-brand/30 transition-all hover:scale-105 active:scale-95"
+                className="flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-[11px] md:text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-brand/30 transition-all hover:scale-105 active:scale-95 md:px-8 md:py-3.5"
               >
                 Zobraziť report
               </button>
@@ -369,13 +387,11 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       id: 1,
       title: 'Zapojenie účastníkov',
       description:
-        'Prezrite si účasť cez prehládnu tabuľku, interaktívny graf alebo detailné karty stredísk.',
+        'Prezrite si účasť cez prehľadnú tabuľku, interaktívny graf alebo detailné karty stredísk.',
       meta: 'Funkcia 1',
       mediaSrc: '/zapojenie.mp4',
       mobileImageSrc: '/zapojenie-mobil.mp4',
-      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/zapojenie-poster.png',
-      // mobilePosterSrc: '/zapojenie-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 2,
@@ -385,9 +401,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Analýza AI',
       mediaSrc: '/otazky.mp4',
       mobileImageSrc: '/otazky-mobil.mp4',
-      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/otazky-poster.png',
-      // mobilePosterSrc: '/otazky-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 3,
@@ -397,9 +411,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Detailný pohľad',
       mediaSrc: '/tim.mp4',
       mobileImageSrc: '/tim-mobil.mp4',
-      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/tim-poster.png',
-      // mobilePosterSrc: '/tim-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 4,
@@ -409,9 +421,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Súvislosti',
       mediaSrc: '/porovnanie.mp4',
       mobileImageSrc: '/porovnanie-mobil.mp4',
-      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/porovnanie-poster.png',
-      // mobilePosterSrc: '/porovnanie-mobil-poster.png', // Odporúčaný mobile poster
     },
     {
       id: 5,
@@ -421,9 +431,7 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
       meta: 'Prezentácia',
       mediaSrc: '/export.mp4',
       mobileImageSrc: '/export-mobil.mp4',
-      // DOPLŇ SVOJE REÁLNE OBRÁZKY SEM:
       posterSrc: '/export-poster.png',
-      // mobilePosterSrc: '/export-mobil-poster.png', // Odporúčaný mobile poster
     },
   ];
 
