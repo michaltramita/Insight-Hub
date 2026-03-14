@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 interface WelcomeGuideProps {
   onClose: () => void;
   clientName?: string;
+  // NOVÉ: Možnosť nastaviť odložený štart v milisekundách (napr. 1500)
+  autoStartDelay?: number; 
 }
 
 type FocusRailItem = {
@@ -226,7 +228,6 @@ const FocusRail: React.FC<{
               return (
                 <motion.div
                   key={`${item.id}-${absIndex}`}
-                  // TOTO zabezpečí luxusné, jemné vynorenie kariet
                   initial={{ opacity: 0, scale: 0.85, y: 40, x: xOffset, rotateY }}
                   animate={{
                     x: xOffset,
@@ -252,7 +253,6 @@ const FocusRail: React.FC<{
                   }}
                   className={cn(
                     'absolute overflow-hidden rounded-[1.5rem] border bg-neutral-950/96 p-1.5 md:rounded-[2.4rem] md:p-3',
-                    // ZMENA: Formát 3:4 a object-cover zaručia, že video je roztiahnuté na celú kartu
                     'aspect-[3/4] h-full max-h-[48vh] sm:max-h-[54vh] md:max-h-[62vh] max-w-[75vw] md:max-w-none w-auto',
                     isCenter
                       ? 'border-brand/60 shadow-[0_0_90px_-18px_rgba(184,21,71,0.52)]'
@@ -265,7 +265,6 @@ const FocusRail: React.FC<{
                         src={mediaSrc}
                         poster={posterSrc}
                         isActive={isCenter}
-                        // ZMENA: object-cover
                         className="h-full w-full object-cover pointer-events-none"
                       />
                     ) : (
@@ -292,9 +291,6 @@ const FocusRail: React.FC<{
         </div>
 
         <div className="relative mt-auto shrink-0 p-3 sm:p-4 md:p-6">
-          {/* ZMENA (Oprava pre čierny obdĺžnik): 
-              Odstránený backdrop-blur, použitá elegantná pevná tmavá farba. 
-              Vďaka tomuto už animácia textu nikdy nevyvolá grafickú chybu. */}
           <div className="pointer-events-none absolute inset-0 z-0 rounded-[1.25rem] bg-neutral-900/95 ring-1 ring-white/5 md:rounded-[1.75rem]" />
 
           <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -364,16 +360,38 @@ const FocusRail: React.FC<{
   );
 };
 
-const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
-  const [isVisible, setIsVisible] = useState(true);
+// ZMENA: autoStartDelay defaultne 0 (okamžité spustenie po kliku z menu)
+const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose, autoStartDelay = 0 }) => {
+  // Ak je delay 0, komponent sa zobrazí hneď. Ak je väčší, čaká.
+  const [isVisible, setIsVisible] = useState(autoStartDelay === 0);
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    let timer: ReturnType<typeof setTimeout>;
+
+    // Ak sme poslali autoStartDelay z rodiča, zapneme odpočet
+    if (autoStartDelay > 0) {
+      timer = setTimeout(() => {
+        setIsVisible(true);
+      }, autoStartDelay);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [autoStartDelay]);
+
+  // Posúvanie na stránke uzamkneme AŽ VTEDY, keď sprievodca reálne prekryje obrazovku
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
 
     return () => {
       document.body.style.overflow = '';
     };
-  }, []);
+  }, [isVisible]);
 
   const handleClose = () => {
     setIsVisible(false);
@@ -437,9 +455,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
     <AnimatePresence>
       {isVisible && (
         <>
-          {/* ZMENA: Oddelená vrstva pre rozmazané pozadie. 
-            Toto je ultimátny fix, prečo už stmievanie nebude sekať a "skákať" do rozmazania.
-          */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -452,7 +467,6 @@ const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ onClose }) => {
             <div className="absolute inset-0 shadow-[inset_0_0_220px_rgba(0,0,0,0.55)]" />
           </motion.div>
 
-          {/* Samostatná vrstva pre interaktívny obsah */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
