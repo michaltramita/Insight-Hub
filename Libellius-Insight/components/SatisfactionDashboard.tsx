@@ -4,8 +4,9 @@ import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
+import WelcomeGuide from './WelcomeGuide'; 
 import {
-  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare, Sparkles
+  Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare
 } from 'lucide-react';
 
 interface Props {
@@ -90,33 +91,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   return (
     <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
       
-      {/* PLÁVAJÚCE TLAČIDLO SPRIEVODCU (Zobrazí sa len klientovi) */}
-      {isSharedView && (
-        <div className="fixed bottom-6 left-4 sm:bottom-10 sm:left-8 z-[90]">
-          {/* DESKTOP */}
-          <button 
-            onClick={() => { /* SEM DAJ SVOJU FUNKCIU NA OTVORENIE SPRIEVODCU */ }} 
-            className="hidden xl:flex group items-center bg-white border border-black/5 rounded-full h-[54px] pl-4 pr-4 hover:pr-6 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-[0_8px_30px_rgb(0,0,0,0.12)] cursor-pointer"
-          >
-            <Sparkles className="w-6 h-6 text-brand shrink-0" />
-            <div className="grid grid-cols-[0fr] group-hover:grid-cols-[1fr] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
-              <span className="overflow-hidden whitespace-nowrap font-black text-[11px] sm:text-[12px] uppercase tracking-[0.15em] text-black flex items-center">
-                <span className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                  Sprievodca reportom
-                </span>
-              </span>
-            </div>
-          </button>
-
-          {/* MOBIL */}
-          <button 
-            onClick={() => { /* SEM DAJ SVOJU FUNKCIU NA OTVORENIE SPRIEVODCU */ }} 
-            className="xl:hidden flex items-center justify-center bg-white border border-black/5 rounded-full h-[54px] w-[54px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-brand active:scale-95 transition-transform"
-          >
-            <Sparkles className="w-6 h-6" />
-          </button>
-        </div>
-      )}
+      {/* SPRIEVODCA (Sám si spravuje aj pop-up, aj svoje plávajúce tlačidlo) */}
+      <WelcomeGuide onClose={() => {}} />
 
       <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
         <div className="space-y-6 sm:space-y-8 animate-fade-in pb-10 sm:pb-12">
