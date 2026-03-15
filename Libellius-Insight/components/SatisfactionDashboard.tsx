@@ -3,6 +3,7 @@ import { FeedbackAnalysisResult } from '../types';
 import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
+import ExecutiveBentoBlock from './satisfaction/ExecutiveBentoBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
 import {
   Users, BarChart4, UserCheck, Building2, Download, Link as LinkIcon, Check, ArrowUpDown, MessageSquare
@@ -13,7 +14,7 @@ interface Props {
   onReset: () => void;
 }
 
-type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | string;
+type TabType = 'OVERVIEW' | 'ENGAGEMENT' | 'OPEN_QUESTIONS' | string;
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
