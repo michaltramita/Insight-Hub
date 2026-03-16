@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { AnalysisMode } from '../types';
 
@@ -9,6 +9,8 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
   const isSupportedFile = (file: File) => {
     const supportedTypes = [
       'application/pdf',
@@ -21,8 +23,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
            ['xlsx', 'xls', 'pdf', 'json', 'csv'].includes(extension || '');
   };
 
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!isAnalyzing) setIsDragging(true);
+  }, [isAnalyzing]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDragging(false);
     if (isAnalyzing) return;
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
@@ -45,12 +58,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
   const getLabels = () => {
     if (mode === 'ZAMESTNANECKA_SPOKOJNOST') {
       return {
-        title: 'Nahrajte dáta (Excel/PDF) alebo hotový JSON report',
-        description: 'Pre analýzu vložte Excel. Pre zobrazenie výsledku vložte JSON.'
+        title: 'Nahrajte dáta (Excel/PDF) alebo hotový JSON',
+        description: 'Pre analýzu vložte Excel. Pre zobrazenie výsledkov vložte JSON report.'
       };
     }
     return {
-      title: 'Nahrajte výsledky z 360° Spätnej väzby',
+      title: 'Nahrajte výsledky z 360° spätnej väzby',
       description: 'Podporujeme PDF, Excel aj vopred analyzované JSON formáty.'
     };
   };
@@ -59,12 +72,20 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
 
   return (
     <div 
-      // VIZUÁLNY BLOK ODSTRÁNENÝ: bg-brand/[0.02] bol vymazaný, pozadie je biele (bg-white)
-      className={`w-full max-w-2xl mx-auto p-6 md:p-12 border-[2px] md:border-[3px] border-dashed rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center text-center bg-white
-        ${isAnalyzing ? 'border-brand/10 cursor-wait py-10 md:py-14' : 'border-brand/40 hover:border-brand hover:shadow-2xl hover:shadow-brand/10 cursor-pointer'}
+      className={`
+        w-full max-w-4xl mx-auto min-h-[400px] md:min-h-[480px] p-8 md:p-12 
+        border-2 border-dashed rounded-[2.5rem] transition-all duration-300 ease-out
+        flex flex-col items-center justify-center text-center overflow-hidden
+        ${isAnalyzing 
+          ? 'border-brand/10 bg-white cursor-wait' 
+          : isDragging 
+            ? 'border-brand bg-brand/5 scale-[1.02] shadow-2xl shadow-brand/10 cursor-copy' 
+            : 'border-black/20 bg-[#f9f9f9] hover:border-brand/50 hover:bg-white hover:shadow-2xl hover:shadow-black/5 cursor-pointer'
+        }
       `}
       onDrop={handleDrop}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
     >
       <input 
         type="file" 
@@ -75,38 +96,30 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
         disabled={isAnalyzing}
       />
       
-      <label htmlFor="file-upload" className="w-full flex flex-col items-center cursor-pointer group">
+      <label htmlFor="file-upload" className="w-full h-full flex flex-col items-center justify-center cursor-pointer group">
         {isAnalyzing ? (
           <div className="flex flex-col items-center w-full animate-fade-in px-2">
-            <div className="w-14 h-14 md:w-16 md:h-16 bg-brand/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-brand/20 relative overflow-hidden shrink-0">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-brand/10 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-inner border border-brand/20 relative overflow-hidden shrink-0">
               <div className="absolute inset-0 bg-brand/20 animate-pulse"></div>
-              <UploadCloud className="w-7 h-7 md:w-8 md:h-8 text-brand relative z-10" />
+              <UploadCloud className="w-8 h-8 md:w-10 md:h-10 text-brand relative z-10" />
             </div>
 
-            {/* Čistý, plne responzívny kontajner len pre rotujúci text.
-                VIDITEĽNOSŤ NA DESKTOPE: Pridané lg:text-4xl a lg:h-[42px] pre výrazne väčší text
-            */}
-            <div className="flex items-center justify-center text-base sm:text-xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter w-full px-4 mx-auto">
-              
-              <div className="relative overflow-hidden h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] w-full text-center">
-                
-                {/* Vizuálny prekrývací "blok" (gradient) bol kompletne odstránený */}
-                
+            <div className="flex items-center justify-center text-xl sm:text-2xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter w-full px-4 mx-auto">
+              <div className="relative overflow-hidden h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] w-full text-center">
                 <div className="slot-words flex flex-col items-center">
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Triedim odpovede...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Vytváram grafy...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
-                  {/* Zopakovanie prvého pre nekonečnú slučku */}
-                  <span className="block h-[24px] sm:h-[28px] md:h-[36px] lg:h-[42px] leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[42px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Extrahujem dáta...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Priradzujem hodnoty...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Triedim odpovede...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Vytváram grafy...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Nastavujem porovnania...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Pripravujem odporúčania...</span>
+                  <span className="block h-[28px] sm:h-[32px] md:h-[48px] lg:h-[56px] leading-[28px] sm:leading-[32px] md:leading-[48px] lg:leading-[56px] text-brand whitespace-nowrap">Analyzujem dokument...</span>
                 </div>
               </div>
             </div>
             
-            <p className="text-black/40 mt-5 md:mt-6 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-center w-full shrink-0">
+            <p className="text-black/40 mt-8 font-bold text-xs md:text-sm uppercase tracking-[0.2em] text-center w-full shrink-0">
               Prosím nezatvárajte túto stránku
             </p>
 
@@ -127,18 +140,28 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
             `}</style>
           </div>
         ) : (
-          <>
-            <div className="w-16 h-16 md:w-24 md:h-24 bg-brand rounded-full mb-6 md:mb-8 flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-2xl shadow-brand/20 shrink-0">
-              <UploadCloud className="w-8 h-8 md:w-12 md:h-12 text-white" />
+          <div className="flex flex-col items-center">
+            <div className={`
+              w-20 h-20 md:w-28 md:h-28 bg-white border border-black/5 rounded-[2rem] mb-8 
+              flex items-center justify-center transition-all duration-500 ease-out
+              shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] shrink-0
+              ${isDragging ? 'scale-110 shadow-brand/30 border-brand/20' : 'group-hover:scale-105 group-hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] group-hover:border-brand/20'}
+            `}>
+              <UploadCloud className={`w-10 h-10 md:w-14 md:h-14 transition-colors duration-300 ${isDragging ? 'text-brand' : 'text-black/40 group-hover:text-brand'}`} />
             </div>
-            <h3 className="text-lg md:text-3xl font-black text-black mb-2 px-2 tracking-tight uppercase leading-tight">{labels.title}</h3>
-            <p className="text-black/40 font-medium text-xs md:text-lg max-w-md leading-relaxed mb-8 px-4">
-              {labels.description}
+            
+            <h3 className="text-2xl md:text-4xl font-black text-black mb-3 px-2 tracking-tight uppercase leading-tight">
+              {labels.title}
+            </h3>
+            
+            <p className="text-black/50 font-semibold text-sm md:text-lg max-w-xl leading-relaxed mb-10 px-4">
+              {labels.description} alebo súbor jednoducho pretiahnite sem
             </p>
-            <div className="px-8 py-3 md:px-10 md:py-4 bg-black text-white rounded-full transition-all duration-300 font-black text-xs md:text-sm uppercase tracking-widest hover:bg-brand shadow-xl shadow-black/30 transform hover:-translate-y-1">
+            
+            <div className="px-10 py-4 bg-black text-white rounded-2xl transition-all duration-300 font-black text-sm uppercase tracking-widest group-hover:bg-brand shadow-xl shadow-black/20 group-hover:shadow-brand/30 transform group-hover:-translate-y-1">
               Vybrať súbor
             </div>
-          </>
+          </div>
         )}
       </label>
     </div>
