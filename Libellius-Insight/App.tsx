@@ -329,15 +329,7 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="w-full max-w-5xl mx-auto mt-auto pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6 text-black/40 pb-4 px-4 md:px-0 animate-fade-in">
-              <div className="flex items-center gap-4">
-                <img src="/logo.png" alt="Libellius" className="h-16 md:h-20 w-auto object-contain opacity-80" />
-              </div>
-              <div className="text-center md:text-right">
-                <p className="text-xs font-bold text-black/60">© {new Date().getFullYear()} Libellius. Všetky práva vyhradené.</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Generované pomocou umelej inteligencie</p>
-              </div>
-            </div>
+            {/* DUPLIKOVANÁ PÄTIČKA Z TOHTO MIESTA BOLA ÚSPEŠNE ODSTRÁNENÁ */}
           </div>
         )}
 
