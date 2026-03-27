@@ -31,13 +31,16 @@ const App: React.FC = () => {
     survey?: string;
     issued?: string;
   } | null>(null);
+  const hasPublicMeta = Boolean(
+    publicMeta?.client || publicMeta?.survey || publicMeta?.issued
+  );
 
   useEffect(() => {
     const handleUrlData = () => {
       const hash = window.location.hash;
 
       // KONTROLA REFRESHU: Ak nie je hash, pozrieme sa, či nemáme v pamäti uložené zobrazenie podakovania
-      if (!hash || !hash.startsWith('#report=')) {
+      if (!hash || !hash.includes('report=')) {
         const shouldShowGoodbye = sessionStorage.getItem('libellius_show_goodbye');
         if (shouldShowGoodbye === 'true') {
           setShowSharedGoodbye(true);
@@ -46,15 +49,15 @@ const App: React.FC = () => {
         }
       }
 
-      if (hash && hash.startsWith('#report=')) {
+      if (hash && hash.includes('report=')) {
         try {
           sessionStorage.removeItem('libellius_show_goodbye');
           
           const raw = hash.slice(1); 
           const params = new URLSearchParams(raw);
           const payload = params.get('report');
-          const client = params.get('client');
-          const survey = params.get('survey');
+          const client = params.get('client') || params.get('company');
+          const survey = params.get('survey') || params.get('surveyName');
           const issued = params.get('issued');
 
           if (!payload) throw new Error('Chýba payload reportu.');
@@ -65,7 +68,7 @@ const App: React.FC = () => {
             issued: issued || undefined,
           });
 
-          if (payload.startsWith('v1.') || payload.startsWith('v2.')) {
+          if (payload.startsWith('v1.') || payload.startsWith('v2.') || payload.startsWith('v3.')) {
             setPendingEncryptedPayload(payload);
             setShareDecryptError(null);
             setSharePassword('');
@@ -203,7 +206,7 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    const isSharedLink = typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+    const isSharedLink = typeof window !== 'undefined' && window.location.hash.includes('report=');
 
     window.location.hash = '';
     setResult(null);
@@ -287,7 +290,7 @@ const App: React.FC = () => {
                 <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-8 md:mb-10">
                   Tento report je chránený heslom
                 </h2>
-                {publicMeta && (
+                {hasPublicMeta && (
                   <div className="mb-6 md:mb-10 text-left bg-black/5 border border-black/5 rounded-3xl px-6 py-5 md:px-7 md:py-6 max-w-4xl mx-auto">
                     {publicMeta.client && <p className="text-lg md:text-xl font-black text-black leading-tight">Klient <span className="text-brand">{publicMeta.client}</span></p>}
                     {publicMeta.survey && <p className="text-base md:text-lg font-semibold text-black/70 mt-3 leading-snug">Report {publicMeta.survey}</p>}

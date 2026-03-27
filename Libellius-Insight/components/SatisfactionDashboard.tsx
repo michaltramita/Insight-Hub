@@ -40,6 +40,89 @@ const normalizeContextLabel = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+const normalizeTeamNames = (teams: unknown): string[] => {
+  if (!Array.isArray(teams)) return [];
+  return Array.from(
+    new Set(
+      teams
+        .map((team) => String(team || '').trim())
+        .filter(Boolean)
+    )
+  );
+};
+
+const MAX_SHARED_RESPONSES_PER_QUESTION = 80;
+const MAX_SHARED_RESPONSE_TEXT_LENGTH = 320;
+
+const trimResponseText = (text: unknown): string => {
+  const normalized = String(text || '').trim();
+  if (normalized.length <= MAX_SHARED_RESPONSE_TEXT_LENGTH) return normalized;
+  return `${normalized.slice(0, MAX_SHARED_RESPONSE_TEXT_LENGTH).trim()}...`;
+};
+
+const buildCompactOpenQuestions = (openQuestions: any) => {
+  if (!Array.isArray(openQuestions)) return openQuestions;
+
+  return openQuestions.map((teamItem: any) => ({
+    teamName: String(teamItem?.teamName || '').trim(),
+    questions: Array.isArray(teamItem?.questions)
+      ? teamItem.questions.map((question: any) => ({
+          questionText: String(question?.questionText || '').trim(),
+          themeCloud: Array.isArray(question?.themeCloud)
+            ? question.themeCloud
+            : [],
+          responses: Array.isArray(question?.responses)
+            ? question.responses
+                .slice(0, MAX_SHARED_RESPONSES_PER_QUESTION)
+                .map((response: any) => ({
+                  text: trimResponseText(response?.text),
+                  theme: response?.theme ? String(response.theme).trim() : undefined,
+                }))
+                .filter((response: any) => response.text.length > 0)
+            : [],
+        }))
+      : [],
+  }));
+};
+
+const buildMinimalSurveyGroups = (surveyGroups: any) => {
+  if (Array.isArray(surveyGroups)) {
+    return surveyGroups.map((group: any, index: number) => ({
+      id: String(group?.id || group?.key || group?.name || group?.title || `group_${index + 1}`),
+      label: String(group?.label || group?.name || group?.title || `Skupina ${index + 1}`),
+      masterTeams: normalizeTeamNames(group?.masterTeams),
+    }));
+  }
+
+  if (surveyGroups && typeof surveyGroups === 'object') {
+    return Object.entries(surveyGroups).map(([groupId, groupValue], index) => {
+      const group = groupValue as any;
+      return {
+        id: String(group?.id || group?.key || groupId || `group_${index + 1}`),
+        label: String(group?.label || group?.name || group?.title || groupId || `Skupina ${index + 1}`),
+        masterTeams: normalizeTeamNames(group?.masterTeams),
+      };
+    });
+  }
+
+  return surveyGroups;
+};
+
+const buildShareableReport = (report: FeedbackAnalysisResult) => {
+  const shareable = {
+    ...report,
+    satisfaction: report.satisfaction
+      ? {
+          ...report.satisfaction,
+          openQuestions: buildCompactOpenQuestions(report.satisfaction.openQuestions),
+          surveyGroups: buildMinimalSurveyGroups(report.satisfaction.surveyGroups),
+        }
+      : report.satisfaction,
+  };
+
+  return shareable;
+};
+
 const TOP_STATEMENTS_CONTEXT_ID = 'TOP_STATEMENTS_GLOBAL';
 const RECOMMENDATIONS_CONTEXT_ID = 'RECOMMENDATIONS_GLOBAL';
 
@@ -47,7 +130,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = 5;
   const isSharedView =
-    typeof window !== 'undefined' && window.location.hash.startsWith('#report=');
+    typeof window !== 'undefined' && window.location.hash.includes('report=');
 
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [activeContext, setActiveContext] = useState<ContextType>('GLOBAL');
@@ -64,16 +147,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         return alert('Heslo musí mať aspoň 6 znakov.');
       }
 
-      const encryptedPayload = await encryptReportToUrlPayload(result, password.trim());
+      const shareableReport = buildShareableReport(result);
+      const encryptedPayload = await encryptReportToUrlPayload(shareableReport, password.trim());
       const clientMeta = encodeURIComponent(data.clientName || 'Klient');
       const surveyMeta = encodeURIComponent(data.surveyName || 'Prieskum spokojnosti');
       const issuedMeta = encodeURIComponent(
         result.reportMetadata?.date || new Date().toLocaleDateString('sk-SK')
       );
 
-      const shareUrl = `${window.location.origin}${window.location.pathname}#report=${encodeURIComponent(
+      const shareUrl = `${window.location.origin}${window.location.pathname}#client=${clientMeta}&survey=${surveyMeta}&issued=${issuedMeta}&report=${encodeURIComponent(
         encryptedPayload
-      )}&client=${clientMeta}&survey=${surveyMeta}&issued=${issuedMeta}`;
+      )}`;
 
       try {
         await navigator.clipboard.writeText(shareUrl);
