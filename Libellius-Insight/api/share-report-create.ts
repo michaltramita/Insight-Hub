@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     await put(pathname, JSON.stringify(body), {
-      access: 'public',
+      access: 'private',
       addRandomSuffix: false,
       allowOverwrite: false,
       contentType: 'application/json',

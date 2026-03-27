@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const pathname = buildShareBlobPath(shareId);
-    const blob = await get(pathname, { access: 'public' });
+    const blob = await get(pathname, { access: 'private' });
 
     if (!blob || blob.statusCode !== 200 || !blob.stream) {
       return res.status(404).json({ error: 'Zdieľaný report nebol nájdený.' });
