@@ -8,6 +8,22 @@ import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
 import LZString from 'lz-string';
 import { decryptReportFromUrlPayload } from './utils/reportCrypto';
+import { resolveSharedReport } from './services/shareService';
+
+const extractShareIdFromPathname = (pathname: string): string | null => {
+  const match = String(pathname || '').match(/\/r\/([^/?#]+)/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+};
+
+const stripSharePathSegment = (pathname: string) => {
+  const sanitized = String(pathname || '').replace(/\/r\/[^/?#]+\/?$/, '');
+  return sanitized.length > 0 ? sanitized : '/';
+};
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.HOME);
@@ -38,9 +54,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleUrlData = () => {
       const hash = window.location.hash;
+      const pathname = window.location.pathname;
+      const shareIdFromPath = extractShareIdFromPathname(pathname);
+      const hasHashReport = !!hash && hash.includes('report=');
 
       // KONTROLA REFRESHU: Ak nie je hash, pozrieme sa, či nemáme v pamäti uložené zobrazenie podakovania
-      if (!hash || !hash.includes('report=')) {
+      if (!hasHashReport && !shareIdFromPath) {
         const shouldShowGoodbye = sessionStorage.getItem('libellius_show_goodbye');
         if (shouldShowGoodbye === 'true') {
           setShowSharedGoodbye(true);
@@ -49,7 +68,41 @@ const App: React.FC = () => {
         }
       }
 
-      if (hash && hash.includes('report=')) {
+      if (shareIdFromPath) {
+        sessionStorage.removeItem('libellius_show_goodbye');
+        void (async () => {
+          try {
+            const resolved = await resolveSharedReport(shareIdFromPath);
+            const meta = resolved.publicMeta || {};
+
+            setPublicMeta({
+              client: typeof meta.client === 'string' ? meta.client : undefined,
+              survey: typeof meta.survey === 'string' ? meta.survey : undefined,
+              issued: typeof meta.issued === 'string' ? meta.issued : undefined,
+            });
+
+            setPendingEncryptedPayload(resolved.encryptedPayload);
+            setShareDecryptError(null);
+            setSharePassword('');
+            setResult(null);
+            setShowSharedGoodbye(false);
+            setStatus(AppStatus.HOME);
+          } catch (e: any) {
+            console.error('Chyba pri načítaní short-link reportu', e);
+            setShareDecryptError(
+              e?.message || 'Link reportu sa nepodarilo načítať.'
+            );
+            setPendingEncryptedPayload(null);
+            setShowSharedGoodbye(false);
+            setPublicMeta(null);
+            setResult(null);
+            setStatus(AppStatus.HOME);
+          }
+        })();
+        return;
+      }
+
+      if (hasHashReport) {
         try {
           sessionStorage.removeItem('libellius_show_goodbye');
           
@@ -98,12 +151,14 @@ const App: React.FC = () => {
           setPendingEncryptedPayload(null);
           setShowSharedGoodbye(false);
           setPublicMeta(null);
+          setStatus(AppStatus.HOME);
         }
       }
     };
 
     handleUrlData();
     window.addEventListener('hashchange', handleUrlData);
+    window.addEventListener('popstate', handleUrlData);
 
     const checkKey = async () => {
       const aistudio = (window as any).aistudio;
@@ -118,7 +173,10 @@ const App: React.FC = () => {
     };
 
     checkKey();
-    return () => window.removeEventListener('hashchange', handleUrlData);
+    return () => {
+      window.removeEventListener('hashchange', handleUrlData);
+      window.removeEventListener('popstate', handleUrlData);
+    };
   }, []);
 
   const handleOpenKeyDialog = async () => {
@@ -206,9 +264,18 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    const isSharedLink = typeof window !== 'undefined' && window.location.hash.includes('report=');
+    const hasHashSharedLink =
+      typeof window !== 'undefined' && window.location.hash.includes('report=');
+    const hasPathSharedLink =
+      typeof window !== 'undefined' &&
+      extractShareIdFromPathname(window.location.pathname) !== null;
+    const isSharedLink = hasHashSharedLink || hasPathSharedLink;
 
     window.location.hash = '';
+    if (hasPathSharedLink) {
+      const basePath = stripSharePathSegment(window.location.pathname);
+      window.history.replaceState({}, '', basePath);
+    }
     setResult(null);
     setSelectedMode(null);
     setError(null);
@@ -318,6 +385,15 @@ const App: React.FC = () => {
                     <button
                       onClick={() => {
                         window.location.hash = '';
+                        const shareIdFromPath = extractShareIdFromPathname(
+                          window.location.pathname
+                        );
+                        if (shareIdFromPath) {
+                          const basePath = stripSharePathSegment(
+                            window.location.pathname
+                          );
+                          window.history.replaceState({}, '', basePath);
+                        }
                         setPendingEncryptedPayload(null);
                         setSharePassword('');
                         setShareDecryptError(null);

@@ -6,6 +6,7 @@ import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import TopStatementsBlock from './satisfaction/TopStatementsBlock';
 import RecommendationsBlock from './satisfaction/RecommendationsBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
+import { createSharedReport } from '../services/shareService';
 import {
   Users,
   BarChart4,
@@ -129,8 +130,11 @@ const RECOMMENDATIONS_CONTEXT_ID = 'RECOMMENDATIONS_GLOBAL';
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const data = result.satisfaction || (result as any);
   const scaleMax = 5;
+  const isPathSharedView =
+    typeof window !== 'undefined' && /\/r\/[^/?#]+/.test(window.location.pathname);
   const isSharedView =
-    typeof window !== 'undefined' && window.location.hash.includes('report=');
+    typeof window !== 'undefined' &&
+    (window.location.hash.includes('report=') || isPathSharedView);
 
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [activeContext, setActiveContext] = useState<ContextType>('GLOBAL');
@@ -149,14 +153,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
       const shareableReport = buildShareableReport(result);
       const encryptedPayload = await encryptReportToUrlPayload(shareableReport, password.trim());
-      const clientMeta = encodeURIComponent(data.clientName || 'Klient');
-      const surveyMeta = encodeURIComponent(data.surveyName || 'Prieskum spokojnosti');
-      const issuedMeta = encodeURIComponent(
+      const clientMeta = data.clientName || 'Klient';
+      const surveyMeta = data.surveyName || 'Prieskum spokojnosti';
+      const issuedMeta =
         result.reportMetadata?.date || new Date().toLocaleDateString('sk-SK')
-      );
+      ;
 
-      const shareUrl = `${window.location.origin}${window.location.pathname}#client=${clientMeta}&survey=${surveyMeta}&issued=${issuedMeta}&report=${encodeURIComponent(
-        encryptedPayload
+      const { shareId } = await createSharedReport(encryptedPayload, {
+        client: clientMeta,
+        survey: surveyMeta,
+        issued: issuedMeta,
+      });
+
+      const currentPath = window.location.pathname || '/';
+      const withoutSharedSegment = currentPath.replace(/\/r\/[^/?#]+$/, '');
+      const basePath = withoutSharedSegment === '' ? '' : withoutSharedSegment.replace(/\/$/, '');
+      const shareUrl = `${window.location.origin}${basePath}/r/${encodeURIComponent(
+        shareId
       )}`;
 
       try {
