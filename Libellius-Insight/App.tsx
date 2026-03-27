@@ -25,6 +25,14 @@ const stripSharePathSegment = (pathname: string) => {
   return sanitized.length > 0 ? sanitized : '/';
 };
 
+const hasShareEntryInWindow = () => {
+  if (typeof window === 'undefined') return false;
+  return (
+    extractShareIdFromPathname(window.location.pathname) !== null ||
+    window.location.hash.includes('report=')
+  );
+};
+
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.HOME);
   const [selectedMode, setSelectedMode] = useState<AnalysisMode | null>(null);
@@ -41,6 +49,9 @@ const App: React.FC = () => {
   
   // STAV PRE UVÍTACIU KARTU
   const [showWelcomeGuide, setShowWelcomeGuide] = useState<boolean>(false);
+  const [isResolvingSharedEntry, setIsResolvingSharedEntry] = useState<boolean>(
+    () => hasShareEntryInWindow()
+  );
 
   const [publicMeta, setPublicMeta] = useState<{
     client?: string;
@@ -60,6 +71,7 @@ const App: React.FC = () => {
 
       // KONTROLA REFRESHU: Ak nie je hash, pozrieme sa, či nemáme v pamäti uložené zobrazenie podakovania
       if (!hasHashReport && !shareIdFromPath) {
+        setIsResolvingSharedEntry(false);
         const shouldShowGoodbye = sessionStorage.getItem('libellius_show_goodbye');
         if (shouldShowGoodbye === 'true') {
           setShowSharedGoodbye(true);
@@ -69,6 +81,7 @@ const App: React.FC = () => {
       }
 
       if (shareIdFromPath) {
+        setIsResolvingSharedEntry(true);
         sessionStorage.removeItem('libellius_show_goodbye');
         void (async () => {
           try {
@@ -97,6 +110,8 @@ const App: React.FC = () => {
             setPublicMeta(null);
             setResult(null);
             setStatus(AppStatus.HOME);
+          } finally {
+            setIsResolvingSharedEntry(false);
           }
         })();
         return;
@@ -104,6 +119,7 @@ const App: React.FC = () => {
 
       if (hasHashReport) {
         try {
+          setIsResolvingSharedEntry(true);
           sessionStorage.removeItem('libellius_show_goodbye');
           
           const raw = hash.slice(1); 
@@ -141,6 +157,7 @@ const App: React.FC = () => {
             setPendingEncryptedPayload(null);
             setShowSharedGoodbye(false);
             setStatus(AppStatus.SUCCESS);
+            setIsResolvingSharedEntry(false);
             return;
           }
 
@@ -152,6 +169,8 @@ const App: React.FC = () => {
           setShowSharedGoodbye(false);
           setPublicMeta(null);
           setStatus(AppStatus.HOME);
+        } finally {
+          setIsResolvingSharedEntry(false);
         }
       }
     };
@@ -298,6 +317,12 @@ const App: React.FC = () => {
     setStatus(AppStatus.HOME);
   };
 
+  const shouldShowSharedLoading =
+    isResolvingSharedEntry &&
+    !pendingEncryptedPayload &&
+    status !== AppStatus.SUCCESS &&
+    !showSharedGoodbye;
+
   const handleBackToMode = () => {
     sessionStorage.removeItem('libellius_show_goodbye');
     setShowSharedGoodbye(false);
@@ -412,7 +437,28 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {!pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
+        {shouldShowSharedLoading && (
+          <div className="flex flex-col min-h-[calc(100vh-120px)]">
+            <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in px-4 py-6 md:py-10">
+              <div className="w-full max-w-5xl bg-white border border-black/5 rounded-[2rem] shadow-2xl px-6 sm:px-10 md:px-14 py-8 sm:py-10 md:py-12">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-full mb-6 text-xs font-black tracking-widest uppercase">
+                  <Key className="w-3 h-3" /> Chránený report
+                </div>
+                <h1 className="text-sm sm:text-base font-black uppercase tracking-[0.24em] text-black/40 mb-5">
+                  Libellius <span className="text-brand">InsightHub</span>
+                </h1>
+                <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-4">
+                  Načítavam zdieľaný report
+                </h2>
+                <p className="text-black/50 font-semibold text-base md:text-lg">
+                  Pripravujeme bezpečné odomknutie reportu.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
