@@ -1,0 +1,12 @@
+{
+  "name": "insight-hub-root",
+  "private": true,
+  "workspaces": [
+    "Libellius-Insight"
+  ],
+  "scripts": {
+    "dev": "npm --workspace libellius-insighthub run dev --",
+    "build": "npm --workspace libellius-insighthub run build --",
+    "preview": "npm --workspace libellius-insighthub run preview --"
+  }
+}

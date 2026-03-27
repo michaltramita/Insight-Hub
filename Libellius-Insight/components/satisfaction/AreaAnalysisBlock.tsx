@@ -3,14 +3,33 @@ import { createPortal } from 'react-dom';
 import { exportDataToExcel, exportBlockToPNG } from '../../utils/exportUtils';
 import TeamSelectorGrid from './TeamSelectorGrid';
 import ComparisonMatrix from './ComparisonMatrix';
-import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2, Image as ImageIcon } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import StyledSelect from '../ui/StyledSelect';
+import { MapPin, Download, ChevronDown, Star, Target, BarChart as BarChartIcon, Maximize2, Minimize2, Image as ImageIcon, Filter } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, ReferenceLine } from 'recharts';
+import { FrequencyDistribution } from '../../types';
 
 interface Props {
   area: any;
   masterTeams: string[];
   scaleMax: number;
 }
+
+const FREQUENCY_BUCKETS: Array<{
+  key: keyof FrequencyDistribution;
+  label: string;
+  pctKey: string;
+  countKey: string;
+  color: string;
+  textColor: string;
+}> = [
+  { key: 'na', label: 'N/A', pctKey: 'naPct', countKey: 'naCount', color: '#111111', textColor: '#FFFFFF' },
+  { key: 'one', label: '1', pctKey: 'onePct', countKey: 'oneCount', color: '#4A081C', textColor: '#FFFFFF' },
+  { key: 'two', label: '2', pctKey: 'twoPct', countKey: 'twoCount', color: '#7D0E30', textColor: '#FFFFFF' },
+  { key: 'three', label: '3', pctKey: 'threePct', countKey: 'threeCount', color: '#B81547', textColor: '#FFFFFF' },
+  { key: 'four', label: '4', pctKey: 'fourPct', countKey: 'fourCount', color: '#CB446D', textColor: '#FFFFFF' },
+  { key: 'five', label: '5', pctKey: 'fivePct', countKey: 'fiveCount', color: '#E88AA6', textColor: '#111111' },
+];
+const FREQUENCY_ALL_VALUE = '__ALL__';
 
 const CustomBarTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -27,9 +46,90 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+const FrequencyDistributionTooltip = ({
+  active,
+  payload,
+  label,
+  coordinate,
+  viewBox,
+  hoveredBucketKey,
+  selectedBucketKey,
+}: any) => {
+  if (!(active && payload && payload.length)) return null;
+
+  const payloadItems = Array.isArray(payload) ? payload : [];
+  const rowFromPayload =
+    payloadItems.find((item: any) => item?.payload)?.payload || {};
+
+  const resolveBucketDef = (
+    key: keyof FrequencyDistribution | null | undefined
+  ) => {
+    if (!key) return null;
+    const bucketDef = FREQUENCY_BUCKETS.find((item) => item.key === key);
+    if (!bucketDef) return null;
+    const pct = Number(rowFromPayload?.[bucketDef.pctKey] ?? 0);
+    if (!(pct > 0)) return null;
+    return bucketDef;
+  };
+
+  const resolveBucketByPointer = () => {
+    const viewWidth = Number(viewBox?.width ?? 0);
+    const viewX = Number(viewBox?.x ?? 0);
+    const pointerX = Number(coordinate?.x ?? NaN);
+    if (!Number.isFinite(pointerX) || viewWidth <= 0) return null;
+
+    const pointerPctRaw = ((pointerX - viewX) / viewWidth) * 100;
+    const pointerPct = Math.max(0, Math.min(100, pointerPctRaw));
+
+    let cumulative = 0;
+    for (const bucket of FREQUENCY_BUCKETS) {
+      const pct = Number(rowFromPayload?.[bucket.pctKey] ?? 0);
+      if (!(pct > 0)) continue;
+      const next = cumulative + pct;
+      if (
+        pointerPct >= cumulative - 0.0001 &&
+        pointerPct <= next + 0.0001
+      ) {
+        return bucket;
+      }
+      cumulative = next;
+    }
+    return null;
+  };
+
+  const resolvedBucket = selectedBucketKey
+    ? resolveBucketDef(selectedBucketKey)
+    : resolveBucketByPointer() ||
+      resolveBucketDef(hoveredBucketKey) ||
+      FREQUENCY_BUCKETS.find(
+        (bucket) => Number(rowFromPayload?.[bucket.pctKey] ?? 0) > 0
+      ) ||
+      null;
+
+  if (!resolvedBucket) return null;
+
+  const count = Number(rowFromPayload?.[resolvedBucket.countKey] ?? 0);
+  const percentage = Number(rowFromPayload?.[resolvedBucket.pctKey] ?? 0);
+  const total = Number(rowFromPayload?.totalCount ?? 0);
+  if (!(count > 0) || !(percentage > 0) || !(total > 0)) return null;
+
+  return (
+    <div className="bg-black text-white p-4 sm:p-5 rounded-2xl shadow-2xl max-w-sm border border-white/10 z-50">
+      <p className="font-bold text-sm mb-3 leading-snug">{label}</p>
+      <div className="space-y-1.5">
+        <p className="text-xs font-black uppercase tracking-widest text-white/60">Hodnota škály: {resolvedBucket.label}</p>
+        <p className="font-black text-base sm:text-lg">
+          {count} respondentov ({percentage.toFixed(2)}%)
+        </p>
+        <p className="text-xs font-bold text-white/65">Celkový počet odpovedí: {total}</p>
+      </div>
+    </div>
+  );
+};
+
 const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const maxLength = isMobile ? 40 : (isFullScreen ? 100 : 80); 
+  const maxLength = isMobile ? 34 : (isFullScreen ? 88 : 62);
 
   const words = payload.value.split(' ');
   const lines = [];
@@ -47,9 +147,9 @@ const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
     lines.push(currentLine.trim());
   }
 
-  const lineHeight = isMobile ? 16 : (isFullScreen ? 22 : 18);
+  const lineHeight = isMobile ? 15 : (isFullScreen ? 20 : 17);
   const startY = y - ((lines.length - 1) * lineHeight) / 2;
-  const fontSize = isMobile ? 13 : (isFullScreen ? 16 : 14); 
+  const fontSize = isMobile ? 12 : (isFullScreen ? 15 : 13);
 
   return (
     <g transform={`translate(${x},${startY})`}>
@@ -67,6 +167,13 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   const [teamValue, setTeamValue] = useState<string>('');
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([]);
   const [comparisonFilter, setComparisonFilter] = useState<'ALL' | 'PRIEREZOVA' | 'SPECIFICKA'>('ALL');
+  const [selectedFrequencyBucket, setSelectedFrequencyBucket] = useState<
+    keyof FrequencyDistribution | null
+  >(null);
+  const [hoveredFrequencyBucket, setHoveredFrequencyBucket] = useState<
+    keyof FrequencyDistribution | null
+  >(null);
+  const [isFrequencyFullScreen, setIsFrequencyFullScreen] = useState(false);
   
   const [activeExportMenu, setActiveExportMenu] = useState<boolean>(false);
   const [activeFullscreenExportMenu, setActiveFullscreenExportMenu] = useState<boolean>(false);
@@ -95,22 +202,26 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsFullScreen(false);
+      if (event.key !== 'Escape') return;
+      setIsFullScreen(false);
+      setIsFrequencyFullScreen(false);
     };
     window.addEventListener('keydown', handleEsc);
 
-    if (isFullScreen) {
+    if (isFullScreen || isFrequencyFullScreen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setActiveFullscreenExportMenu(false); 
+      setActiveFullscreenExportMenu(false);
     }
 
     return () => {
       window.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [isFullScreen]);
+  }, [isFullScreen, isFrequencyFullScreen]);
+
+  const comparisonAnimationKey = `${comparisonSelection.slice().sort().join('|') || 'none'}-${comparisonFilter}`;
 
   const getActiveData = (teamName: string) => {
     if (!area) return [];
@@ -166,8 +277,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       const activeMetrics = getActiveData(teamValue);
       dataToExport = activeMetrics.map((m: any) => ({
         'Otázka / Kategória': m.category,
-        'Skóre (max 6)': Number(m.score.toFixed(2)),
-        'Typ otázky': m.questionType
+        'Skóre (max 5)': Number(m.score.toFixed(2)),
+        'Typ otázky': m.questionType,
+        'Početnosť N/A': m.frequencyDistribution?.na ?? '',
+        'Početnosť 1': m.frequencyDistribution?.one ?? '',
+        'Početnosť 2': m.frequencyDistribution?.two ?? '',
+        'Početnosť 3': m.frequencyDistribution?.three ?? '',
+        'Početnosť 4': m.frequencyDistribution?.four ?? '',
+        'Početnosť 5': m.frequencyDistribution?.five ?? '',
       }));
       fileName = `Oblast_${area.title}_${teamValue}_Detail.xlsx`.replace(/\s+/g, '_');
     } else {
@@ -187,14 +304,176 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   if (!area) return null;
 
   const activeMetrics = getActiveData(teamValue);
-  const top = activeMetrics.slice(0, 3);
-  const bottom = [...activeMetrics].filter((m: any) => m.score > 0 && m.score < 4.0).sort((a, b) => a.score - b.score).slice(0, 3);
+  const frequencyChartData = activeMetrics
+    .map((metric: any) => {
+      const freq = metric?.frequencyDistribution as FrequencyDistribution | undefined;
+      if (!freq) return null;
+
+      const naCount = Number(freq.na ?? 0) || 0;
+      const oneCount = Number(freq.one ?? 0) || 0;
+      const twoCount = Number(freq.two ?? 0) || 0;
+      const threeCount = Number(freq.three ?? 0) || 0;
+      const fourCount = Number(freq.four ?? 0) || 0;
+      const fiveCount = Number(freq.five ?? 0) || 0;
+      const totalCount =
+        naCount + oneCount + twoCount + threeCount + fourCount + fiveCount;
+
+      return {
+        category: String(metric?.category || ''),
+        totalCount,
+        naCount,
+        oneCount,
+        twoCount,
+        threeCount,
+        fourCount,
+        fiveCount,
+        naPct: totalCount > 0 && naCount > 0 ? (naCount / totalCount) * 100 : undefined,
+        onePct: totalCount > 0 && oneCount > 0 ? (oneCount / totalCount) * 100 : undefined,
+        twoPct: totalCount > 0 && twoCount > 0 ? (twoCount / totalCount) * 100 : undefined,
+        threePct:
+          totalCount > 0 && threeCount > 0
+            ? (threeCount / totalCount) * 100
+            : undefined,
+        fourPct: totalCount > 0 && fourCount > 0 ? (fourCount / totalCount) * 100 : undefined,
+        fivePct: totalCount > 0 && fiveCount > 0 ? (fiveCount / totalCount) * 100 : undefined,
+      };
+    })
+    .filter((row: any) => row && row.totalCount > 0);
+
+  const top = activeMetrics.filter((m: any) => m.score >= 4.0).slice(0, 3);
+  const bottom = [...activeMetrics]
+    .filter((m: any) => m.score > 0 && m.score < 4.0)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3);
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+  const metricCount = activeMetrics.length;
+  const frequencyMetricCount = frequencyChartData.length;
 
   const getAxisWidth = () => {
-    if (typeof window === 'undefined') return 600;
-    if (window.innerWidth < 768) return 280;
-    return isFullScreen ? 600 : 500; 
+    if (typeof window === 'undefined') return isFullScreen ? 560 : 430;
+    if (window.innerWidth < 768) return 230;
+    return isFullScreen ? 560 : 430;
   };
+
+  const getBarSize = () => {
+    if (isMobileViewport) return metricCount <= 3 ? 20 : 16;
+    if (isFullScreen) return metricCount <= 5 ? 34 : 28;
+    if (metricCount <= 3) return 30;
+    if (metricCount <= 6) return 24;
+    return 20;
+  };
+
+  const getChartHeight = () => {
+    const rowHeight = isMobileViewport ? 64 : isFullScreen ? 76 : 68;
+    const basePadding = isMobileViewport ? 95 : isFullScreen ? 160 : 120;
+    const minHeight = isFullScreen ? 620 : 270;
+    const maxHeight = isFullScreen ? 1400 : 650;
+    const dynamicHeight = metricCount * rowHeight + basePadding;
+    return Math.max(minHeight, Math.min(maxHeight, dynamicHeight));
+  };
+
+  const xAxisMax = 5;
+  const xAxisTicks = [1, 2, 3, 4, 5];
+  const frequencyXAxisTicks = [0, 20, 40, 60, 80, 100];
+  const frequencyFilterOptions = [
+    { value: FREQUENCY_ALL_VALUE, label: 'Všetky hodnoty' },
+    ...FREQUENCY_BUCKETS.map((bucket) => ({
+      value: bucket.key,
+      label: `Hodnota ${bucket.label}`,
+    })),
+  ];
+
+  const renderScoreBadge = (props: any) => {
+    const score = Number(props?.value);
+    if (!Number.isFinite(score)) return null;
+
+    const label = score.toFixed(2);
+    const x = Number(props?.x ?? 0);
+    const y = Number(props?.y ?? 0);
+    const width = Number(props?.width ?? 0);
+    const height = Number(props?.height ?? 0);
+    const fontSize = isFullScreen ? 13 : 12;
+    const badgeHeight = isFullScreen ? 28 : 24;
+    const paddingX = 8;
+    const badgeWidth = Math.max(54, label.length * (fontSize * 0.62) + paddingX * 2);
+    const textColor = score > 4 ? '#B81547' : '#111111';
+
+    return (
+      <g transform={`translate(${x + width + 10},${y + height / 2 - badgeHeight / 2})`}>
+        <rect
+          width={badgeWidth}
+          height={badgeHeight}
+          rx={999}
+          ry={999}
+          fill={textColor}
+          opacity={0.1}
+        />
+        <text
+          x={badgeWidth / 2}
+          y={badgeHeight / 2}
+          dy="0.35em"
+          textAnchor="middle"
+          fill={textColor}
+          fontSize={fontSize}
+          fontWeight={900}
+        >
+          {label}
+        </text>
+      </g>
+    );
+  };
+
+  const getFrequencyChartHeight = () => {
+    if (frequencyMetricCount <= 0) return 0;
+    const rowHeight = isMobileViewport ? 58 : isFrequencyFullScreen ? 70 : 64;
+    const basePadding = isMobileViewport ? 90 : isFrequencyFullScreen ? 130 : 110;
+    const minHeight = isFrequencyFullScreen ? 320 : 230;
+    const maxHeight = isFrequencyFullScreen ? 1200 : 620;
+    const dynamicHeight = frequencyMetricCount * rowHeight + basePadding;
+    return Math.max(minHeight, Math.min(maxHeight, dynamicHeight));
+  };
+
+  const getFrequencyAxisWidth = () => {
+    if (typeof window === 'undefined') return isFrequencyFullScreen ? 560 : 430;
+    if (window.innerWidth < 768) return 230;
+    return isFrequencyFullScreen ? 560 : 430;
+  };
+
+  const renderDistributionCountLabel =
+    (countKey: string, textColor: string) => (props: any) => {
+      const percentage = Number(props?.value ?? 0);
+      const count = Number(props?.payload?.[countKey] ?? 0);
+
+      if (!Number.isFinite(percentage) || !Number.isFinite(count)) return null;
+      if (count <= 0) return null;
+
+      const x = Number(props?.x ?? 0);
+      const y = Number(props?.y ?? 0);
+      const width = Number(props?.width ?? 0);
+      const height = Number(props?.height ?? 0);
+      const fontSize = width < 28 ? (isFrequencyFullScreen ? 11 : 10) : isFrequencyFullScreen ? 16 : 13;
+      const isNarrow = width < 18;
+      const labelX = isNarrow ? x + width + 3 : x + width / 2;
+      const textAnchor = isNarrow ? 'start' : 'middle';
+      const fill = isNarrow ? '#111111' : textColor;
+
+      return (
+        <text
+          x={labelX}
+          y={y + height / 2}
+          dy="0.35em"
+          textAnchor={textAnchor}
+          fill={fill}
+          fontSize={fontSize}
+          fontWeight={900}
+          paintOrder="stroke"
+          stroke={isNarrow ? '#FFFFFF' : 'none'}
+          strokeWidth={isNarrow ? 2 : 0}
+        >
+          {count}
+        </text>
+      );
+    };
 
   const renderChartBox = (
     <div 
@@ -262,11 +541,31 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
 
         <div className={`w-full ${isFullScreen ? 'flex-1 min-h-[600px]' : ''}`}>
-          <div className={`${isFullScreen ? 'h-full min-h-[600px] w-full' : 'h-[450px] sm:h-[500px] lg:h-[550px] w-full'}`}>
+          <div className="w-full" style={{ height: getChartHeight() }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 60, top: 10, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#00000008" />
-                <XAxis type="number" domain={[0, scaleMax]} hide />
+              <BarChart data={activeMetrics} layout="vertical" margin={{ left: 10, right: 94, top: 8, bottom: 16 }}>
+                <CartesianGrid strokeDasharray="2 6" horizontal={false} stroke="#00000010" />
+                <XAxis
+                  type="number"
+                  domain={[0, xAxisMax]}
+                  ticks={xAxisTicks}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: '#00000066',
+                    fontSize: isFullScreen ? 12 : 11,
+                    fontWeight: 800,
+                  }}
+                />
+                {xAxisMax >= 4 && (
+                  <ReferenceLine
+                    x={4}
+                    stroke="#B81547"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 6"
+                    ifOverflow="visible"
+                  />
+                )}
                 <YAxis 
                   dataKey="category" 
                   type="category" 
@@ -282,7 +581,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                 <Bar
                   dataKey="score"
                   radius={[0, 12, 12, 0]}
-                  barSize={isFullScreen ? 30 : (typeof window !== 'undefined' && window.innerWidth < 768 ? 16 : 24)}
+                  barSize={getBarSize()}
                   isAnimationActive={false}
                   fillOpacity={1}
                 >
@@ -291,15 +590,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   ))}
                   <LabelList
                     dataKey="score"
-                    position="right"
-                    offset={10}
-                    formatter={(val: number) => val.toFixed(2)}
-                    style={{
-                      fontWeight: 900,
-                      fontSize: isFullScreen ? '18px' : (typeof window !== 'undefined' && window.innerWidth < 768 ? '12px' : '14px'),
-                      fill: '#000000',
-                      opacity: 1,
-                    }}
+                    content={renderScoreBadge}
                   />
                 </Bar>
               </BarChart>
@@ -376,7 +667,184 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         </div>
 
         <div className={`w-full ${isFullScreen ? 'flex-1 overflow-y-auto no-scrollbar pb-8' : ''}`}>
-          <ComparisonMatrix teams={comparisonSelection} matrixData={getComparisonData(comparisonSelection)} />
+          <div
+            key={comparisonAnimationKey}
+            className="animate-fade-in"
+          >
+            <ComparisonMatrix teams={comparisonSelection} matrixData={getComparisonData(comparisonSelection)} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFrequencyDistributionBlock = (
+    <div
+      className={`${
+        isFrequencyFullScreen
+          ? 'fixed inset-0 z-[9999] bg-white p-6 sm:p-10 flex flex-col overflow-y-auto overflow-x-hidden animate-fade-in'
+          : 'bg-white p-6 sm:p-8 md:p-10 lg:p-12 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl'
+      }`}
+    >
+      <div
+        id={isFrequencyFullScreen ? `fullscreen-frequency-block-${area.id}` : undefined}
+        className="w-full max-w-[1920px] mx-auto"
+      >
+        <div className="mb-6 sm:mb-8 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4 min-w-0">
+            <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
+              <Filter className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tight text-black">
+                Graf početnosti hodnôt
+              </h3>
+              <p className="text-xs sm:text-sm font-bold text-black/40 mt-1 break-words">
+                Stredisko: <span className="text-brand">{teamValue}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 print:hidden" data-html2canvas-ignore="true">
+            <div className="w-[190px] sm:w-[220px]">
+              <StyledSelect
+                value={selectedFrequencyBucket || FREQUENCY_ALL_VALUE}
+                onChange={(value) => {
+                  if (value === FREQUENCY_ALL_VALUE) {
+                    setSelectedFrequencyBucket(null);
+                    return;
+                  }
+                  setSelectedFrequencyBucket(value as keyof FrequencyDistribution);
+                }}
+                options={frequencyFilterOptions}
+                buttonClassName="w-full px-3 py-2 sm:px-4 sm:py-3 bg-black/5 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest text-black/70 border border-black/5 hover:bg-black/10"
+                panelClassName="bg-white border-black/10"
+                optionClassName="text-black/70 hover:bg-black/5 hover:text-black"
+                selectedOptionClassName="bg-brand text-white"
+                iconClassName="text-black/40 w-4 h-4"
+              />
+            </div>
+
+            <button
+              onClick={() => setIsFrequencyFullScreen(!isFrequencyFullScreen)}
+              className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
+                isFrequencyFullScreen
+                  ? 'bg-black text-white hover:bg-zinc-800'
+                  : 'bg-black/5 text-black/50 hover:bg-black hover:text-white'
+              }`}
+              title={
+                isFrequencyFullScreen
+                  ? 'Zavrieť na celú obrazovku (Esc)'
+                  : 'Zobraziť na celú obrazovku'
+              }
+            >
+              {isFrequencyFullScreen ? (
+                <>
+                  <Minimize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zavrieť</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-4 h-4" /> <span className="hidden sm:inline">Zväčšiť graf</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full" style={{ height: getFrequencyChartHeight() }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={frequencyChartData}
+              layout="vertical"
+              margin={{ left: 10, right: 28, top: 8, bottom: 16 }}
+              onMouseLeave={() => setHoveredFrequencyBucket(null)}
+            >
+              <CartesianGrid strokeDasharray="2 6" horizontal={false} stroke="#00000010" />
+              <XAxis
+                type="number"
+                domain={[0, 100]}
+                ticks={frequencyXAxisTicks}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(value: number) => `${value}%`}
+                tick={{
+                  fill: '#00000066',
+                  fontSize: isFrequencyFullScreen ? 12 : 11,
+                  fontWeight: 800,
+                }}
+              />
+              <YAxis
+                dataKey="category"
+                type="category"
+                width={getFrequencyAxisWidth()}
+                interval={0}
+                tick={<CustomYAxisTick isFullScreen={isFrequencyFullScreen} />}
+              />
+              <Tooltip
+                cursor={{ fill: '#00000005' }}
+                content={(tooltipProps: any) => (
+                  <FrequencyDistributionTooltip
+                    {...tooltipProps}
+                    hoveredBucketKey={hoveredFrequencyBucket}
+                    selectedBucketKey={selectedFrequencyBucket}
+                  />
+                )}
+                isAnimationActive={false}
+                shared
+              />
+
+              {FREQUENCY_BUCKETS.map((bucket, index) => {
+                const isFirst = index === 0;
+                const isLast = index === FREQUENCY_BUCKETS.length - 1;
+                const isHighlighted =
+                  !selectedFrequencyBucket || selectedFrequencyBucket === bucket.key;
+
+                return (
+                  <Bar
+                    key={bucket.key}
+                    dataKey={bucket.pctKey}
+                    stackId="distribution"
+                    fill={isHighlighted ? bucket.color : '#D4D4D8'}
+                    isAnimationActive={false}
+                    onMouseMove={() => setHoveredFrequencyBucket(bucket.key)}
+                    onMouseLeave={() => setHoveredFrequencyBucket(null)}
+                    radius={
+                      isFirst
+                        ? [10, 0, 0, 10]
+                        : isLast
+                        ? [0, 10, 10, 0]
+                        : [0, 0, 0, 0]
+                    }
+                  >
+                    <LabelList
+                      dataKey={bucket.pctKey}
+                      content={renderDistributionCountLabel(
+                        bucket.countKey,
+                        isHighlighted ? bucket.textColor : '#3F3F46'
+                      )}
+                    />
+                  </Bar>
+                );
+              })}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-3 sm:mt-4 flex flex-wrap gap-2 sm:gap-3 justify-end">
+          {FREQUENCY_BUCKETS.map((bucket) => (
+            <div
+              key={`legend-${bucket.key}`}
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-black/10 bg-white"
+            >
+              <span
+                className="w-3.5 h-3.5 rounded-sm"
+                style={{ backgroundColor: bucket.color }}
+              />
+              <span className="text-[11px] sm:text-xs font-black tracking-wide text-black/75">
+                {bucket.label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -433,14 +901,19 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   VYBRANÝ TÍM / STREDISKO:
                 </span>
                 <div className="relative w-full lg:w-auto lg:min-w-[340px]">
-                  <select
+                  <StyledSelect
                     value={teamValue}
-                    onChange={(e) => setTeamValue(e.target.value)}
-                    className="w-full p-4 sm:p-5 lg:p-7 pr-12 sm:pr-14 bg-black text-white rounded-[1rem] sm:rounded-[1.25rem] lg:rounded-[1.5rem] font-black text-base sm:text-lg lg:text-xl outline-none shadow-2xl cursor-pointer hover:bg-brand transition-all appearance-none tracking-tight"
-                  >
-                    {masterTeams.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 w-5 h-5 sm:w-6 sm:h-6 text-white/40 pointer-events-none" />
+                    onChange={setTeamValue}
+                    options={masterTeams.map((team: string) => ({
+                      value: team,
+                      label: team,
+                    }))}
+                    buttonClassName="w-full p-4 sm:p-5 lg:p-7 bg-black text-white rounded-[1rem] sm:rounded-[1.25rem] lg:rounded-[1.5rem] font-black text-base sm:text-lg lg:text-xl shadow-2xl hover:bg-brand tracking-tight"
+                    panelClassName="bg-white border-black/10"
+                    optionClassName="text-black/70 hover:bg-black/5 hover:text-black"
+                    selectedOptionClassName="bg-brand text-white"
+                    iconClassName="text-white/40 w-5 h-5 sm:w-6 sm:h-6"
+                  />
                 </div>
               </div>
             )}
@@ -482,6 +955,12 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
             ? createPortal(renderChartBox, document.body) 
             : renderChartBox
           }
+
+          {frequencyChartData.length > 0 && (
+            isFrequencyFullScreen && typeof document !== 'undefined'
+              ? createPortal(renderFrequencyDistributionBlock, document.body)
+              : !isFullScreen && renderFrequencyDistributionBlock
+          )}
 
           {!isFullScreen && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">

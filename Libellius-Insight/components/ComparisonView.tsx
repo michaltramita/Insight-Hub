@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { EmployeeProfile } from '../types';
+import StyledSelect from './ui/StyledSelect';
 import {
   BarChart,
   Bar,
@@ -58,23 +59,31 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ employees, scaleMax }) 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-2">
             <label className="block text-[10px] font-black uppercase tracking-widest text-black/30 ml-2">Osoba A (Tmavá)</label>
-            <select 
+            <StyledSelect
               value={idA}
-              onChange={(e) => setIdA(e.target.value)}
-              className="w-full p-5 bg-black/5 border-none text-black text-sm font-black rounded-[1.5rem] focus:ring-2 focus:ring-brand outline-none transition-all cursor-pointer appearance-none"
-            >
-              {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
+              onChange={setIdA}
+              options={employees.map((employee) => ({
+                value: employee.id,
+                label: employee.name,
+              }))}
+              buttonClassName="w-full p-5 bg-black/5 text-black text-sm font-black rounded-[1.5rem] border border-black/5"
+              panelClassName="bg-white border border-black/10"
+              selectedOptionClassName="bg-black text-white"
+            />
           </div>
           <div className="space-y-2">
              <label className="block text-[10px] font-black uppercase tracking-widest text-brand ml-2">Osoba B (Vínová)</label>
-             <select 
+             <StyledSelect
               value={idB}
-              onChange={(e) => setIdB(e.target.value)}
-              className="w-full p-5 bg-brand/5 border-none text-black text-sm font-black rounded-[1.5rem] focus:ring-2 focus:ring-brand outline-none transition-all cursor-pointer appearance-none"
-            >
-              {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
+              onChange={setIdB}
+              options={employees.map((employee) => ({
+                value: employee.id,
+                label: employee.name,
+              }))}
+              buttonClassName="w-full p-5 bg-brand/5 text-black text-sm font-black rounded-[1.5rem] border border-brand/20"
+              panelClassName="bg-white border border-brand/20"
+              selectedOptionClassName="bg-brand text-white"
+            />
           </div>
         </div>
       </div>

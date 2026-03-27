@@ -45,10 +45,16 @@ export interface OpenQuestionRecommendation {
   quotes: string[]; // themeCloud už nie je tu
 }
 
+export interface OpenQuestionResponse {
+  text: string;
+  theme?: string;
+}
+
 export interface OpenQuestionItem {
   questionText: string;
   themeCloud: OpenQuestionThemeCloudItem[]; // themeCloud je na úrovni otázky
-  recommendations: OpenQuestionRecommendation[];
+  responses?: OpenQuestionResponse[];
+  recommendations?: OpenQuestionRecommendation[];
 }
 
 export interface OpenQuestionTeam {
@@ -62,6 +68,8 @@ export interface SatisfactionMetric {
   category: string;
   score: number;
   questionType?: string; // Prierezova / Specificka
+  questionId?: string;
+  frequencyDistribution?: FrequencyDistribution;
 }
 
 export interface SatisfactionTeam {
@@ -75,6 +83,15 @@ export interface SatisfactionArea {
   teams: SatisfactionTeam[];
 }
 
+export interface FrequencyDistribution {
+  na: number;
+  one: number;
+  two: number;
+  three: number;
+  four: number;
+  five: number;
+}
+
 export interface EmployeeSatisfactionData {
   clientName: string;
   surveyName: string;
@@ -84,6 +101,21 @@ export interface EmployeeSatisfactionData {
   teamEngagement: EngagementTeam[];
   openQuestions: OpenQuestionTeam[];
   areas: SatisfactionArea[];
+  surveyGroups?:
+    | SatisfactionSurveyGroup[]
+    | Record<string, SatisfactionSurveyGroup>;
+}
+
+export interface SatisfactionSurveyGroup {
+  id?: string;
+  key?: string;
+  name?: string;
+  title?: string;
+  label?: string;
+  masterTeams?: string[];
+  teamEngagement?: EngagementTeam[];
+  openQuestions?: OpenQuestionTeam[];
+  areas?: SatisfactionArea[];
 }
 
 // --- SPOLOČNÉ TYPY ---

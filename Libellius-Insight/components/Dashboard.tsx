@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { FeedbackAnalysisResult } from '../types';
 import CompetencyRadar from './RadarChart';
 import TopBottomList from './TopBottomLists';
+import StyledSelect from './ui/StyledSelect';
 import { User, Calendar, BrainCircuit, RefreshCw, Users, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface DashboardProps {
@@ -43,13 +44,17 @@ const Dashboard: React.FC<DashboardProps> = ({ result, onReset }) => {
 
         <div className="max-w-sm">
            <label className="block text-[10px] font-black uppercase tracking-widest text-black/30 mb-2">Vyberte zamestnanca</label>
-           <select 
+           <StyledSelect
              value={selectedEmployeeId}
-             onChange={(e) => setSelectedEmployeeId(e.target.value)}
-             className="w-full p-4 bg-black/5 border-none text-black text-sm font-bold rounded-2xl focus:ring-2 focus:ring-brand outline-none transition-all cursor-pointer"
-           >
-              {result.employees?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-           </select>
+             onChange={setSelectedEmployeeId}
+             options={(result.employees || []).map((employee) => ({
+               value: employee.id,
+               label: employee.name,
+             }))}
+             buttonClassName="w-full p-4 bg-black/5 text-black text-sm font-bold rounded-2xl border border-black/5"
+             panelClassName="bg-white border border-black/10"
+             selectedOptionClassName="bg-brand text-white"
+           />
         </div>
       </div>
 

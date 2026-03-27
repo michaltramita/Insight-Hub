@@ -26,7 +26,6 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
   const [hoveredPie, setHoveredPie] = useState<number | null>(null);
   const [showTeamFilter, setShowTeamFilter] = useState(false);
   const [selectedEngagementTeams, setSelectedEngagementTeams] = useState<string[]>([]);
-  const [expandedEngagementCard, setExpandedEngagementCard] = useState<string | null>(null);
   const [activeExportMenu, setActiveExportMenu] = useState<string | null>(null);
 
   const engagementCardsRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +85,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
   const handleExcelExport = () => {
     const dataToExport = filteredEngagement.map((t: any) => ({
       'Tím / Stredisko': t.name,
-      'Počet zapojených': t.count,
+      'Počet odpovedí': t.count,
       'Podiel na celkovom vyplnení (%)': Number(((t.count / safeTotalReceived) * 100).toFixed(1))
     }));
     exportDataToExcel(dataToExport, 'Zapojenie_Timov.xlsx', () => setActiveExportMenu(null));
@@ -167,9 +166,10 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     };
   }, [engagementVisualMode, engagementTeamCards.length]);
 
-  useEffect(() => {
-    setExpandedEngagementCard(null);
-  }, [engagementVisualMode, searchTerm, selectedEngagementTeams, sortKey, sortDirection]);
+  const teamTableAnimationKey = useMemo(
+    () => `table-${selectedEngagementTeams.slice().sort().join('|') || 'all'}`,
+    [selectedEngagementTeams]
+  );
 
   return (
     <div className="space-y-8 sm:space-y-10 animate-fade-in">
@@ -180,7 +180,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalSent || 0}</span>
         </div>
         <div className="bg-brand text-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
-          <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-60 mb-2 sm:mb-3 tracking-[0.2em]">POČET ZAPOJENÝCH OSOB</span>
+          <span className="block text-[9px] sm:text-[10px] font-black uppercase opacity-60 mb-2 sm:mb-3 tracking-[0.2em]">CELKOVÝ POČET ODPOVEDÍ</span>
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">{data.totalReceived || 0}</span>
         </div>
         <div className="bg-white border border-black/5 p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
@@ -198,7 +198,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
       <div id="block-engagement" className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl">
         <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 sm:mb-8 lg:mb-10 gap-4 sm:gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">Prehľad zapojenia v tímoch</h3>
             
             <div className="relative export-dropdown-container export-buttons print:hidden">
               <button
@@ -271,7 +271,10 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5">
+        <div
+          key={teamTableAnimationKey}
+          className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-black/5 animate-fade-in"
+        >
           <table className="w-full min-w-[760px] text-left">
             <thead className="bg-[#fcfcfc] text-sm font-black uppercase tracking-widest text-black/60 border-b border-black/5">
               <tr>
@@ -281,7 +284,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                 <th className="p-4 sm:p-6 text-center cursor-pointer hover:text-black transition-colors" onClick={() => handleSort('count')}>
                   <div className="flex items-center justify-center gap-2">Počet <ArrowUpDown className="w-3 h-3 print:hidden" /></div>
                 </th>
-                <th className="p-4 sm:p-6 text-center">% podiel na celkovom vyplnení</th>
+                <th className="p-4 sm:p-6 text-center">Podiel na celkovom vyplnení (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5 font-black text-sm">
@@ -323,7 +326,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                   Podrobný prehľad tímov
                 </h3>
                 <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-black/30 mt-2">
-                  {selectedEngagementTeams.length > 0 ? 'Podiel vo vybraných strediskách' : 'Výsledky a odporúčania'}
+                  {selectedEngagementTeams.length > 0 ? 'Podiel vo vybraných strediskách' : 'Výsledky a koláčový graf'}
                 </p>
               </div>
 
@@ -419,10 +422,9 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                 <div ref={engagementCardsRef} className="flex items-start gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar">
                   {engagementTeamCards.map((team: any, idx: number) => {
                     const cardId = `${team.name}-${idx}`;
-                    const isExpanded = expandedEngagementCard === cardId;
 
                     return (
-                      <div key={cardId} className={`snap-start self-start shrink-0 w-full sm:w-[calc(50%-10px)] sm:min-w-[320px] min-h-[380px] lg:min-h-[430px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 print:w-full print:break-inside-avoid ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'}`}>
+                      <div key={cardId} className={`snap-start self-start shrink-0 w-full sm:w-[340px] lg:w-[360px] xl:w-[380px] rounded-2xl sm:rounded-3xl border p-4 sm:p-5 lg:p-6 print:w-full print:break-inside-avoid ${idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-black/5 border-black/5'}`}>
                         <div className="flex items-start justify-between gap-3 mb-4">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
@@ -444,11 +446,11 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                             <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5">{team.responded}</p>
                           </div>
                           <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Návratnosť v %</p>
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Návratnosť (%)</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5">{team.responseRateTeam}%</p>
                           </div>
                           <div className="bg-white rounded-xl border border-black/5 p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">% podiel na celkovom vyplnení</p>
+                            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/35">Podiel na celkovom vyplnení (%)</p>
                             <p className="text-lg sm:text-xl lg:text-2xl font-black leading-none mt-1.5 text-brand">{team.shareOfAllResponded}%</p>
                           </div>
                         </div>
@@ -457,26 +459,6 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                           <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-black/5">
                             <div className="h-full rounded-full" style={{ width: `${team.shareOfAllResponded}%`, backgroundColor: team.color }} />
                           </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-black/5">
-                          <button type="button" onClick={() => setExpandedEngagementCard(isExpanded ? null : cardId)} className="w-full flex items-center justify-between rounded-xl px-2 py-2.5 hover:bg-white/70 transition-colors">
-                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-black/50">
-                              {isExpanded ? 'Skryť' : 'Interpretácia dát tímu'}
-                            </span>
-                            <ChevronDown className={`w-4 h-4 text-black/40 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
-
-                          {isExpanded && (
-                            <div className="mt-3 animate-fade-in">
-                              <div className="bg-white rounded-xl border border-black/5 p-4 sm:p-5">
-                                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/35 mb-2">Interpretácia hodnôt</p>
-                                <p className="text-base sm:text-[16px] lg:text-[17px] font-medium leading-relaxed text-black/80">
-                                  {team.aiSummary || `Návratnosť pre tím ${team.name} je na úrovni ${team.responseRateTeam}%. Bližšia interpretácia zatiaľ nebola doplnená.`}
-                                </p>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     );

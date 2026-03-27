@@ -186,7 +186,7 @@ const App: React.FC = () => {
     try {
       const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
       const processedData = isExcel ? await parseExcelFile(file) : await fileToBase64(file);
-      const data = await analyzeDocument(processedData, selectedMode, isExcel);
+      const data = await analyzeDocument(processedData, selectedMode, isExcel, file.name);
 
       if (!data || (!data.employees && !data.satisfaction)) {
         throw new Error('Nepodarilo sa extrahovať dáta.');

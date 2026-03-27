@@ -7,13 +7,15 @@ interface TeamSelectorGridProps {
   selectedTeams: string[];
   onToggleTeam: (team: string) => void;
   onClear: () => void;
+  optionLabels?: Record<string, string>;
 }
 
 const TeamSelectorGrid: React.FC<TeamSelectorGridProps> = ({ 
   availableTeams, 
   selectedTeams, 
   onToggleTeam, 
-  onClear 
+  onClear,
+  optionLabels
 }) => {
   return (
     <div className="pt-10 border-t border-black/5 animate-fade-in">
@@ -39,7 +41,9 @@ const TeamSelectorGrid: React.FC<TeamSelectorGridProps> = ({
                 : 'bg-black/5 border-transparent text-black/50 hover:border-black/10 hover:bg-black/[0.07]'
             }`}
           >
-            <span className="flex-1 pr-2 leading-tight">{t}</span>
+            <span className="flex-1 pr-2 leading-tight">
+              {optionLabels?.[t] || t}
+            </span>
             {selectedTeams.includes(t) && <Check className="w-4 h-4 flex-shrink-0" />}
           </button>
         ))}
