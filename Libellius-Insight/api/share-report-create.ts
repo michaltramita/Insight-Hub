@@ -24,6 +24,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(500).json({
+        error: 'Chýba konfigurácia pre Vercel Blob.',
+        details:
+          'Premenná BLOB_READ_WRITE_TOKEN nie je dostupná v runtime. Skontrolujte Environment Variables a spravte nový deploy.',
+      });
+    }
+
     const { encryptedPayload, publicMeta } = req.body || {};
 
     if (!isValidEncryptedPayload(encryptedPayload)) {
@@ -52,7 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('share-report-create error:', error);
     return res.status(500).json({
       error: 'Nepodarilo sa vytvoriť zdieľaný odkaz.',
-      details: error?.message || 'Unknown error',
+      details:
+        error?.message ||
+        'Skontrolujte, či je Vercel Blob store vytvorený a pripojený k tomuto projektu.',
     });
   }
 }

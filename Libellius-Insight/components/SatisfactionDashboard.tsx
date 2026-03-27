@@ -183,7 +183,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         setTimeout(() => setCopyStatus(false), 2000);
       }
     } catch (err: any) {
-      alert('Chyba pri vytváraní zabezpečeného odkazu.');
+      alert(
+        err?.message || 'Chyba pri vytváraní zabezpečeného odkazu.'
+      );
     }
   };
 

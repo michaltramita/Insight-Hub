@@ -16,7 +16,18 @@ interface ResolveShareResponse {
 const readApiError = async (response: Response, fallbackMessage: string) => {
   try {
     const parsed = await response.json();
-    if (parsed?.error && typeof parsed.error === 'string') return parsed.error;
+    const error =
+      parsed?.error && typeof parsed.error === 'string' ? parsed.error : null;
+    const details =
+      parsed?.details && typeof parsed.details === 'string'
+        ? parsed.details
+        : null;
+
+    if (error && details) {
+      return `${error} ${details}`;
+    }
+    if (error) return error;
+    if (details) return details;
   } catch {
     // Ignorujeme parse chybu a použijeme fallback.
   }
