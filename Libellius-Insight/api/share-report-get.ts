@@ -4,7 +4,7 @@ import {
   buildShareBlobPath,
   isValidShareId,
   sanitizePublicMeta,
-} from './share-report-storage';
+} from './share-report-storage.js';
 
 const isValidEncryptedPayload = (value: unknown) => {
   const payload = String(value || '').trim();
