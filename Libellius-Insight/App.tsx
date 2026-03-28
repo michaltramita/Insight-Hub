@@ -6,7 +6,6 @@ import WelcomeGuide from './components/WelcomeGuide';
 import { analyzeDocument, fileToBase64, parseExcelFile } from './services/geminiService';
 import { AppStatus, FeedbackAnalysisResult, AnalysisMode } from './types';
 import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles } from 'lucide-react';
-import LZString from 'lz-string';
 import { decryptReportFromUrlPayload } from './utils/reportCrypto';
 import { resolveSharedReport } from './services/shareService';
 
@@ -146,24 +145,16 @@ const App: React.FC = () => {
             return;
           }
 
-          const decompressed = LZString.decompressFromEncodedURIComponent(payload);
-          if (decompressed) {
-            const jsonData = JSON.parse(decompressed);
-            if (!jsonData.mode) {
-              jsonData.mode = jsonData.satisfaction ? 'ZAMESTNANECKA_SPOKOJNOST' : '360_FEEDBACK';
-            }
-            setResult(jsonData);
-            setPendingEncryptedPayload(null);
-            setShowSharedGoodbye(false);
-            setStatus(AppStatus.SUCCESS);
-            setIsResolvingSharedEntry(false);
-            return;
-          }
-
-          throw new Error('Neplatný link reportu.');
+          throw new Error(
+            'Tento zdieľaný link používa starý formát. Vygenerujte prosím nový zabezpečený link reportu.'
+          );
         } catch (e) {
           console.error('Chyba linku', e);
-          setShareDecryptError('Link reportu sa nepodarilo načítať.');
+          setShareDecryptError(
+            e instanceof Error
+              ? e.message
+              : 'Link reportu sa nepodarilo načítať.'
+          );
           setPendingEncryptedPayload(null);
           setShowSharedGoodbye(false);
           setPublicMeta(null);
