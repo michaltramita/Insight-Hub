@@ -5,12 +5,21 @@ import {
   isValidShareId,
   sanitizePublicMeta,
 } from './share-report-storage.js';
+import { consumeRateLimit, getClientIp } from './rate-limit.js';
+
+const MAX_RESPONSE_BODY_BYTES = 350000;
+const MAX_ENCRYPTED_PAYLOAD_LENGTH = 300000;
+const GET_RATE_LIMIT = {
+  limit: 120,
+  windowMs: 60_000,
+};
 
 const isValidEncryptedPayload = (value: unknown) => {
-  const payload = String(value || '').trim();
+  if (typeof value !== 'string') return false;
+  const payload = value.trim();
   return (
     payload.length > 0 &&
-    payload.length <= 300000 &&
+    payload.length <= MAX_ENCRYPTED_PAYLOAD_LENGTH &&
     (payload.startsWith('v1.') ||
       payload.startsWith('v2.') ||
       payload.startsWith('v3.'))
@@ -22,12 +31,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const clientIp = getClientIp(req);
+  const rateLimit = consumeRateLimit({
+    bucket: `share-get:${clientIp}`,
+    limit: GET_RATE_LIMIT.limit,
+    windowMs: GET_RATE_LIMIT.windowMs,
+  });
+  if (!rateLimit.allowed) {
+    res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+    return res
+      .status(429)
+      .json({ error: 'Príliš veľa požiadaviek. Skúste to znova o chvíľu.' });
+  }
+
   try {
+    res.setHeader('Cache-Control', 'no-store');
+
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return res.status(500).json({
         error: 'Chýba konfigurácia pre Vercel Blob.',
-        details:
-          'Premenná BLOB_READ_WRITE_TOKEN nie je dostupná v runtime. Skontrolujte Environment Variables a spravte nový deploy.',
       });
     }
 
@@ -48,6 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const payloadText = await new Response(blob.stream).text();
+    if (Buffer.byteLength(payloadText, 'utf8') > MAX_RESPONSE_BODY_BYTES) {
+      return res.status(422).json({ error: 'Zdieľaný report je príliš veľký.' });
+    }
+
     const parsed = JSON.parse(payloadText) as {
       encryptedPayload?: string;
       publicMeta?: unknown;
@@ -65,9 +91,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('share-report-get error:', error);
     return res.status(500).json({
       error: 'Link reportu sa nepodarilo načítať.',
-      details:
-        error?.message ||
-        'Skontrolujte, či je Vercel Blob store vytvorený a pripojený k tomuto projektu.',
     });
   }
 }

@@ -86,8 +86,8 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
  * Zašifruje report objekt do stringu vhodného do URL hash (#report=...)
  */
 export async function encryptReportToUrlPayload(report: unknown, password: string): Promise<string> {
-  if (!password || password.trim().length < 4) {
-    throw new Error('Heslo musí mať aspoň 4 znaky.');
+  if (!password || password.trim().length < 12) {
+    throw new Error('Heslo musí mať aspoň 12 znakov.');
   }
 
   const json = JSON.stringify(report);

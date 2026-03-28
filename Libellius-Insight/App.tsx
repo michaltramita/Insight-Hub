@@ -33,6 +33,8 @@ const hasShareEntryInWindow = () => {
   );
 };
 
+const MAX_UPLOAD_SIZE_BYTES = 12 * 1024 * 1024;
+
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.HOME);
   const [selectedMode, setSelectedMode] = useState<AnalysisMode | null>(null);
@@ -58,9 +60,6 @@ const App: React.FC = () => {
     survey?: string;
     issued?: string;
   } | null>(null);
-  const hasPublicMeta = Boolean(
-    publicMeta?.client || publicMeta?.survey || publicMeta?.issued
-  );
 
   useEffect(() => {
     const handleUrlData = () => {
@@ -242,17 +241,33 @@ const App: React.FC = () => {
     if (!selectedMode) return;
     const fileName = file.name.toLowerCase();
 
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      setError('Súbor je príliš veľký. Maximálna veľkosť je 12 MB.');
+      setStatus(AppStatus.ERROR);
+      return;
+    }
+
     if (fileName.endsWith('.json')) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
+          if (!jsonData || typeof jsonData !== 'object' || Array.isArray(jsonData)) {
+            throw new Error('Neplatná štruktúra JSON reportu.');
+          }
+
+          const hasKnownReportShape =
+            'mode' in jsonData || 'satisfaction' in jsonData || 'employees' in jsonData;
+          if (!hasKnownReportShape) {
+            throw new Error('JSON neobsahuje podporovaný formát reportu.');
+          }
+
           sessionStorage.removeItem('libellius_show_goodbye');
           setShowSharedGoodbye(false);
           setResult(jsonData);
           setStatus(AppStatus.SUCCESS);
-        } catch {
-          setError('Chybný formát JSON.');
+        } catch (err: any) {
+          setError(err?.message || 'Chybný formát JSON.');
           setStatus(AppStatus.ERROR);
         }
       };
@@ -382,13 +397,6 @@ const App: React.FC = () => {
                 <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black tracking-tight leading-[1.12] mb-8 md:mb-10">
                   Tento report je chránený heslom
                 </h2>
-                {hasPublicMeta && (
-                  <div className="mb-6 md:mb-10 text-left bg-black/5 border border-black/5 rounded-3xl px-6 py-5 md:px-7 md:py-6 max-w-4xl mx-auto">
-                    {publicMeta.client && <p className="text-lg md:text-xl font-black text-black leading-tight">Klient <span className="text-brand">{publicMeta.client}</span></p>}
-                    {publicMeta.survey && <p className="text-base md:text-lg font-semibold text-black/70 mt-3 leading-snug">Report {publicMeta.survey}</p>}
-                    {publicMeta.issued && <p className="text-xs md:text-sm font-black uppercase tracking-[0.18em] text-black/40 mt-4">Vydané {publicMeta.issued}</p>}
-                  </div>
-                )}
                 <div className="space-y-4 text-left max-w-4xl mx-auto">
                   <input
                     type="password"

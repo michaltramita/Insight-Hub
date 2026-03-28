@@ -145,10 +145,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   const generateShareLink = async () => {
     try {
-      const password = window.prompt('Zadajte heslo pre report (min. 6 znakov):');
+      const password = window.prompt('Zadajte heslo pre report (min. 12 znakov):');
       if (!password) return;
-      if (password.trim().length < 6) {
-        return alert('Heslo musí mať aspoň 6 znakov.');
+      if (password.trim().length < 12) {
+        return alert('Heslo musí mať aspoň 12 znakov.');
       }
 
       const shareableReport = buildShareableReport(result);
