@@ -19,6 +19,10 @@ import {
   MessageSquare,
   Target,
   Lightbulb,
+  KeyRound,
+  RefreshCw,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 
 interface Props {
@@ -52,31 +56,59 @@ const normalizeTeamNames = (teams: unknown): string[] => {
   );
 };
 
-const MAX_SHARED_RESPONSES_PER_QUESTION = 80;
-const MAX_SHARED_RESPONSE_TEXT_LENGTH = 320;
-
-const trimResponseText = (text: unknown): string => {
-  const normalized = String(text || '').trim();
-  if (normalized.length <= MAX_SHARED_RESPONSE_TEXT_LENGTH) return normalized;
-  return `${normalized.slice(0, MAX_SHARED_RESPONSE_TEXT_LENGTH).trim()}...`;
+type ShareCompactOptions = {
+  maxResponsesPerQuestion: number;
+  maxResponseTextLength: number;
+  maxQuestionsPerTeam: number;
+  maxThemeCloudItems: number;
 };
 
-const buildCompactOpenQuestions = (openQuestions: any) => {
+const DEFAULT_SHARE_COMPACT_OPTIONS: ShareCompactOptions = {
+  maxResponsesPerQuestion: 80,
+  maxResponseTextLength: 320,
+  maxQuestionsPerTeam: 120,
+  maxThemeCloudItems: 8,
+};
+
+const STRICT_SHARE_COMPACT_OPTIONS: ShareCompactOptions = {
+  maxResponsesPerQuestion: 30,
+  maxResponseTextLength: 180,
+  maxQuestionsPerTeam: 60,
+  maxThemeCloudItems: 5,
+};
+
+const MAX_SHARE_ENCRYPTED_PAYLOAD_LENGTH = 290000;
+const MIN_SHARE_PASSWORD_LENGTH = 12;
+const DEFAULT_SHARE_PASSWORD_LENGTH = 16;
+const SHARE_PASSWORD_PRESET_STORAGE_KEY = 'libellius_share_password_preset';
+const SHARE_PASSWORD_ALPHABET =
+  'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+-_=';
+
+const trimResponseText = (text: unknown, maxLength: number): string => {
+  const normalized = String(text || '').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength).trim()}...`;
+};
+
+const buildCompactOpenQuestions = (
+  openQuestions: any,
+  options: ShareCompactOptions
+) => {
   if (!Array.isArray(openQuestions)) return openQuestions;
 
   return openQuestions.map((teamItem: any) => ({
     teamName: String(teamItem?.teamName || '').trim(),
     questions: Array.isArray(teamItem?.questions)
-      ? teamItem.questions.map((question: any) => ({
+      ? teamItem.questions.slice(0, options.maxQuestionsPerTeam).map((question: any) => ({
           questionText: String(question?.questionText || '').trim(),
           themeCloud: Array.isArray(question?.themeCloud)
-            ? question.themeCloud
+            ? question.themeCloud.slice(0, options.maxThemeCloudItems)
             : [],
           responses: Array.isArray(question?.responses)
             ? question.responses
-                .slice(0, MAX_SHARED_RESPONSES_PER_QUESTION)
+                .slice(0, options.maxResponsesPerQuestion)
                 .map((response: any) => ({
-                  text: trimResponseText(response?.text),
+                  text: trimResponseText(response?.text, options.maxResponseTextLength),
                   theme: response?.theme ? String(response.theme).trim() : undefined,
                 }))
                 .filter((response: any) => response.text.length > 0)
@@ -109,19 +141,68 @@ const buildMinimalSurveyGroups = (surveyGroups: any) => {
   return surveyGroups;
 };
 
-const buildShareableReport = (report: FeedbackAnalysisResult) => {
+const buildShareableReport = (
+  report: FeedbackAnalysisResult,
+  options: ShareCompactOptions = DEFAULT_SHARE_COMPACT_OPTIONS
+) => {
   const shareable = {
     ...report,
     satisfaction: report.satisfaction
       ? {
           ...report.satisfaction,
-          openQuestions: buildCompactOpenQuestions(report.satisfaction.openQuestions),
+          openQuestions: buildCompactOpenQuestions(report.satisfaction.openQuestions, options),
           surveyGroups: buildMinimalSurveyGroups(report.satisfaction.surveyGroups),
         }
       : report.satisfaction,
   };
 
   return shareable;
+};
+
+const getRandomIndex = (max: number) => {
+  if (max <= 1) return 0;
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    const randomArray = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(randomArray);
+    return randomArray[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
+const generateSharePassword = (length = DEFAULT_SHARE_PASSWORD_LENGTH) => {
+  const targetLength = Math.max(MIN_SHARE_PASSWORD_LENGTH, length);
+  let output = '';
+  for (let i = 0; i < targetLength; i += 1) {
+    output += SHARE_PASSWORD_ALPHABET[getRandomIndex(SHARE_PASSWORD_ALPHABET.length)];
+  }
+  return output;
+};
+
+const evaluateSharePassword = (value: string) => {
+  const password = String(value || '').trim();
+  let score = 0;
+  if (password.length >= MIN_SHARE_PASSWORD_LENGTH) score += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+  const normalizedScore = Math.max(0, Math.min(4, score));
+  const labels = ['Slabé', 'Slabé', 'Stredné', 'Dobré', 'Silné'];
+  return {
+    score: normalizedScore,
+    label: labels[normalizedScore],
+    meetsLength: password.length >= MIN_SHARE_PASSWORD_LENGTH,
+  };
+};
+
+const readStoredSharePassword = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    const stored = String(localStorage.getItem(SHARE_PASSWORD_PRESET_STORAGE_KEY) || '').trim();
+    return stored.length >= MIN_SHARE_PASSWORD_LENGTH ? stored : '';
+  } catch {
+    return '';
+  }
 };
 
 const TOP_STATEMENTS_CONTEXT_ID = 'TOP_STATEMENTS_GLOBAL';
@@ -139,55 +220,190 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [activeTab, setActiveTab] = useState<TabType>('ENGAGEMENT');
   const [activeContext, setActiveContext] = useState<ContextType>('GLOBAL');
   const [copyStatus, setCopyStatus] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [sharePasswordInput, setSharePasswordInput] = useState('');
+  const [shareDialogError, setShareDialogError] = useState<string | null>(null);
+  const [isCreatingShareLink, setIsCreatingShareLink] = useState(false);
+  const [rememberSharePassword, setRememberSharePassword] = useState(false);
+  const [hasStoredSharePassword, setHasStoredSharePassword] = useState(false);
   const tabsScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
   const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
 
-  const generateShareLink = async () => {
+  const passwordState = useMemo(
+    () => evaluateSharePassword(sharePasswordInput),
+    [sharePasswordInput]
+  );
+
+  const openShareDialog = () => {
+    setShareDialogError(null);
+    const storedPassword = readStoredSharePassword();
+    if (storedPassword) {
+      setSharePasswordInput(storedPassword);
+      setRememberSharePassword(true);
+      setHasStoredSharePassword(true);
+    } else {
+      setSharePasswordInput(generateSharePassword());
+      setRememberSharePassword(false);
+      setHasStoredSharePassword(false);
+    }
+    setIsShareDialogOpen(true);
+  };
+
+  const closeShareDialog = () => {
+    if (isCreatingShareLink) return;
+    setIsShareDialogOpen(false);
+    setShareDialogError(null);
+  };
+
+  const regenerateSharePassword = () => {
+    setShareDialogError(null);
+    setSharePasswordInput(generateSharePassword());
+  };
+
+  const clearStoredSharePassword = () => {
+    if (typeof window === 'undefined') return;
     try {
-      const password = window.prompt('Zadajte heslo pre report (min. 12 znakov):');
-      if (!password) return;
-      if (password.trim().length < 12) {
-        return alert('Heslo musí mať aspoň 12 znakov.');
+      localStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    setHasStoredSharePassword(false);
+    setRememberSharePassword(false);
+    setSharePasswordInput(generateSharePassword());
+  };
+
+  const createShareLink = async () => {
+    try {
+      const password = sharePasswordInput.trim();
+      if (!password) {
+        setShareDialogError('Zadajte heslo pre report.');
+        return;
+      }
+      if (password.length < MIN_SHARE_PASSWORD_LENGTH) {
+        setShareDialogError(`Heslo musí mať aspoň ${MIN_SHARE_PASSWORD_LENGTH} znakov.`);
+        return;
       }
 
-      const shareableReport = buildShareableReport(result);
-      const encryptedPayload = await encryptReportToUrlPayload(shareableReport, password.trim());
+      setIsCreatingShareLink(true);
+      setShareDialogError(null);
+
+      const defaultShareableReport = buildShareableReport(
+        result,
+        DEFAULT_SHARE_COMPACT_OPTIONS
+      );
+      let encryptedPayload = await encryptReportToUrlPayload(
+        defaultShareableReport,
+        password
+      );
+
+      if (encryptedPayload.length > MAX_SHARE_ENCRYPTED_PAYLOAD_LENGTH) {
+        const strictShareableReport = buildShareableReport(
+          result,
+          STRICT_SHARE_COMPACT_OPTIONS
+        );
+        encryptedPayload = await encryptReportToUrlPayload(strictShareableReport, password);
+      }
+
+      if (encryptedPayload.length > MAX_SHARE_ENCRYPTED_PAYLOAD_LENGTH) {
+        throw new Error(
+          'Report je príliš veľký na bezpečný zdieľaný odkaz. Skúste export JSON alebo zdieľajte menší výber dát.'
+        );
+      }
+
       const clientMeta = data.clientName || 'Klient';
       const surveyMeta = data.surveyName || 'Prieskum spokojnosti';
       const issuedMeta =
         result.reportMetadata?.date || new Date().toLocaleDateString('sk-SK')
       ;
 
-      const { shareId } = await createSharedReport(encryptedPayload, {
-        client: clientMeta,
-        survey: surveyMeta,
-        issued: issuedMeta,
-      });
-
       const currentPath = window.location.pathname || '/';
       const withoutSharedSegment = currentPath.replace(/\/r\/[^/?#]+$/, '');
       const basePath = withoutSharedSegment === '' ? '' : withoutSharedSegment.replace(/\/$/, '');
-      const shareUrl = `${window.location.origin}${basePath}/r/${encodeURIComponent(
-        shareId
-      )}`;
+      const isLocalRuntime =
+        typeof window !== 'undefined' &&
+        ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+      let shareUrl = '';
+      let usedLocalFallback = false;
+
+      try {
+        const { shareId } = await createSharedReport(encryptedPayload, {
+          client: clientMeta,
+          survey: surveyMeta,
+          issued: issuedMeta,
+        });
+
+        shareUrl = `${window.location.origin}${basePath}/r/${encodeURIComponent(
+          shareId
+        )}`;
+      } catch (apiError: any) {
+        if (isLocalRuntime && apiError?.status === 404) {
+          const hashParams = new URLSearchParams();
+          hashParams.set('report', encryptedPayload);
+          if (clientMeta) hashParams.set('client', clientMeta);
+          if (surveyMeta) hashParams.set('survey', surveyMeta);
+          if (issuedMeta) hashParams.set('issued', issuedMeta);
+
+          shareUrl = `${window.location.origin}${basePath}#${hashParams.toString()}`;
+          usedLocalFallback = true;
+        } else {
+          throw apiError;
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          if (rememberSharePassword) {
+            localStorage.setItem(SHARE_PASSWORD_PRESET_STORAGE_KEY, password);
+            setHasStoredSharePassword(true);
+          } else {
+            localStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
+            setHasStoredSharePassword(false);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      setIsShareDialogOpen(false);
+      setSharePasswordInput('');
 
       try {
         await navigator.clipboard.writeText(shareUrl);
         setCopyStatus(true);
         setTimeout(() => setCopyStatus(false), 2000);
-        alert('Odkaz bol skopírovaný. Heslo pošlite používateľovi zvlášť.');
+        if (usedLocalFallback) {
+          alert(
+            'API endpoint pre zdieľanie nie je v lokálnom režime dostupný, preto bol vytvorený lokálny šifrovaný link (hash).'
+          );
+        } else {
+          alert('Odkaz bol skopírovaný. Nastavené heslo pošlite používateľovi zvlášť.');
+        }
       } catch (clipboardErr) {
         window.prompt('Skopírujte odkaz manuálne (Cmd+C):', shareUrl);
         setCopyStatus(true);
         setTimeout(() => setCopyStatus(false), 2000);
       }
     } catch (err: any) {
-      alert(
-        err?.message || 'Chyba pri vytváraní zabezpečeného odkazu.'
-      );
+      setShareDialogError(err?.message || 'Chyba pri vytváraní zabezpečeného odkazu.');
+    } finally {
+      setIsCreatingShareLink(false);
     }
   };
+
+  useEffect(() => {
+    if (!isShareDialogOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeShareDialog();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isShareDialogOpen, isCreatingShareLink]);
 
   const exportToJson = () => {
     const dataStr =
@@ -636,7 +852,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               {!isSharedView && (
                 <>
                   <button
-                    onClick={generateShareLink}
+                    onClick={openShareDialog}
                     className={`w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl ${
                       copyStatus
                         ? 'bg-green-600 text-white scale-105'
@@ -819,6 +1035,160 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           </div>
         </div>
       </div>
+
+      {isShareDialogOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 print:hidden">
+          <button
+            type="button"
+            aria-label="Zavrieť dialóg"
+            onClick={closeShareDialog}
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            disabled={isCreatingShareLink}
+          />
+
+          <div className="relative w-full max-w-xl rounded-[2rem] border border-black/10 bg-white p-5 sm:p-7 shadow-[0_30px_80px_-35px_rgba(0,0,0,0.55)]">
+            <button
+              type="button"
+              onClick={closeShareDialog}
+              disabled={isCreatingShareLink}
+              className="absolute right-4 top-4 rounded-xl border border-black/10 p-2 text-black/40 transition hover:border-black/20 hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="mb-6 pr-10">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-brand" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand">
+                  Bezpečné zdieľanie
+                </span>
+              </div>
+              <h3 className="text-2xl font-black uppercase tracking-tight text-black">
+                Nastavenie hesla pre report
+              </h3>
+              <p className="mt-2 text-sm font-semibold text-black/55">
+                Heslo môžeš nechať predvyplnené, alebo ho prepísať vlastným.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.16em] text-black/55">
+                  Heslo (min. {MIN_SHARE_PASSWORD_LENGTH} znakov)
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" />
+                    <input
+                      type="text"
+                      value={sharePasswordInput}
+                      onChange={(event) => {
+                        setShareDialogError(null);
+                        setSharePasswordInput(event.target.value);
+                      }}
+                      placeholder="Zadajte vlastné heslo"
+                      className="h-12 w-full rounded-xl border border-black/15 bg-white pl-10 pr-4 text-sm font-bold text-black outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                      autoFocus
+                      disabled={isCreatingShareLink}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={regenerateSharePassword}
+                    disabled={isCreatingShareLink}
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-black/15 px-4 text-[11px] font-black uppercase tracking-[0.14em] text-black/65 transition hover:border-black/25 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Nové
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-black/8 bg-black/[0.02] p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-black/45">
+                    Sila hesla
+                  </span>
+                  <span className="text-xs font-black text-black/70">{passwordState.label}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/10">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      passwordState.score <= 1
+                        ? 'bg-red-500'
+                        : passwordState.score === 2
+                        ? 'bg-amber-500'
+                        : passwordState.score === 3
+                        ? 'bg-blue-500'
+                        : 'bg-green-600'
+                    }`}
+                    style={{ width: `${Math.max(12, (passwordState.score / 4) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={rememberSharePassword}
+                  onChange={(event) => setRememberSharePassword(event.target.checked)}
+                  className="h-4 w-4 rounded border-black/25 text-brand focus:ring-brand/30"
+                  disabled={isCreatingShareLink}
+                />
+                <span className="text-xs font-semibold text-black/65">
+                  Uložiť ako predvolené heslo v tomto prehliadači
+                </span>
+              </label>
+
+              {hasStoredSharePassword && (
+                <div className="flex items-center justify-between rounded-xl border border-brand/15 bg-brand/5 px-3 py-2">
+                  <span className="text-[11px] font-bold text-brand/90">
+                    Predvolené heslo je uložené.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearStoredSharePassword}
+                    disabled={isCreatingShareLink}
+                    className="text-[10px] font-black uppercase tracking-[0.14em] text-brand/75 transition hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Zmazať
+                  </button>
+                </div>
+              )}
+
+              {shareDialogError && (
+                <p className="text-sm font-bold text-brand">{shareDialogError}</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeShareDialog}
+                disabled={isCreatingShareLink}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-black/10 bg-white px-5 text-[11px] font-black uppercase tracking-[0.14em] text-black/65 transition hover:border-black/20 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Zrušiť
+              </button>
+              <button
+                type="button"
+                onClick={createShareLink}
+                disabled={isCreatingShareLink || !passwordState.meetsLength}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-brand bg-brand px-5 text-[11px] font-black uppercase tracking-[0.14em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCreatingShareLink ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Vytváram...
+                  </>
+                ) : (
+                  'Vytvoriť odkaz'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

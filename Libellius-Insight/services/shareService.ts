@@ -13,6 +13,8 @@ interface ResolveShareResponse {
   publicMeta?: SharedReportPublicMeta;
 }
 
+type ShareServiceError = Error & { status?: number };
+
 const readApiError = async (response: Response, fallbackMessage: string) => {
   try {
     const parsed = await response.json();
@@ -52,7 +54,9 @@ export const createSharedReport = async (
       response,
       'Nepodarilo sa vytvoriť zdieľaný odkaz.'
     );
-    throw new Error(error);
+    const enrichedError = new Error(error) as ShareServiceError;
+    enrichedError.status = response.status;
+    throw enrichedError;
   }
 
   const parsed = (await response.json()) as CreateShareResponse;
@@ -77,7 +81,9 @@ export const resolveSharedReport = async (shareId: string) => {
       response,
       'Link reportu sa nepodarilo načítať.'
     );
-    throw new Error(error);
+    const enrichedError = new Error(error) as ShareServiceError;
+    enrichedError.status = response.status;
+    throw enrichedError;
   }
 
   const parsed = (await response.json()) as ResolveShareResponse;
