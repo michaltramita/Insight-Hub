@@ -232,6 +232,12 @@ const App: React.FC = () => {
     if (!selectedMode) return;
     const fileName = file.name.toLowerCase();
 
+    if (fileName.endsWith('.xls')) {
+      setError('Starý formát .xls už nepodporujeme. Uložte súbor ako .xlsx alebo .csv.');
+      setStatus(AppStatus.ERROR);
+      return;
+    }
+
     if (file.size > MAX_UPLOAD_SIZE_BYTES) {
       setError('Súbor je príliš veľký. Maximálna veľkosť je 12 MB.');
       setStatus(AppStatus.ERROR);
@@ -270,7 +276,7 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
+      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.csv');
       const processedData = isExcel ? await parseExcelFile(file) : await fileToBase64(file);
       const data = await analyzeDocument(processedData, selectedMode, isExcel, file.name);
 

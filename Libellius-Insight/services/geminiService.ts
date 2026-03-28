@@ -1,4 +1,5 @@
-import * as XLSX from "xlsx";
+import { CellValue, Workbook } from "exceljs";
+import * as Papa from "papaparse";
 import {
   FeedbackAnalysisResult,
   AnalysisMode,
@@ -10,6 +11,150 @@ import {
   createEmptyFrequencyDistribution,
   normalizeScaleDistributionKey,
 } from "../utils/frequencyDistribution";
+
+const MAX_EXCEL_FILE_BYTES = 12 * 1024 * 1024;
+const MAX_EXCEL_ROWS = 15000;
+const MAX_EXCEL_COLUMNS = 120;
+const MAX_EXCEL_CELLS = 600000;
+const MAX_TEXT_FIELD_LENGTH = 2000;
+const MAX_HEADER_LENGTH = 120;
+const MAX_ERROR_MESSAGE_LENGTH = 240;
+
+const hasOwn = (obj: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
+const clampString = (value: unknown, maxLength = MAX_TEXT_FIELD_LENGTH) =>
+  String(value ?? "").trim().slice(0, maxLength);
+
+const clampErrorMessage = (value: unknown) =>
+  clampString(value, MAX_ERROR_MESSAGE_LENGTH);
+
+const ensureSpreadsheetLimits = (rowCount: number, columnCount: number) => {
+  const safeRows = Math.max(0, rowCount);
+  const safeColumns = Math.max(0, columnCount);
+  const cellCount = safeRows * safeColumns;
+
+  if (safeRows > MAX_EXCEL_ROWS) {
+    throw new Error(
+      `Excel/CSV obsahuje príliš veľa riadkov (${safeRows}). Maximum je ${MAX_EXCEL_ROWS}.`
+    );
+  }
+  if (safeColumns > MAX_EXCEL_COLUMNS) {
+    throw new Error(
+      `Excel/CSV obsahuje príliš veľa stĺpcov (${safeColumns}). Maximum je ${MAX_EXCEL_COLUMNS}.`
+    );
+  }
+  if (cellCount > MAX_EXCEL_CELLS) {
+    throw new Error(
+      `Excel/CSV obsahuje príliš veľa buniek (${cellCount}). Maximum je ${MAX_EXCEL_CELLS}.`
+    );
+  }
+};
+
+const normalizeHeaderName = (value: unknown, fallback: string, used: Set<string>) => {
+  const base = clampString(value, MAX_HEADER_LENGTH) || fallback;
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate.toLowerCase())) {
+    candidate = `${base}_${suffix++}`;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+};
+
+const toPlainCellValue = (value: CellValue): unknown => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") return clampString(value);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (value instanceof Date) return value.toISOString();
+
+  if (typeof value === "object") {
+    if ("result" in value && value.result !== undefined) {
+      return toPlainCellValue(value.result as CellValue);
+    }
+    if ("text" in value && typeof value.text === "string") {
+      return clampString(value.text);
+    }
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return clampString(value.richText.map((chunk) => chunk?.text ?? "").join(""));
+    }
+    if ("hyperlink" in value && typeof value.hyperlink === "string") {
+      return clampString(value.hyperlink);
+    }
+    if ("error" in value && typeof value.error === "string") {
+      return clampString(value.error);
+    }
+  }
+
+  return clampString(value);
+};
+
+const mapRowsToSimplifiedData = (rows: Record<string, unknown>[]) =>
+  rows
+    .filter((row) => row && typeof row === "object" && !Array.isArray(row))
+    .map((row) => ({
+      question_id: readStringField(row, [
+        "question_id",
+        "Question_id",
+        "question id",
+        "Question ID",
+        "id_otazky",
+        "Id_otazky",
+        "ID_otazky",
+      ]),
+      skupina: readStringField(row, ["skupina", "Skupina"]),
+      survey_group: readStringField(row, [
+        "survey_group",
+        "Survey_group",
+        "survey_skupina",
+        "Survey_skupina",
+        "survey group",
+        "Survey group",
+      ]),
+      otazka: readStringField(row, ["otazka", "Otazka"]),
+      hodnota: readRawField(row, ["hodnota", "Hodnota"], ""),
+      text: readStringField(row, ["text_odpovede", "Text_odpovede"]),
+      oblast: readStringField(row, ["oblast", "Oblast"], "Nezaradené"),
+      typ: readStringField(row, ["typ", "Typ"]),
+      kategoria_otazky: readStringField(
+        row,
+        ["kategoria_otazky", "Kategoria_otazky"],
+        "Prierezova"
+      ),
+      nazov_firmy: readStringField(row, [
+        "nazov_firmy",
+        "Nazov_firmy",
+        "názov_firmy",
+        "Názov_firmy",
+        "nazov firmy",
+        "Nazov firmy",
+        "Názov firmy",
+        "firma",
+        "Firma",
+      ]),
+      nazov_prieskumu: readStringField(row, [
+        "nazov_prieskumu",
+        "Nazov_prieskumu",
+        "názov_prieskumu",
+        "Názov_prieskumu",
+        "nazov prieskumu",
+        "Nazov prieskumu",
+        "Názov prieskumu",
+        "prieskum",
+        "Prieskum",
+      ]),
+      tema_odpovede: readStringField(row, [
+        "tema_odpovede",
+        "Tema_odpovede",
+        "label_temy",
+        "Label_temy",
+      ]),
+      skala_hodnota: readRawField(
+        row,
+        ["skala_hodnota", "Skala_hodnota", "skala hodnota", "Skala hodnota"],
+        null
+      ),
+    }));
 
 // Bezpečná normalizácia textu
 const normalize = (s: string) =>
@@ -23,22 +168,23 @@ const isExcludedTheme = (theme: string) => {
   return compact === "bezodpovede" || compact === "bezodpovedi";
 };
 
-const readStringField = (row: any, keys: string[], fallback = "") => {
+const readStringField = (row: Record<string, unknown>, keys: string[], fallback = "") => {
   for (const key of keys) {
-    if (!(key in row)) continue;
+    if (!hasOwn(row, key)) continue;
     const value = row[key];
     if (value === undefined || value === null) continue;
-    const text = String(value).trim();
+    const text = clampString(value);
     if (text) return text;
   }
   return fallback;
 };
 
-const readRawField = (row: any, keys: string[], fallback: any = "") => {
+const readRawField = (row: Record<string, unknown>, keys: string[], fallback: any = "") => {
   for (const key of keys) {
-    if (!(key in row)) continue;
+    if (!hasOwn(row, key)) continue;
     const value = row[key];
     if (value === undefined || value === null) continue;
+    if (typeof value === "string") return clampString(value);
     return value;
   }
   return fallback;
@@ -173,96 +319,105 @@ const buildEngagementFromMap = (
   }));
 
 export const parseExcelFile = async (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  if (!file || file.size <= 0) {
+    throw new Error("Súbor je prázdny.");
+  }
+  if (file.size > MAX_EXCEL_FILE_BYTES) {
+    throw new Error("Excel/CSV súbor je príliš veľký (max. 12 MB).");
+  }
 
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  if (extension === "xls") {
+    throw new Error("Formát .xls už nepodporujeme. Uložte súbor ako .xlsx alebo .csv.");
+  }
+  if (extension !== "xlsx" && extension !== "csv") {
+    throw new Error("Podporované sú iba súbory .xlsx a .csv.");
+  }
 
-        const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
+  try {
+    let rows: Record<string, unknown>[] = [];
 
-        const simplifiedData = jsonData.map((row) => ({
-          question_id: readStringField(row, [
-            "question_id",
-            "Question_id",
-            "question id",
-            "Question ID",
-            "id_otazky",
-            "Id_otazky",
-            "ID_otazky",
-          ]),
-          skupina: readStringField(row, ["skupina", "Skupina"]),
-          survey_group: readStringField(row, [
-            "survey_group",
-            "Survey_group",
-            "survey_skupina",
-            "Survey_skupina",
-            "survey group",
-            "Survey group",
-          ]),
-          otazka: readStringField(row, ["otazka", "Otazka"]),
-          hodnota: readRawField(row, ["hodnota", "Hodnota"], ""),
-          text: readStringField(row, ["text_odpovede", "Text_odpovede"]),
-          oblast: readStringField(row, ["oblast", "Oblast"], "Nezaradené"),
-          typ: readStringField(row, ["typ", "Typ"]),
-          kategoria_otazky: readStringField(
-            row,
-            ["kategoria_otazky", "Kategoria_otazky"],
-            "Prierezova"
-          ),
-          nazov_firmy: readStringField(row, [
-            "nazov_firmy",
-            "Nazov_firmy",
-            "názov_firmy",
-            "Názov_firmy",
-            "nazov firmy",
-            "Nazov firmy",
-            "Názov firmy",
-            "firma",
-            "Firma",
-          ]),
-          nazov_prieskumu: readStringField(row, [
-            "nazov_prieskumu",
-            "Nazov_prieskumu",
-            "názov_prieskumu",
-            "Názov_prieskumu",
-            "nazov prieskumu",
-            "Nazov prieskumu",
-            "Názov prieskumu",
-            "prieskum",
-            "Prieskum",
-          ]),
-          tema_odpovede: readStringField(row, [
-            "tema_odpovede",
-            "Tema_odpovede",
-            "label_temy",
-            "Label_temy",
-          ]),
-          skala_hodnota: readRawField(
-            row,
-            [
-              "skala_hodnota",
-              "Skala_hodnota",
-              "skala hodnota",
-              "Skala hodnota",
-            ],
-            null
-          ),
-        }));
+    if (extension === "csv") {
+      const text = await file.text();
+      const parsed = Papa.parse<Record<string, unknown>>(text, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        transformHeader: (header) => clampString(header, MAX_HEADER_LENGTH),
+      });
 
-        resolve(JSON.stringify(simplifiedData));
-      } catch (err) {
-        reject(new Error("Nepodarilo sa prečítať Excel súbor."));
+      if (parsed.errors.length > 0) {
+        const firstError = parsed.errors[0];
+        throw new Error(
+          `CSV súbor sa nepodarilo načítať: ${clampErrorMessage(
+            firstError?.message || "neznáma chyba"
+          )}`
+        );
       }
-    };
 
-    reader.onerror = reject;
-    reader.readAsBinaryString(file);
-  });
+      const columnCount = parsed.meta.fields?.length || 0;
+      const rowCount = parsed.data.length + (columnCount > 0 ? 1 : 0);
+      ensureSpreadsheetLimits(rowCount, columnCount);
+      rows = parsed.data;
+    } else {
+      const workbook = new Workbook();
+      const data = await file.arrayBuffer();
+      await workbook.xlsx.load(data);
+
+      const sheet = workbook.worksheets[0];
+      if (!sheet) {
+        throw new Error("Súbor neobsahuje žiadny hárok.");
+      }
+
+      const rowCount = sheet.actualRowCount;
+      const columnCount = sheet.actualColumnCount;
+      if (rowCount <= 0 || columnCount <= 0) {
+        throw new Error("Prvý hárok neobsahuje čitateľné dáta.");
+      }
+
+      ensureSpreadsheetLimits(rowCount, columnCount);
+
+      const usedHeaders = new Set<string>();
+      const headerRow = sheet.getRow(1);
+      const headers = Array.from({ length: columnCount }, (_, colIndex) =>
+        normalizeHeaderName(
+          toPlainCellValue(headerRow.getCell(colIndex + 1).value as CellValue),
+          `column_${colIndex + 1}`,
+          usedHeaders
+        )
+      );
+
+      const parsedRows: Record<string, unknown>[] = [];
+      for (let rowIndex = 2; rowIndex <= rowCount; rowIndex += 1) {
+        const row = sheet.getRow(rowIndex);
+        const parsedRow: Record<string, unknown> = {};
+        let hasAnyValue = false;
+
+        for (let colIndex = 1; colIndex <= columnCount; colIndex += 1) {
+          const headerName = headers[colIndex - 1];
+          if (!headerName) continue;
+
+          const value = toPlainCellValue(row.getCell(colIndex).value as CellValue);
+          if (value !== null && value !== "") {
+            hasAnyValue = true;
+          }
+          parsedRow[headerName] = value;
+        }
+
+        if (hasAnyValue) {
+          parsedRows.push(parsedRow);
+        }
+      }
+
+      rows = parsedRows;
+    }
+
+    return JSON.stringify(mapRowsToSimplifiedData(rows));
+  } catch (err) {
+    throw err instanceof Error
+      ? err
+      : new Error("Nepodarilo sa prečítať Excel/CSV súbor.");
+  }
 };
 
 export const analyzeDocument = async (

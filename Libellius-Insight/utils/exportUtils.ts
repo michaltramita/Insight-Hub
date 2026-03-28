@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { Workbook } from 'exceljs';
 
 /**
  * Vyexportuje konkrétny HTML blok do PDF pomocou natívneho prehliadačového okna.
@@ -71,11 +71,62 @@ export const exportDataToExcel = (dataToExport: any[], fileName: string, callbac
     alert('Žiadne dáta na export.');
     return;
   }
-  const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Dáta');
-  XLSX.writeFile(workbook, fileName);
   if (callback) callback();
+
+  void (async () => {
+    try {
+      const workbook = new Workbook();
+      const worksheet = workbook.addWorksheet('Dáta');
+      const headers = Object.keys(dataToExport[0] || {});
+
+      if (headers.length === 0) {
+        alert('Žiadne dáta na export.');
+        return;
+      }
+
+      worksheet.addRow(headers);
+      worksheet.getRow(1).font = { bold: true };
+
+      dataToExport.forEach((row) => {
+        worksheet.addRow(
+          headers.map((header) => {
+            const value = row?.[header];
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'number' || typeof value === 'boolean') return value;
+            return String(value);
+          })
+        );
+      });
+
+      headers.forEach((header, index) => {
+        const maxLen = Math.min(
+          60,
+          Math.max(
+            12,
+            header.length + 2,
+            ...dataToExport.map((row) => String(row?.[header] ?? '').length + 2)
+          )
+        );
+        worksheet.getColumn(index + 1).width = maxLen;
+      });
+
+      const output = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([output], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName.toLowerCase().endsWith('.xlsx') ? fileName : `${fileName}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Chyba pri exporte do Excelu:', error);
+      alert('Nepodarilo sa vytvoriť Excel export. Skúste to znova.');
+    }
+  })();
 };
 
 /**

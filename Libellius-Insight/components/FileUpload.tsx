@@ -15,12 +15,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
     const supportedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
-      'application/vnd.ms-excel', 
       'application/json' 
     ];
     const extension = file.name.split('.').pop()?.toLowerCase();
     return supportedTypes.includes(file.type) || 
-           ['xlsx', 'xls', 'pdf', 'json', 'csv'].includes(extension || '');
+           ['xlsx', 'pdf', 'json', 'csv'].includes(extension || '');
   };
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -87,11 +86,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <input 
-        type="file" 
-        accept=".pdf,.xlsx,.xls,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
-        className="hidden" 
-        id="file-upload"
+        <input 
+          type="file" 
+        accept=".pdf,.xlsx,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+          className="hidden" 
+          id="file-upload"
         onChange={handleChange}
         disabled={isAnalyzing}
       />
