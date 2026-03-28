@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const clientIp = getClientIp(req);
-  const rateLimit = consumeRateLimit({
+  const rateLimit = await consumeRateLimit({
     bucket: `share-get:${clientIp}`,
     limit: GET_RATE_LIMIT.limit,
     windowMs: GET_RATE_LIMIT.windowMs,
