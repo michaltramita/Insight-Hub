@@ -3,7 +3,9 @@ import { get } from '@vercel/blob';
 import {
   buildShareBlobPath,
   isValidShareId,
+  isShareExpired,
   sanitizePublicMeta,
+  type StoredSharedReport,
 } from './share-report-storage.js';
 import { consumeRateLimit, getClientIp } from './rate-limit.js';
 
@@ -74,10 +76,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json({ error: 'Zdieľaný report je príliš veľký.' });
     }
 
-    const parsed = JSON.parse(payloadText) as {
-      encryptedPayload?: string;
-      publicMeta?: unknown;
-    };
+    const parsed = JSON.parse(payloadText) as StoredSharedReport;
+
+    if (isShareExpired(parsed)) {
+      return res.status(410).json({
+        error: 'Tento zdieľaný link expiroval. Vygenerujte prosím nový.',
+      });
+    }
 
     if (!isValidEncryptedPayload(parsed?.encryptedPayload)) {
       return res.status(422).json({ error: 'Zdieľaný report je poškodený.' });

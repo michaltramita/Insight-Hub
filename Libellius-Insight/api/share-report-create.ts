@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { put } from '@vercel/blob';
 import {
   buildShareBlobPath,
+  createShareTimestamps,
   generateShareId,
   sanitizePublicMeta,
   type StoredSharedReport,
@@ -111,11 +112,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const shareId = generateShareId();
     const pathname = buildShareBlobPath(shareId);
+    const timestamps = createShareTimestamps();
 
     const body: StoredSharedReport = {
       encryptedPayload: String(encryptedPayload).trim(),
       publicMeta: sanitizePublicMeta(publicMeta),
-      createdAt: new Date().toISOString(),
+      createdAt: timestamps.createdAt,
+      expiresAt: timestamps.expiresAt,
     };
 
     await put(pathname, JSON.stringify(body), {
