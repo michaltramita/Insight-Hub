@@ -51,7 +51,7 @@ const CompetencyRadar: React.FC<CompetencyRadarProps> = ({ data, scaleMax = 6 })
           />
           <Tooltip 
             contentStyle={{ backgroundColor: '#fff', borderRadius: '1rem', border: '1px solid #00000010', boxShadow: '0 10px 30px -5px rgb(0 0 0 / 0.1)', fontWeight: 700 }}
-            formatter={(value: number) => value.toFixed(2)}
+            formatter={(value: unknown) => Number(value).toFixed(2)}
           />
           <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 700, fontSize: '12px' }} />
         </RadarChart>

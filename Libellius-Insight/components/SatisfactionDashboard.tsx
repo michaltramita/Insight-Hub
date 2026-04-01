@@ -705,7 +705,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   const globalTopStatementsTeams = useMemo(() => {
     const mergedTeams = new Set<string>(
-      (masterTeams || []).map((team) => String(team || '').trim()).filter(Boolean)
+      (masterTeams || [])
+        .map((team: string) => String(team || '').trim())
+        .filter(Boolean)
     );
 
     (data.areas || []).forEach((area: any) => {
@@ -933,7 +935,9 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                 {allTabs.map((t) => (
                   (() => {
                     const isActive = activeTab === t.id;
-                    const isAreaTab = areaTabs.some((areaTab) => areaTab.id === t.id);
+                    const isAreaTab = areaTabs.some(
+                      (areaTab: { id: string }) => areaTab.id === t.id
+                    );
                     const isDarkActiveTab = t.id === 'RECOMMENDATIONS' || t.id === 'TOP_STATEMENTS';
 
                     const activeClasses = isDarkActiveTab
