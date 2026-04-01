@@ -1,0 +1,35 @@
+name: Libellius Insight CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Libellius-Insight
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            Libellius-Insight/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck strict core
+        run: npm run typecheck:strict:core
+
+      - name: Build
+        run: npm run build
