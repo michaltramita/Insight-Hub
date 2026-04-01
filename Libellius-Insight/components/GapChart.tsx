@@ -17,7 +17,17 @@ interface GapChartProps {
   data: GapData[];
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface GapTooltipPayloadEntry {
+  payload: GapData;
+}
+
+interface GapTooltipProps {
+  active?: boolean;
+  payload?: GapTooltipPayloadEntry[];
+  label?: string;
+}
+
+const CustomTooltip: React.FC<GapTooltipProps> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload as GapData;
     return (

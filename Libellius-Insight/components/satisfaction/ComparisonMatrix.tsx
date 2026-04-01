@@ -3,11 +3,18 @@ import { LayoutGrid } from 'lucide-react';
 
 interface ComparisonMatrixProps {
   teams: string[];
-  matrixData: any[];
+  matrixData: ComparisonMatrixRow[];
+}
+
+interface ComparisonMatrixRow {
+  category: string;
+  questionType?: string;
+  [key: string]: unknown;
 }
 
 const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }) => {
-  const getCellColor = (score: number) => {
+  const getCellColor = (rawScore: unknown) => {
+    const score = rawScore as number;
     if (score === 0) return 'bg-black/5 text-black/20';
     if (score <= 4.0) return 'bg-black text-white';
     if (score <= 4.5) return 'bg-brand/10 text-brand';
@@ -60,14 +67,17 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ teams, matrixData }
                     )}
                   </div>
                 </td>
-                {teams.map(team => (
-                  <td key={team} className="p-0 border-l border-black/5">
-                    {/* Zväčšené čísla (text-lg) */}
-                    <div className={`w-full h-full flex items-center justify-center p-6 text-center font-black text-base transition-all ${getCellColor(row[team])}`}>
-                      {row[team] > 0 ? row[team].toFixed(2) : '-'}
-                    </div>
-                  </td>
-                ))}
+                {teams.map((team) => {
+                  const teamScore = row[team] as number;
+                  return (
+                    <td key={team} className="p-0 border-l border-black/5">
+                      {/* Zväčšené čísla (text-lg) */}
+                      <div className={`w-full h-full flex items-center justify-center p-6 text-center font-black text-base transition-all ${getCellColor(teamScore)}`}>
+                        {teamScore > 0 ? teamScore.toFixed(2) : '-'}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

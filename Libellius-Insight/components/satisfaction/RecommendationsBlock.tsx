@@ -7,7 +7,7 @@ import {
 } from '../ui/carousel';
 
 interface Props {
-  data: any;
+  data: unknown;
 }
 
 const RecommendationsBlock: React.FC<Props> = ({ data }) => {
