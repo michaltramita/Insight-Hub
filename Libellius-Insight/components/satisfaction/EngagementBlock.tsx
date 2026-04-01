@@ -4,13 +4,45 @@ import { Search, Filter, ArrowUpDown, Download, ChevronDown, ChevronLeft, Chevro
 import { PieChart, Pie, Sector, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
-  data: any;
+  data: EngagementData;
   masterTeams: string[];
 }
 
 type SortKey = 'count' | 'name';
 type SortDirection = 'asc' | 'desc' | null;
 type EngagementVisualMode = 'CARDS' | 'PIE';
+
+interface EngagementTeam {
+  name: string;
+  count: number;
+  totalSent?: number | string;
+  sent?: number | string;
+  invited?: number | string;
+  osloveni?: number | string;
+  total?: number | string;
+}
+
+interface EngagementData {
+  totalReceived?: number | string;
+  totalSent?: number | string;
+  successRate?: number | string;
+  teamEngagement?: EngagementTeam[];
+}
+
+interface EngagementChartTeam extends EngagementTeam {
+  count: number;
+  percentage: number;
+  isActive: boolean;
+  color: string;
+}
+
+interface EngagementTeamCard extends EngagementChartTeam {
+  responded: number;
+  teamSent: number;
+  responseRateTeam: number;
+  shareOfAllResponded: number;
+  shareOfAllSent: number;
+}
 
 const PIE_COLORS = [
   '#4A081C', '#630B26', '#7D0E30', '#97113A', '#B81547', 
@@ -54,16 +86,16 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     }
   };
 
-  const filteredEngagement = useMemo(() => {
+  const filteredEngagement = useMemo<EngagementTeam[]>(() => {
     let teams = [...(data.teamEngagement || [])];
     if (searchTerm) {
-      teams = teams.filter((t: any) => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      teams = teams.filter((t) => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if (selectedEngagementTeams.length > 0) {
-      teams = teams.filter((t: any) => selectedEngagementTeams.includes(t.name));
+      teams = teams.filter((t) => selectedEngagementTeams.includes(t.name));
     }
     if (sortKey && sortDirection) {
-      teams.sort((a: any, b: any) => {
+      teams.sort((a, b) => {
         const valA = sortKey === 'count' ? a.count : a.name.toLowerCase();
         const valB = sortKey === 'count' ? b.count : b.name.toLowerCase();
         if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
@@ -83,7 +115,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
   };
 
   const handleExcelExport = () => {
-    const dataToExport = filteredEngagement.map((t: any) => ({
+    const dataToExport = filteredEngagement.map((t) => ({
       'Tím / Stredisko': t.name,
       'Počet odpovedí': t.count,
       'Podiel na celkovom vyplnení (%)': Number(((t.count / safeTotalReceived) * 100).toFixed(1))
@@ -91,38 +123,43 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
     exportDataToExcel(dataToExport, 'Zapojenie_Timov.xlsx', () => setActiveExportMenu(null));
   };
 
-  const engagementChartData = useMemo(() => {
-    const baseTeams = (data.teamEngagement || []).filter((t: any) => t.name && !['total', 'celkom'].includes(t.name.toLowerCase()));
+  const engagementChartData = useMemo<EngagementChartTeam[]>(() => {
+    const baseTeams = (data.teamEngagement || []).filter((t) => t.name && !['total', 'celkom'].includes(t.name.toLowerCase()));
     const isFiltering = selectedEngagementTeams.length > 0 || searchTerm !== '';
 
-    const mappedTeams = baseTeams.map((team: any) => {
+    const mappedTeams = baseTeams.map((team) => {
       const count = Number(team.count) || 0;
       const percentage = safeTotalReceived > 0 ? Number(((count / safeTotalReceived) * 100).toFixed(1)) : 0;
-      const isActive = isFiltering ? filteredEngagement.some((ft: any) => ft.name === team.name) : true;
+      const isActive = isFiltering ? filteredEngagement.some((ft) => ft.name === team.name) : true;
       return { ...team, count, percentage, isActive };
     });
 
-    const sortedTeams = mappedTeams.sort((a: any, b: any) => {
+    const sortedTeams = mappedTeams.sort((a, b) => {
       if (a.isActive && !b.isActive) return -1;
       if (!a.isActive && b.isActive) return 1;
       return b.count - a.count;
     });
 
     let activeIndex = 0;
-    return sortedTeams.map((team: any) => ({
+    return sortedTeams.map((team) => ({
       ...team,
       color: team.isActive ? PIE_COLORS[activeIndex++ % PIE_COLORS.length] : '#f4f4f5'
     }));
   }, [data.teamEngagement, filteredEngagement, safeTotalReceived, selectedEngagementTeams.length, searchTerm]);
 
-  const engagementTeamCards = useMemo(() => {
+  const engagementTeamCards = useMemo<EngagementTeamCard[]>(() => {
     return engagementChartData
-      .filter((team: any) => team.isActive)
-      .sort((a: any, b: any) => b.count - a.count)
-      .map((team: any) => {
+      .filter((team) => team.isActive)
+      .sort((a, b) => b.count - a.count)
+      .map((team) => {
         const responded = Number(team.count) || 0;
         const sentRaw = team.totalSent ?? team.sent ?? team.invited ?? team.osloveni ?? team.total;
-        const teamSent = typeof sentRaw === 'number' && sentRaw > 0 ? sentRaw : (responded > 0 && safeTotalReceived > 0) ? Math.round((responded / safeTotalReceived) * safeTotalSent) : 0;
+        const teamSent =
+          typeof sentRaw === 'number' && sentRaw > 0
+            ? sentRaw
+            : (responded > 0 && safeTotalReceived > 0)
+              ? Math.round((responded / safeTotalReceived) * safeTotalSent)
+              : 0;
         const responseRateTeam = teamSent > 0 ? Number(((responded / teamSent) * 100).toFixed(1)) : 0;
         const shareOfAllResponded = safeTotalReceived > 0 ? Number(((responded / safeTotalReceived) * 100).toFixed(1)) : 0;
         const shareOfAllSent = safeTotalSent > 0 ? Number(((teamSent / safeTotalSent) * 100).toFixed(1)) : 0;
@@ -288,7 +325,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5 font-black text-sm">
-              {filteredEngagement.length > 0 ? filteredEngagement.map((team: any, idx: number) => (
+              {filteredEngagement.length > 0 ? filteredEngagement.map((team, idx: number) => (
                 <tr key={idx} className={`hover:bg-brand/5 transition-colors group ${team.name.toLowerCase().includes('priemer') ? 'bg-brand/5 text-brand' : ''}`}>
                   <td className="p-4 sm:p-7 group-hover:text-brand transition-colors">{team.name}</td>
                   <td className="p-4 sm:p-7 text-center">{team.count}</td>
@@ -420,7 +457,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                 )}
 
                 <div ref={engagementCardsRef} className="flex items-start gap-4 sm:gap-5 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory no-scrollbar">
-                  {engagementTeamCards.map((team: any, idx: number) => {
+                  {engagementTeamCards.map((team, idx: number) => {
                     const cardId = `${team.name}-${idx}`;
 
                     return (
@@ -494,11 +531,31 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                         onMouseEnter={(_, index) => setHoveredPie(index)}
                         onMouseLeave={() => setHoveredPie(null)}
                         isAnimationActive={false}
-                        shape={(props: any) => {
-                          const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
+                        shape={(props) => {
+                          const {
+                            cx = 0,
+                            cy = 0,
+                            innerRadius = 0,
+                            outerRadius = 0,
+                            startAngle = 0,
+                            endAngle = 0,
+                            fill = '#000000',
+                            payload,
+                            index = -1,
+                          } = props as {
+                            cx?: number;
+                            cy?: number;
+                            innerRadius?: number;
+                            outerRadius?: number;
+                            startAngle?: number;
+                            endAngle?: number;
+                            fill?: string;
+                            payload?: { isActive?: boolean };
+                            index?: number;
+                          };
                           const isHovered = hoveredPie === index;
                           const isFiltering = typeof selectedEngagementTeams !== 'undefined' && selectedEngagementTeams.length > 0;
-                          const isSelected = isFiltering && payload.isActive;
+                          const isSelected = isFiltering && Boolean(payload?.isActive);
                           
                           let radiusOffset = 0;
                           if (isSelected) radiusOffset += 12; 
@@ -513,7 +570,7 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                           );
                         }}
                       >
-                        {engagementChartData.map((entry: any, index: number) => (
+                        {engagementChartData.map((entry, index: number) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -537,11 +594,11 @@ const EngagementBlock: React.FC<Props> = ({ data, masterTeams }) => {
                       Rozdelenie podľa tímov
                     </h4>
                     <div className="space-y-3 max-h-[340px] overflow-auto pr-1">
-                      {engagementChartData.slice().sort((a: any, b: any) => {
+                      {engagementChartData.slice().sort((a, b) => {
                         if (a.isActive && !b.isActive) return -1;
                         if (!a.isActive && b.isActive) return 1;
                         return b.count - a.count;
-                      }).map((team: any, idx: number) => (
+                      }).map((team, idx: number) => (
                         <div key={`${team.name}-${idx}`} className={`rounded-2xl border p-3 sm:p-4 transition-all ${team.isActive ? (idx === 0 ? 'bg-brand/5 border-brand/20' : 'bg-white border-black/5') : 'bg-black/5 border-transparent opacity-50 grayscale'}`}>
                           <div className="flex items-center justify-between gap-3 mb-2">
                             <div className="flex items-center gap-2 min-w-0">

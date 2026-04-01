@@ -5,8 +5,41 @@ import { Lightbulb, MessageCircle, Quote, X } from 'lucide-react';
 import StyledSelect from '../ui/StyledSelect';
 
 interface Props {
-  openQuestions: any[];
+  openQuestions: OpenQuestionTeamItem[];
   masterTeams: string[];
+}
+
+interface OpenQuestionThemeCloudItem {
+  theme?: string;
+  count?: number | string;
+  percentage?: number | string;
+}
+
+interface OpenQuestionResponseItem {
+  text?: string;
+  theme?: string;
+}
+
+interface OpenQuestionItem {
+  questionText?: string;
+  themeCloud?: OpenQuestionThemeCloudItem[];
+  responses?: OpenQuestionResponseItem[];
+}
+
+interface OpenQuestionTeamItem {
+  teamName?: string;
+  questions?: OpenQuestionItem[];
+}
+
+interface ThemeCloudItem {
+  theme: string;
+  count: number;
+  percentage: number;
+}
+
+interface OpenResponseItem {
+  text: string;
+  theme: string;
 }
 
 // --------------------------------------------------------------------------
@@ -19,7 +52,7 @@ const MobileBottomSheet = ({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  themeData: { theme: string; count: number; percentage: number } | null;
+  themeData: ThemeCloudItem | null;
 }) => {
   // Zámok scrollovania pri otvorenom paneli
   useEffect(() => {
@@ -109,19 +142,12 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
   const [isMobile, setIsMobile] = useState(false);
   
   // Tento stav drží dáta, keď na mobile používateľ ťukne na tému
-  const [mobileSelectedTheme, setMobileSelectedTheme] = useState<{
-    theme: string;
-    count: number;
-    percentage: number;
-  } | null>(null);
+  const [mobileSelectedTheme, setMobileSelectedTheme] = useState<ThemeCloudItem | null>(null);
 
   // Klasický tooltip pre PC zostal zachovaný
-  const [themeTooltip, setThemeTooltip] = useState<{
+  const [themeTooltip, setThemeTooltip] = useState<ThemeCloudItem & {
     x: number;
     y: number;
-    theme: string;
-    count: number;
-    percentage: number;
   } | null>(null);
 
   // Sledovanie veľkosti okna
@@ -144,10 +170,10 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
   // Inicializácia vybranej otázky po zmene tímu
   useEffect(() => {
     if (openQuestionsTeam && openQuestions) {
-      const teamQuestions = openQuestions.find((t: any) => t.teamName === openQuestionsTeam)?.questions || [];
+      const teamQuestions = openQuestions.find((t) => t.teamName === openQuestionsTeam)?.questions || [];
       if (teamQuestions.length > 0) {
-        if (!teamQuestions.find((q: any) => q.questionText === selectedQuestionText)) {
-          setSelectedQuestionText(teamQuestions[0].questionText);
+        if (!teamQuestions.find((q) => q.questionText === selectedQuestionText)) {
+          setSelectedQuestionText(teamQuestions[0]?.questionText || '');
         }
       } else {
         setSelectedQuestionText('');
@@ -164,26 +190,26 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
     return () => window.removeEventListener('click', handleGlobalClick);
   }, [isMobile]);
 
-  const getThemeCloud = (question: any) => {
+  const getThemeCloud = (question?: OpenQuestionItem): ThemeCloudItem[] => {
     if (!question?.themeCloud || !Array.isArray(question.themeCloud)) return [];
     return question.themeCloud
-      .filter((t: any) => t?.theme)
-      .map((t: any) => ({
+      .filter((t) => Boolean(t?.theme))
+      .map((t) => ({
         theme: String(t.theme),
         count: Number(t.count) || 0,
         percentage: Number(t.percentage) || 0,
       }))
-      .sort((a: any, b: any) => b.count - a.count);
+      .sort((a, b) => b.count - a.count);
   };
 
-  const getOpenResponses = (question: any) => {
+  const getOpenResponses = (question?: OpenQuestionItem): OpenResponseItem[] => {
     if (!question?.responses || !Array.isArray(question.responses)) return [];
     return question.responses
-      .map((r: any) => ({
+      .map((r) => ({
         text: String(r?.text || '').trim(),
         theme: String(r?.theme || '').trim(),
       }))
-      .filter((r: any) => r.text);
+      .filter((r) => Boolean(r.text));
   };
 
   const normalizeThemeKey = (theme: string) =>
@@ -204,16 +230,16 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
     return 'text-sm md:text-base';
   };
 
-  const openQuestionsTeamData = openQuestions?.find((t: any) => t.teamName === openQuestionsTeam);
+  const openQuestionsTeamData = openQuestions?.find((t) => t.teamName === openQuestionsTeam);
   const availableQuestions = openQuestionsTeamData?.questions || [];
-  const selectedQuestionData = availableQuestions.find((q: any) => q.questionText === selectedQuestionText) || availableQuestions[0];
+  const selectedQuestionData = availableQuestions.find((q) => q.questionText === selectedQuestionText) || availableQuestions[0];
   const teamOptions = masterTeams.map((team: string) => ({
     value: team,
     label: team,
   }));
   const questionOptions =
     availableQuestions.length > 0
-      ? availableQuestions.map((question: any, index: number) => ({
+      ? availableQuestions.map((question, index: number) => ({
           value: String(question?.questionText || ''),
           label: String(question?.questionText || `Otázka ${index + 1}`),
         }))
@@ -221,12 +247,12 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
 
   const selectedQuestionThemeCloud = getThemeCloud(selectedQuestionData);
   const selectedQuestionMaxThemeCount = selectedQuestionThemeCloud.length > 0
-    ? Math.max(...selectedQuestionThemeCloud.map((t: any) => t.count))
+    ? Math.max(...selectedQuestionThemeCloud.map((t) => t.count))
     : 0;
   const selectedQuestionResponses = getOpenResponses(selectedQuestionData);
   const filteredResponses = selectedThemeFilter
     ? selectedQuestionResponses.filter(
-        (response: any) =>
+        (response) =>
           normalizeThemeKey(response.theme) === normalizeThemeKey(selectedThemeFilter)
       )
     : selectedQuestionResponses;
@@ -297,7 +323,7 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
 
               <div className="bg-black/5 rounded-2xl p-4 sm:p-5 md:p-6 border border-black/5">
                 <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 sm:gap-y-3">
-                  {selectedQuestionThemeCloud.map((theme: any, tIdx: number) => (
+                  {selectedQuestionThemeCloud.map((theme, tIdx: number) => (
                     (() => {
                       const isThemeSelected =
                         selectedThemeFilter !== null &&
@@ -408,7 +434,7 @@ const OpenQuestionsBlock: React.FC<Props> = ({ openQuestions, masterTeams }) => 
             {filteredResponses.length > 0 ? (
               <div className="mt-5 sm:mt-6 rounded-2xl border border-black/10 bg-black/[0.02] p-3 sm:p-4">
                 <div className="max-h-[340px] sm:max-h-[440px] lg:max-h-[520px] overflow-y-auto pr-1 sm:pr-2 space-y-3 sm:space-y-4">
-                  {filteredResponses.map((response: any, responseIndex: number) => (
+                  {filteredResponses.map((response, responseIndex: number) => (
                     <div
                       key={`${response.text}-${responseIndex}`}
                       className="bg-black/5 p-4 sm:p-5 rounded-2xl relative border border-black/5"
