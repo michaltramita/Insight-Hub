@@ -34,16 +34,30 @@ interface Props {
 type TabType = 'ENGAGEMENT' | 'OPEN_QUESTIONS' | string;
 type ContextType = 'GLOBAL' | string;
 
-interface GroupContext {
-  id: string;
-  label: string;
-  source: any;
-}
-
 type LegacySurveyGroupsShape =
   | EmployeeSatisfactionData['surveyGroups']
   | unknown[]
   | Record<string, unknown>;
+
+interface GroupContextSource {
+  id?: unknown;
+  key?: unknown;
+  name?: unknown;
+  title?: unknown;
+  label?: unknown;
+  masterTeams?: unknown;
+  teamEngagement?: unknown;
+  openQuestions?: unknown;
+  areas?: unknown;
+  teamName?: unknown;
+  [key: string]: unknown;
+}
+
+interface GroupContext {
+  id: string;
+  label: string;
+  source: GroupContextSource;
+}
 
 interface DashboardDataSource {
   clientName?: string;
@@ -634,19 +648,24 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       data?.groupReports;
 
     if (Array.isArray(rawExplicitGroups) && rawExplicitGroups.length > 0) {
-      return rawExplicitGroups.map((group: any, index: number) => {
+      return rawExplicitGroups.map((group, index: number) => {
+        const groupRecord = isRecord(group) ? (group as GroupContextSource) : {};
         const rawId =
-          group?.id ||
-          group?.key ||
-          group?.name ||
-          group?.title ||
+          groupRecord.id ||
+          groupRecord.key ||
+          groupRecord.name ||
+          groupRecord.title ||
           `group_${index + 1}`;
-        const rawLabel = group?.label || group?.name || group?.title || `Skupina ${index + 1}`;
+        const rawLabel =
+          groupRecord.label ||
+          groupRecord.name ||
+          groupRecord.title ||
+          `Skupina ${index + 1}`;
 
         return {
           id: String(rawId),
           label: String(rawLabel),
-          source: group,
+          source: groupRecord,
         };
       });
     }
@@ -657,8 +676,13 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       !Array.isArray(rawExplicitGroups)
     ) {
       return Object.entries(rawExplicitGroups).map(([groupId, groupValue], index) => {
-        const group = groupValue as any;
-        const rawLabel = group?.label || group?.name || group?.title || groupId || `Skupina ${index + 1}`;
+        const group = isRecord(groupValue) ? (groupValue as GroupContextSource) : {};
+        const rawLabel =
+          group.label ||
+          group.name ||
+          group.title ||
+          groupId ||
+          `Skupina ${index + 1}`;
 
         return {
           id: String(groupId),
@@ -704,29 +728,38 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const source = activeGroupContext.source || {};
 
     if (Array.isArray(source.masterTeams) && source.masterTeams.length > 0) {
-      return source.masterTeams.map((team: any) => String(team || '').trim()).filter(Boolean);
+      return source.masterTeams
+        .map((team) => String(team || '').trim())
+        .filter(Boolean);
     }
 
     if (Array.isArray(source.teamEngagement) && source.teamEngagement.length > 0) {
       return source.teamEngagement
-        .map((team: any) => String(team?.name || '').trim())
+        .map((team) =>
+          String((isRecord(team) ? team.name : '') || '').trim()
+        )
         .filter(Boolean);
     }
 
     if (Array.isArray(source.openQuestions) && source.openQuestions.length > 0) {
       return source.openQuestions
-        .map((team: any) => String(team?.teamName || '').trim())
+        .map((team) =>
+          String((isRecord(team) ? team.teamName : '') || '').trim()
+        )
         .filter(Boolean);
     }
 
     if (Array.isArray(source.areas) && source.areas.length > 0) {
-      const teamNames = source.areas.flatMap((area: any) =>
-        Array.isArray(area?.teams)
-          ? area.teams
-              .map((team: any) => String(team?.teamName || '').trim())
+      const teamNames = source.areas.flatMap((area) => {
+        const areaRecord = isRecord(area) ? area : {};
+        return Array.isArray(areaRecord.teams)
+          ? areaRecord.teams
+              .map((team) =>
+                String((isRecord(team) ? team.teamName : '') || '').trim()
+              )
               .filter(Boolean)
-          : []
-      );
+          : [];
+      });
       return Array.from(new Set(teamNames));
     }
 
@@ -743,10 +776,12 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     if (!activeGroupContext) return [];
 
     const source = activeGroupContext.source || {};
-    if (Array.isArray(source.openQuestions)) return source.openQuestions;
+    if (Array.isArray(source.openQuestions)) {
+      return source.openQuestions as NonNullable<DashboardDataSource['openQuestions']>;
+    }
 
     if (scopedMasterTeams.length === 0) return [];
-    return globalOpenQuestions.filter((team: any) =>
+    return globalOpenQuestions.filter((team) =>
       scopedMasterTeams.includes(String(team?.teamName || '').trim())
     );
   }, [activeContext, activeGroupContext, data.openQuestions, hasGroupedSurvey, scopedMasterTeams]);
