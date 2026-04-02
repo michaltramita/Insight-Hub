@@ -81,6 +81,28 @@ type ShareCompactOptions = {
   maxThemeCloudItems: number;
 };
 
+interface CompactOpenQuestionResponse {
+  text: string;
+  theme?: string;
+}
+
+interface CompactOpenQuestionItem {
+  questionText: string;
+  themeCloud: unknown[];
+  responses: CompactOpenQuestionResponse[];
+}
+
+interface CompactOpenQuestionTeam {
+  teamName: string;
+  questions: CompactOpenQuestionItem[];
+}
+
+interface MinimalSurveyGroupItem {
+  id: string;
+  label: string;
+  masterTeams: string[];
+}
+
 const DEFAULT_SHARE_COMPACT_OPTIONS: ShareCompactOptions = {
   maxResponsesPerQuestion: 80,
   maxResponseTextLength: 320,
@@ -108,55 +130,122 @@ const trimResponseText = (text: unknown, maxLength: number): string => {
   return `${normalized.slice(0, maxLength).trim()}...`;
 };
 
-const buildCompactOpenQuestions = (
-  openQuestions: any,
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+function buildCompactOpenQuestions<T>(
+  openQuestions: T,
   options: ShareCompactOptions
-) => {
+) {
   if (!Array.isArray(openQuestions)) return openQuestions;
 
-  return openQuestions.map((teamItem: any) => ({
-    teamName: String(teamItem?.teamName || '').trim(),
-    questions: Array.isArray(teamItem?.questions)
-      ? teamItem.questions.slice(0, options.maxQuestionsPerTeam).map((question: any) => ({
-          questionText: String(question?.questionText || '').trim(),
-          themeCloud: Array.isArray(question?.themeCloud)
-            ? question.themeCloud.slice(0, options.maxThemeCloudItems)
-            : [],
-          responses: Array.isArray(question?.responses)
-            ? question.responses
-                .slice(0, options.maxResponsesPerQuestion)
-                .map((response: any) => ({
-                  text: trimResponseText(response?.text, options.maxResponseTextLength),
-                  theme: response?.theme ? String(response.theme).trim() : undefined,
-                }))
-                .filter((response: any) => response.text.length > 0)
-            : [],
-        }))
-      : [],
-  }));
-};
+  const compacted = openQuestions.map((teamItem) => {
+    const team = isRecord(teamItem) ? teamItem : {};
+    const questionsRaw = Array.isArray(team.questions) ? team.questions : [];
 
-const buildMinimalSurveyGroups = (surveyGroups: any) => {
+    const questions = questionsRaw
+      .slice(0, options.maxQuestionsPerTeam)
+      .map((question): CompactOpenQuestionItem => {
+        const questionRecord = isRecord(question) ? question : {};
+        const themeCloud = Array.isArray(questionRecord.themeCloud)
+          ? questionRecord.themeCloud.slice(0, options.maxThemeCloudItems)
+          : [];
+
+        const responsesRaw = Array.isArray(questionRecord.responses)
+          ? questionRecord.responses
+          : [];
+
+        const responses = responsesRaw
+          .slice(0, options.maxResponsesPerQuestion)
+          .map((response): CompactOpenQuestionResponse => {
+            const responseRecord = isRecord(response) ? response : {};
+            const themeValue = responseRecord.theme;
+            return {
+              text: trimResponseText(responseRecord.text, options.maxResponseTextLength),
+              theme:
+                typeof themeValue === 'string' && themeValue.trim()
+                  ? themeValue.trim()
+                  : undefined,
+            };
+          })
+          .filter((response) => response.text.length > 0);
+
+        return {
+          questionText: String(questionRecord.questionText || '').trim(),
+          themeCloud,
+          responses,
+        };
+      });
+
+    return {
+      teamName: String(team.teamName || '').trim(),
+      questions,
+    };
+  });
+
+  return compacted as T;
+}
+
+function buildMinimalSurveyGroups<T>(surveyGroups: T) {
   if (Array.isArray(surveyGroups)) {
-    return surveyGroups.map((group: any, index: number) => ({
-      id: String(group?.id || group?.key || group?.name || group?.title || `group_${index + 1}`),
-      label: String(group?.label || group?.name || group?.title || `Skupina ${index + 1}`),
-      masterTeams: normalizeTeamNames(group?.masterTeams),
-    }));
-  }
-
-  if (surveyGroups && typeof surveyGroups === 'object') {
-    return Object.entries(surveyGroups).map(([groupId, groupValue], index) => {
-      const group = groupValue as any;
+    const compacted = surveyGroups.map((group, index: number): MinimalSurveyGroupItem => {
+      const groupRecord = isRecord(group) ? group : {};
       return {
-        id: String(group?.id || group?.key || groupId || `group_${index + 1}`),
-        label: String(group?.label || group?.name || group?.title || groupId || `Skupina ${index + 1}`),
-        masterTeams: normalizeTeamNames(group?.masterTeams),
+        id: String(
+          groupRecord.id ||
+            groupRecord.key ||
+            groupRecord.name ||
+            groupRecord.title ||
+            `group_${index + 1}`
+        ),
+        label: String(
+          groupRecord.label ||
+            groupRecord.name ||
+            groupRecord.title ||
+            `Skupina ${index + 1}`
+        ),
+        masterTeams: normalizeTeamNames(groupRecord.masterTeams),
       };
     });
+    return compacted as T;
+  }
+
+  if (isRecord(surveyGroups)) {
+    const compacted = Object.entries(surveyGroups).map(
+      ([groupId, groupValue], index): MinimalSurveyGroupItem => {
+        const group = isRecord(groupValue) ? groupValue : {};
+        return {
+          id: String(group.id || group.key || groupId || `group_${index + 1}`),
+          label: String(
+            group.label ||
+              group.name ||
+              group.title ||
+              groupId ||
+              `Skupina ${index + 1}`
+          ),
+          masterTeams: normalizeTeamNames(group.masterTeams),
+        };
+      }
+    );
+    return compacted as T;
   }
 
   return surveyGroups;
+}
+
+const getErrorStatusCode = (error: unknown): number | null => {
+  if (!isRecord(error)) return null;
+  const statusValue = error.status;
+  const statusCode = Number(statusValue);
+  return Number.isFinite(statusCode) ? statusCode : null;
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) return error.message;
+  if (isRecord(error) && typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
 };
 
 const buildShareableReport = (
@@ -355,8 +444,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         shareUrl = `${window.location.origin}${basePath}/r/${encodeURIComponent(
           shareId
         )}`;
-      } catch (apiError: any) {
-        if (isLocalRuntime && apiError?.status === 404) {
+      } catch (apiError: unknown) {
+        if (isLocalRuntime && getErrorStatusCode(apiError) === 404) {
           const hashParams = new URLSearchParams();
           hashParams.set('report', encryptedPayload);
           if (clientMeta) hashParams.set('client', clientMeta);
@@ -398,13 +487,15 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         } else {
           alert('Odkaz bol skopírovaný. Nastavené heslo pošlite používateľovi zvlášť.');
         }
-      } catch (clipboardErr) {
+      } catch (_clipboardErr: unknown) {
         window.prompt('Skopírujte odkaz manuálne (Cmd+C):', shareUrl);
         setCopyStatus(true);
         setTimeout(() => setCopyStatus(false), 2000);
       }
-    } catch (err: any) {
-      setShareDialogError(err?.message || 'Chyba pri vytváraní zabezpečeného odkazu.');
+    } catch (err: unknown) {
+      setShareDialogError(
+        getErrorMessage(err, 'Chyba pri vytváraní zabezpečeného odkazu.')
+      );
     } finally {
       setIsCreatingShareLink(false);
     }
