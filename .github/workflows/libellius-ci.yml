@@ -31,5 +31,8 @@ jobs:
       - name: Typecheck strict core
         run: npm run typecheck:strict:core
 
+      - name: Typecheck strict UI phase 1
+        run: npm run typecheck:strict:ui:phase1
+
       - name: Build
         run: npm run build

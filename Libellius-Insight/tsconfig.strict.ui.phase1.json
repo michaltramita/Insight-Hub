@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true
+  },
+  "files": [
+    "components/GapChart.tsx",
+    "components/SatisfactionDashboard.tsx",
+    "components/satisfaction/AreaAnalysisBlock.tsx",
+    "components/satisfaction/ComparisonMatrix.tsx",
+    "components/satisfaction/EngagementBlock.tsx",
+    "components/satisfaction/OpenQuestionsBlock.tsx",
+    "components/satisfaction/RecommendationsBlock.tsx"
+  ]
+}
