@@ -92,6 +92,39 @@ interface TabAreaSource {
   title: string;
 }
 
+interface ScopedAreaMetricSource {
+  score?: unknown;
+  [key: string]: unknown;
+}
+
+interface ScopedAreaTeamSource {
+  teamName?: unknown;
+  metrics?: unknown;
+  [key: string]: unknown;
+}
+
+interface ScopedAreaSource {
+  id?: unknown;
+  title?: unknown;
+  teams?: unknown;
+  [key: string]: unknown;
+}
+
+interface ScopedAreaResolved extends ScopedAreaSource {
+  id: string;
+}
+
+interface ScopedTeamEngagementSource {
+  name?: unknown;
+  count?: unknown;
+  totalSent?: unknown;
+  sent?: unknown;
+  [key: string]: unknown;
+}
+
+type TopStatementsAreasProp = React.ComponentProps<typeof TopStatementsBlock>['areas'];
+type AreaAnalysisAreaProp = React.ComponentProps<typeof AreaAnalysisBlock>['area'];
+
 const normalizeContextLabel = (value: string) =>
   String(value || '')
     .normalize('NFD')
@@ -786,14 +819,17 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     );
   }, [activeContext, activeGroupContext, data.openQuestions, hasGroupedSurvey, scopedMasterTeams]);
 
-  const scopedAreas = useMemo(() => {
-    const allAreas = data.areas || [];
+  const scopedAreas = useMemo<ScopedAreaResolved[]>(() => {
+    const allAreas: unknown[] = data.areas || [];
 
     if (!hasGroupedSurvey) {
-      return allAreas.map((area: any, idx: number) => ({
-        ...area,
-        id: String(area?.id || `global_area_${idx + 1}`),
-      }));
+      return allAreas.map((area, idx: number): ScopedAreaResolved => {
+        const areaRecord = isRecord(area) ? (area as ScopedAreaSource) : {};
+        return {
+          ...areaRecord,
+          id: String(areaRecord.id || `global_area_${idx + 1}`),
+        };
+      });
     }
 
     if (activeContext === 'GLOBAL') {
@@ -804,36 +840,47 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     const source = activeGroupContext.source || {};
 
     if (Array.isArray(source.areas) && source.areas.length > 0) {
-      return source.areas.map((area: any, idx: number) => ({
-        ...area,
-        id: String(area?.id || `${activeGroupContext.id}_area_${idx + 1}`),
-      }));
+      return source.areas.map((area, idx: number): ScopedAreaResolved => {
+        const areaRecord = isRecord(area) ? (area as ScopedAreaSource) : {};
+        return {
+          ...areaRecord,
+          id: String(areaRecord.id || `${activeGroupContext.id}_area_${idx + 1}`),
+        };
+      });
     }
 
     if (scopedMasterTeams.length === 0) return [];
     const allowedTeams = new Set(scopedMasterTeams);
 
     return allAreas
-      .map((area: any, idx: number) => {
-        const teamRows = Array.isArray(area?.teams)
-          ? area.teams.filter((team: any) =>
-              allowedTeams.has(String(team?.teamName || '').trim())
-            )
-          : [];
+      .map((area, idx: number): ScopedAreaResolved | null => {
+        const areaRecord = isRecord(area) ? (area as ScopedAreaSource) : {};
+        const areaTeams = Array.isArray(areaRecord.teams) ? areaRecord.teams : [];
+        const teamRows = areaTeams.filter((team): team is ScopedAreaTeamSource => {
+          const teamRecord = isRecord(team) ? (team as ScopedAreaTeamSource) : {};
+          return allowedTeams.has(String(teamRecord.teamName || '').trim());
+        });
 
-        const hasAnyScore = teamRows.some((team: any) =>
-          (team?.metrics || []).some((metric: any) => Number(metric?.score ?? 0) > 0)
+        const hasAnyScore = teamRows.some((team) =>
+          (Array.isArray(team.metrics) ? team.metrics : []).some(
+            (metric) =>
+              Number(
+                (isRecord(metric)
+                  ? (metric as ScopedAreaMetricSource).score
+                  : undefined) ?? 0
+              ) > 0
+          )
         );
 
         if (!hasAnyScore) return null;
 
         return {
-          ...area,
-          id: String(area?.id || `${activeGroupContext.id}_area_${idx + 1}`),
+          ...areaRecord,
+          id: String(areaRecord.id || `${activeGroupContext.id}_area_${idx + 1}`),
           teams: teamRows,
         };
       })
-      .filter(Boolean);
+      .filter((area): area is ScopedAreaResolved => area !== null);
   }, [activeContext, activeGroupContext, data.areas, hasGroupedSurvey, scopedMasterTeams]);
 
   const areaTabs: DashboardTab[] = scopedAreas.map((area: unknown, idx: number) => {
@@ -924,24 +971,27 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const showSecondaryTabs = !hasGroupedSurvey || isGroupSurveyContext;
   const currentDetailTeams = isGroupSurveyContext ? scopedMasterTeams : masterTeams;
 
-  const scopedAreaForActiveTab = useMemo(
+  const scopedAreaForActiveTab = useMemo<AreaAnalysisAreaProp | null>(
     () =>
       scopedAreas.find(
         (area: unknown) => (area as TabAreaSource).id === activeTab
-      ) || null,
+      ) as AreaAnalysisAreaProp | null,
     [scopedAreas, activeTab]
   );
 
-  const globalTopStatementsTeams = useMemo(() => {
+  const globalTopStatementsTeams = useMemo<string[]>(() => {
     const mergedTeams = new Set<string>(
       (masterTeams || [])
         .map((team: string) => String(team || '').trim())
         .filter(Boolean)
     );
 
-    (data.areas || []).forEach((area: any) => {
-      (area?.teams || []).forEach((team: any) => {
-        const name = String(team?.teamName || '').trim();
+    (data.areas || []).forEach((area) => {
+      const areaRecord = isRecord(area) ? (area as ScopedAreaSource) : {};
+      const teams = Array.isArray(areaRecord.teams) ? areaRecord.teams : [];
+      teams.forEach((team) => {
+        const teamRecord = isRecord(team) ? (team as ScopedAreaTeamSource) : {};
+        const name = String(teamRecord.teamName || '').trim();
         if (name) mergedTeams.add(name);
       });
     });
@@ -949,35 +999,46 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     return Array.from(mergedTeams).sort((a, b) => a.localeCompare(b, 'sk'));
   }, [data.areas, masterTeams]);
 
-  const scopedTopStatementsAreas = isGroupSurveyContext ? scopedAreas : data.areas || [];
+  const scopedTopStatementsAreas: TopStatementsAreasProp = (
+    isGroupSurveyContext ? scopedAreas : data.areas || []
+  ) as TopStatementsAreasProp;
   const scopedTopStatementsTeams = isGroupSurveyContext
     ? scopedMasterTeams
     : globalTopStatementsTeams;
 
-  const scopedTeamEngagement = useMemo(() => {
-    if (!isGroupSurveyContext) return data.teamEngagement || [];
+  const scopedTeamEngagement = useMemo<ScopedTeamEngagementSource[]>(() => {
+    if (!isGroupSurveyContext) {
+      return (data.teamEngagement || []) as ScopedTeamEngagementSource[];
+    }
 
     const source = activeGroupContext?.source || {};
     if (Array.isArray(source.teamEngagement) && source.teamEngagement.length > 0) {
-      return source.teamEngagement;
+      return source.teamEngagement as ScopedTeamEngagementSource[];
     }
 
     if (scopedMasterTeams.length === 0) return [];
 
-    return (data.teamEngagement || []).filter((team: any) =>
-      scopedMasterTeams.includes(String(team?.name || '').trim())
-    );
+    return (data.teamEngagement || []).filter((team) => {
+      const teamRecord = isRecord(team) ? (team as ScopedTeamEngagementSource) : {};
+      return scopedMasterTeams.includes(String(teamRecord.name || '').trim());
+    }) as ScopedTeamEngagementSource[];
   }, [isGroupSurveyContext, data.teamEngagement, activeGroupContext, scopedMasterTeams]);
 
-  const scopedRecommendationsData = useMemo(() => {
+  const scopedRecommendationsData = useMemo<DashboardDataSource>(() => {
     if (!isGroupSurveyContext) return data;
 
     const sent = scopedTeamEngagement.reduce(
-      (sum: number, team: any) => sum + (Number(team?.totalSent ?? team?.sent ?? 0) || 0),
+      (sum: number, team) => {
+        const teamRecord = isRecord(team) ? (team as ScopedTeamEngagementSource) : {};
+        return sum + (Number(teamRecord.totalSent ?? teamRecord.sent ?? 0) || 0);
+      },
       0
     );
     const received = scopedTeamEngagement.reduce(
-      (sum: number, team: any) => sum + (Number(team?.count ?? 0) || 0),
+      (sum: number, team) => {
+        const teamRecord = isRecord(team) ? (team as ScopedTeamEngagementSource) : {};
+        return sum + (Number(teamRecord.count ?? 0) || 0);
+      },
       0
     );
     const successRate = sent > 0 ? `${((received / sent) * 100).toFixed(1)}%` : '0%';
@@ -987,8 +1048,8 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       totalSent: sent,
       totalReceived: received,
       successRate,
-      teamEngagement: scopedTeamEngagement,
-      areas: scopedAreas,
+      teamEngagement: scopedTeamEngagement as EmployeeSatisfactionData['teamEngagement'],
+      areas: scopedAreas as EmployeeSatisfactionData['areas'],
     };
   }, [isGroupSurveyContext, data, scopedTeamEngagement, scopedAreas]);
 
