@@ -9,16 +9,122 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { FrequencyDistribution } from '../../types';
 
 interface Props {
-  area: any;
+  area: AreaData;
   masterTeams: string[];
   scaleMax: number;
 }
 
+type FrequencyBucketKey = keyof FrequencyDistribution;
+type FrequencyPctKey =
+  | 'naPct'
+  | 'onePct'
+  | 'twoPct'
+  | 'threePct'
+  | 'fourPct'
+  | 'fivePct';
+type FrequencyCountKey =
+  | 'naCount'
+  | 'oneCount'
+  | 'twoCount'
+  | 'threeCount'
+  | 'fourCount'
+  | 'fiveCount';
+
+interface AreaMetric {
+  category: string;
+  score: number;
+  questionType?: string;
+  frequencyDistribution?: FrequencyDistribution;
+}
+
+interface AreaTeam {
+  teamName: string;
+  metrics?: AreaMetric[];
+}
+
+interface AreaData {
+  id: string | number;
+  title: string;
+  teams?: AreaTeam[];
+}
+
+interface ComparisonRow {
+  category: string;
+  questionType: string;
+  [key: string]: string | number;
+}
+
+interface FrequencyChartRow {
+  category: string;
+  totalCount: number;
+  naCount: number;
+  oneCount: number;
+  twoCount: number;
+  threeCount: number;
+  fourCount: number;
+  fiveCount: number;
+  naPct?: number;
+  onePct?: number;
+  twoPct?: number;
+  threePct?: number;
+  fourPct?: number;
+  fivePct?: number;
+}
+
+interface TooltipPayloadItem {
+  value?: number;
+  payload?: FrequencyChartRow;
+}
+
+interface CustomBarTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+interface FrequencyDistributionTooltipBaseProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+  coordinate?: { x?: number };
+  viewBox?: { width?: number; x?: number };
+}
+
+interface FrequencyDistributionTooltipProps
+  extends FrequencyDistributionTooltipBaseProps {
+  hoveredBucketKey?: FrequencyBucketKey | null;
+  selectedBucketKey?: FrequencyBucketKey | null;
+}
+
+interface YAxisTickProps {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  isFullScreen?: boolean;
+}
+
+interface ScoreLabelProps {
+  value?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+interface DistributionLabelProps {
+  value?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: FrequencyChartRow;
+}
+
 const FREQUENCY_BUCKETS: Array<{
-  key: keyof FrequencyDistribution;
+  key: FrequencyBucketKey;
   label: string;
-  pctKey: string;
-  countKey: string;
+  pctKey: FrequencyPctKey;
+  countKey: FrequencyCountKey;
   color: string;
   textColor: string;
 }> = [
@@ -31,14 +137,16 @@ const FREQUENCY_BUCKETS: Array<{
 ];
 const FREQUENCY_ALL_VALUE = '__ALL__';
 
-const CustomBarTooltip = ({ active, payload, label }: any) => {
+const CustomBarTooltip = ({ active, payload, label }: CustomBarTooltipProps) => {
   if (active && payload && payload.length) {
+    const score = Number(payload[0]?.value ?? 0);
+    if (!Number.isFinite(score)) return null;
     return (
       <div className="bg-black text-white p-4 sm:p-5 rounded-2xl shadow-2xl max-w-sm border border-white/10 z-50">
         <p className="font-bold text-sm mb-3 leading-snug">{label}</p>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-brand"></div>
-          <p className="font-black text-base sm:text-lg">Skóre: {payload[0].value.toFixed(2)}</p>
+          <p className="font-black text-base sm:text-lg">Skóre: {score.toFixed(2)}</p>
         </div>
       </div>
     );
@@ -54,15 +162,15 @@ const FrequencyDistributionTooltip = ({
   viewBox,
   hoveredBucketKey,
   selectedBucketKey,
-}: any) => {
+}: FrequencyDistributionTooltipProps) => {
   if (!(active && payload && payload.length)) return null;
 
   const payloadItems = Array.isArray(payload) ? payload : [];
   const rowFromPayload =
-    payloadItems.find((item: any) => item?.payload)?.payload || {};
+    payloadItems.find((item) => item?.payload)?.payload || null;
 
   const resolveBucketDef = (
-    key: keyof FrequencyDistribution | null | undefined
+    key: FrequencyBucketKey | null | undefined
   ) => {
     if (!key) return null;
     const bucketDef = FREQUENCY_BUCKETS.find((item) => item.key === key);
@@ -127,12 +235,12 @@ const FrequencyDistributionTooltip = ({
   );
 };
 
-const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
+const CustomYAxisTick = ({ x, y, payload, isFullScreen }: YAxisTickProps) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const maxLength = isMobile ? 34 : (isFullScreen ? 88 : 62);
 
-  const words = payload.value.split(' ');
-  const lines = [];
+  const words = String(payload?.value || '').split(' ');
+  const lines: string[] = [];
   let currentLine = '';
 
   words.forEach((word: string) => {
@@ -148,11 +256,11 @@ const CustomYAxisTick = ({ x, y, payload, isFullScreen }: any) => {
   }
 
   const lineHeight = isMobile ? 15 : (isFullScreen ? 20 : 17);
-  const startY = y - ((lines.length - 1) * lineHeight) / 2;
+  const startY = Number(y ?? 0) - ((lines.length - 1) * lineHeight) / 2;
   const fontSize = isMobile ? 12 : (isFullScreen ? 15 : 13);
 
   return (
-    <g transform={`translate(${x},${startY})`}>
+    <g transform={`translate(${Number(x ?? 0)},${startY})`}>
       {lines.map((line: string, index: number) => (
         <text key={index} x={0} y={index * lineHeight} dy="0.35em" textAnchor="end" fill="#000" fontSize={fontSize} fontWeight={800}>
           {line}
@@ -223,26 +331,31 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
 
   const comparisonAnimationKey = `${comparisonSelection.slice().sort().join('|') || 'none'}-${comparisonFilter}`;
 
-  const getActiveData = (teamName: string) => {
+  const getActiveData = (teamName: string): AreaMetric[] => {
     if (!area) return [];
-    const team = area.teams?.find((t: any) => t.teamName === teamName) || area.teams?.[0];
+    const team =
+      area.teams?.find((t) => t.teamName === teamName) || area.teams?.[0];
     return team && Array.isArray(team.metrics) ? [...team.metrics].sort((a, b) => b.score - a.score) : [];
   };
 
-  const getComparisonData = (selectedNames: string[]) => {
-    const cardTeams = Array.isArray(area?.teams) ? area.teams : [];
+  const getComparisonData = (selectedNames: string[]): ComparisonRow[] => {
+    const cardTeams: AreaTeam[] = Array.isArray(area?.teams) ? area.teams : [];
     if (!cardTeams.length) return [];
 
     const categories = Array.from(
-      new Set(cardTeams.flatMap((t: any) => (Array.isArray(t.metrics) ? t.metrics.map((m: any) => m.category) : [])))
+      new Set(
+        cardTeams.flatMap((t) =>
+          Array.isArray(t.metrics) ? t.metrics.map((m) => m.category) : []
+        )
+      )
     );
 
-    const rows = categories.map((cat) => {
-      const row: any = { category: cat };
+    const rows = categories.map((cat): ComparisonRow => {
+      const row: ComparisonRow = { category: cat, questionType: '' };
       let qType = '';
       selectedNames.forEach((tName) => {
-        const team = cardTeams.find((t: any) => t.teamName === tName);
-        const metric = team?.metrics?.find((m: any) => m.category === cat);
+        const team = cardTeams.find((t) => t.teamName === tName);
+        const metric = team?.metrics?.find((m) => m.category === cat);
         row[tName] = Number(metric?.score ?? 0);
         if (metric?.questionType) qType = metric.questionType;
       });
@@ -270,12 +383,14 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     setActiveExportMenu(false);
     setActiveFullscreenExportMenu(false);
     
-    let dataToExport: any[] = [];
+    let dataToExport: Array<
+      Record<string, string | number | null | undefined>
+    > = [];
     let fileName = '';
 
     if (viewMode === 'DETAIL') {
       const activeMetrics = getActiveData(teamValue);
-      dataToExport = activeMetrics.map((m: any) => ({
+      dataToExport = activeMetrics.map((m) => ({
         'Otázka / Kategória': m.category,
         'Skóre (max 5)': Number(m.score.toFixed(2)),
         'Typ otázky': m.questionType,
@@ -289,10 +404,11 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
       fileName = `Oblast_${area.title}_${teamValue}_Detail.xlsx`.replace(/\s+/g, '_');
     } else {
       const comparisonData = getComparisonData(comparisonSelection);
-      dataToExport = comparisonData.map((row: any) => {
-          const rowData: any = { 'Kategória': row.category, 'Typ otázky': row.questionType };
-          comparisonSelection.forEach(team => {
-              rowData[team] = row[team] !== undefined ? Number(row[team].toFixed(2)) : null;
+      dataToExport = comparisonData.map((row) => {
+          const rowData: Record<string, string | number | null | undefined> = { 'Kategória': row.category, 'Typ otázky': row.questionType };
+          comparisonSelection.forEach((team) => {
+              const scoreValue = row[team];
+              rowData[team] = typeof scoreValue === 'number' ? Number(scoreValue.toFixed(2)) : null;
           });
           return rowData;
       });
@@ -304,8 +420,8 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   if (!area) return null;
 
   const activeMetrics = getActiveData(teamValue);
-  const frequencyChartData = activeMetrics
-    .map((metric: any) => {
+  const frequencyChartData: FrequencyChartRow[] = activeMetrics
+    .map<FrequencyChartRow | null>((metric) => {
       const freq = metric?.frequencyDistribution as FrequencyDistribution | undefined;
       if (!freq) return null;
 
@@ -338,11 +454,13 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
         fivePct: totalCount > 0 && fiveCount > 0 ? (fiveCount / totalCount) * 100 : undefined,
       };
     })
-    .filter((row: any) => row && row.totalCount > 0);
+    .filter(
+      (row): row is FrequencyChartRow => row !== null && row.totalCount > 0
+    );
 
-  const top = activeMetrics.filter((m: any) => m.score >= 4.0).slice(0, 3);
+  const top = activeMetrics.filter((m) => m.score >= 4.0).slice(0, 3);
   const bottom = [...activeMetrics]
-    .filter((m: any) => m.score > 0 && m.score < 4.0)
+    .filter((m) => m.score > 0 && m.score < 4.0)
     .sort((a, b) => a.score - b.score)
     .slice(0, 3);
   const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -383,15 +501,16 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
     })),
   ];
 
-  const renderScoreBadge = (props: any) => {
-    const score = Number(props?.value);
+  const renderScoreBadge = (props: unknown) => {
+    const safeProps = props as ScoreLabelProps;
+    const score = Number(safeProps?.value);
     if (!Number.isFinite(score)) return null;
 
     const label = score.toFixed(2);
-    const x = Number(props?.x ?? 0);
-    const y = Number(props?.y ?? 0);
-    const width = Number(props?.width ?? 0);
-    const height = Number(props?.height ?? 0);
+    const x = Number(safeProps?.x ?? 0);
+    const y = Number(safeProps?.y ?? 0);
+    const width = Number(safeProps?.width ?? 0);
+    const height = Number(safeProps?.height ?? 0);
     const fontSize = isFullScreen ? 13 : 12;
     const badgeHeight = isFullScreen ? 28 : 24;
     const paddingX = 8;
@@ -440,17 +559,19 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
   };
 
   const renderDistributionCountLabel =
-    (countKey: string, textColor: string) => (props: any) => {
-      const percentage = Number(props?.value ?? 0);
-      const count = Number(props?.payload?.[countKey] ?? 0);
+    (countKey: FrequencyCountKey, textColor: string) =>
+    (props: unknown) => {
+      const safeProps = props as DistributionLabelProps;
+      const percentage = Number(safeProps?.value ?? 0);
+      const count = Number(safeProps?.payload?.[countKey] ?? 0);
 
       if (!Number.isFinite(percentage) || !Number.isFinite(count)) return null;
       if (count <= 0) return null;
 
-      const x = Number(props?.x ?? 0);
-      const y = Number(props?.y ?? 0);
-      const width = Number(props?.width ?? 0);
-      const height = Number(props?.height ?? 0);
+      const x = Number(safeProps?.x ?? 0);
+      const y = Number(safeProps?.y ?? 0);
+      const width = Number(safeProps?.width ?? 0);
+      const height = Number(safeProps?.height ?? 0);
       const fontSize = width < 28 ? (isFrequencyFullScreen ? 11 : 10) : isFrequencyFullScreen ? 16 : 13;
       const isNarrow = width < 18;
       const labelX = isNarrow ? x + width + 3 : x + width / 2;
@@ -585,7 +706,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   isAnimationActive={false}
                   fillOpacity={1}
                 >
-                  {activeMetrics.map((entry: any, index: number) => (
+                  {activeMetrics.map((entry, index: number) => (
                     <Cell key={index} fill={entry.score <= 4.0 ? '#000000' : '#B81547'} fillOpacity={1} opacity={1} />
                   ))}
                   <LabelList
@@ -782,9 +903,9 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
               />
               <Tooltip
                 cursor={{ fill: '#00000005' }}
-                content={(tooltipProps: any) => (
+                content={(tooltipProps: unknown) => (
                   <FrequencyDistributionTooltip
-                    {...tooltipProps}
+                    {...(tooltipProps as FrequencyDistributionTooltipBaseProps)}
                     hoveredBucketKey={hoveredFrequencyBucket}
                     selectedBucketKey={selectedFrequencyBucket}
                   />
@@ -970,7 +1091,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-black">Silné stránky</h4>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  {top.map((m: any, i: number) => (
+                  {top.map((m, i: number) => (
                     <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-brand text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-black shrink-0">{m.score.toFixed(2)}</span>
@@ -985,7 +1106,7 @@ const AreaAnalysisBlock: React.FC<Props> = ({ area, masterTeams, scaleMax }) => 
                   <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tighter">Príležitosti</h4>
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  {bottom.length > 0 ? bottom.map((m: any, i: number) => (
+                  {bottom.length > 0 ? bottom.map((m, i: number) => (
                     <div key={i} className="p-4 sm:p-5 lg:p-7 rounded-2xl sm:rounded-3xl flex justify-between items-center gap-3 bg-black text-white shadow-lg group relative cursor-help">
                       <span className="font-bold text-xs pr-2 sm:pr-4 leading-snug tracking-wide line-clamp-2" title={m.category}>{m.category}</span>
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-brand shrink-0">{m.score.toFixed(2)}</span>
