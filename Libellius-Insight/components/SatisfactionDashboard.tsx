@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface Props {
   result: FeedbackAnalysisResult;
@@ -37,6 +38,23 @@ interface GroupContext {
   id: string;
   label: string;
   source: any;
+}
+
+interface DashboardTab {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface OrderedGroupContext extends GroupContext {
+  displayLabel: string;
+  order: number;
+  icon: LucideIcon;
+}
+
+interface TabAreaSource {
+  id: string;
+  title: string;
 }
 
 const normalizeContextLabel = (value: string) =>
@@ -611,21 +629,22 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       .filter(Boolean);
   }, [activeContext, activeGroupContext, data.areas, hasGroupedSurvey, scopedMasterTeams]);
 
-  const areaTabs = scopedAreas.map((area: any, idx: number) => {
+  const areaTabs: DashboardTab[] = scopedAreas.map((area: unknown, idx: number) => {
+    const typedArea = area as TabAreaSource;
     const icons = [BarChart4, UserCheck, Users, Building2];
     return {
-      id: area.id,
+      id: typedArea.id,
       icon: icons[idx % icons.length],
-      label: area.title,
+      label: typedArea.title,
     };
   });
 
-  const groupedSurveyTabs = [
+  const groupedSurveyTabs: DashboardTab[] = [
     { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
     ...areaTabs,
   ];
 
-  const legacyTabs = [
+  const legacyTabs: DashboardTab[] = [
     { id: 'ENGAGEMENT', icon: Users, label: 'Zapojenie' },
     { id: 'OPEN_QUESTIONS', icon: MessageSquare, label: 'Otvorené otázky' },
     ...areaTabs,
@@ -633,7 +652,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     { id: 'RECOMMENDATIONS', icon: Lightbulb, label: 'Odporúčania' },
   ];
 
-  const orderedGroupContexts = useMemo(() => {
+  const orderedGroupContexts = useMemo<OrderedGroupContext[]>(() => {
     if (!hasGroupedSurvey) return [];
 
     return [...groupContexts]
@@ -656,7 +675,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       );
   }, [groupContexts, hasGroupedSurvey]);
 
-  const topContextTabs = useMemo(() => {
+  const topContextTabs = useMemo<DashboardTab[]>(() => {
     if (!hasGroupedSurvey) return [];
     return [
       {
@@ -664,7 +683,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         label: 'Zapojenie účastníkov',
         icon: Users,
       },
-      ...orderedGroupContexts.map((ctx: any) => ({
+      ...orderedGroupContexts.map((ctx) => ({
         id: ctx.id,
         label: ctx.displayLabel,
         icon: ctx.icon || Building2,
@@ -689,7 +708,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
     hasGroupedSurvey && activeContext === RECOMMENDATIONS_CONTEXT_ID;
   const isGroupSurveyContext = hasGroupedSurvey && Boolean(activeGroupContext);
 
-  const allTabs = hasGroupedSurvey
+  const allTabs: DashboardTab[] = hasGroupedSurvey
     ? isGroupSurveyContext
       ? groupedSurveyTabs
       : []
@@ -699,7 +718,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const currentDetailTeams = isGroupSurveyContext ? scopedMasterTeams : masterTeams;
 
   const scopedAreaForActiveTab = useMemo(
-    () => scopedAreas.find((area: any) => area.id === activeTab) || null,
+    () =>
+      scopedAreas.find(
+        (area: unknown) => (area as TabAreaSource).id === activeTab
+      ) || null,
     [scopedAreas, activeTab]
   );
 
@@ -893,7 +915,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
           {/* TABY */}
           {hasGroupedSurvey && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 print:hidden">
-              {topContextTabs.map((tab: any) => {
+              {topContextTabs.map((tab) => {
                 const isActive = activeContext === tab.id;
                 const isGlobalTab = tab.id === 'GLOBAL';
                 const isGlobalInsightTab =
