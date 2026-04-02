@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { FeedbackAnalysisResult } from '../types';
+import { EmployeeSatisfactionData, FeedbackAnalysisResult } from '../types';
 import EngagementBlock from './satisfaction/EngagementBlock';
 import OpenQuestionsBlock from './satisfaction/OpenQuestionsBlock';
 import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
@@ -38,6 +38,27 @@ interface GroupContext {
   id: string;
   label: string;
   source: any;
+}
+
+type LegacySurveyGroupsShape =
+  | EmployeeSatisfactionData['surveyGroups']
+  | unknown[]
+  | Record<string, unknown>;
+
+interface DashboardDataSource {
+  clientName?: string;
+  surveyName?: string;
+  totalSent?: number | string;
+  totalReceived?: number | string;
+  successRate?: string;
+  teamEngagement?: EmployeeSatisfactionData['teamEngagement'];
+  openQuestions?: EmployeeSatisfactionData['openQuestions'];
+  areas?: EmployeeSatisfactionData['areas'];
+  surveyGroups?: LegacySurveyGroupsShape;
+  groups?: LegacySurveyGroupsShape;
+  subSurveys?: LegacySurveyGroupsShape;
+  groupReports?: LegacySurveyGroupsShape;
+  [key: string]: unknown;
 }
 
 interface DashboardTab {
@@ -300,6 +321,14 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
+const resolveDashboardDataSource = (
+  analysisResult: FeedbackAnalysisResult
+): DashboardDataSource => {
+  const candidate = analysisResult.satisfaction ?? (analysisResult as unknown);
+  if (!isRecord(candidate)) return {};
+  return candidate as DashboardDataSource;
+};
+
 const buildShareableReport = (
   report: FeedbackAnalysisResult,
   options: ShareCompactOptions = DEFAULT_SHARE_COMPACT_OPTIONS
@@ -368,7 +397,7 @@ const TOP_STATEMENTS_CONTEXT_ID = 'TOP_STATEMENTS_GLOBAL';
 const RECOMMENDATIONS_CONTEXT_ID = 'RECOMMENDATIONS_GLOBAL';
 
 const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
-  const data = result.satisfaction || (result as any);
+  const data = resolveDashboardDataSource(result);
   const scaleMax = 5;
   const isPathSharedView =
     typeof window !== 'undefined' && /\/r\/[^/?#]+/.test(window.location.pathname);
@@ -599,10 +628,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
   const groupContexts = useMemo<GroupContext[]>(() => {
     const rawExplicitGroups =
-      (data as any)?.surveyGroups ||
-      (data as any)?.groups ||
-      (data as any)?.subSurveys ||
-      (data as any)?.groupReports;
+      data?.surveyGroups ||
+      data?.groups ||
+      data?.subSurveys ||
+      data?.groupReports;
 
     if (Array.isArray(rawExplicitGroups) && rawExplicitGroups.length > 0) {
       return rawExplicitGroups.map((group: any, index: number) => {
