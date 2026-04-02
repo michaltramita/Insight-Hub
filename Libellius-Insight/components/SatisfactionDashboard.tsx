@@ -86,10 +86,21 @@ interface CompactOpenQuestionResponse {
   theme?: string;
 }
 
+interface CompactOpenQuestionResponseSource {
+  text?: unknown;
+  theme?: unknown;
+}
+
 interface CompactOpenQuestionItem {
   questionText: string;
   themeCloud: unknown[];
   responses: CompactOpenQuestionResponse[];
+}
+
+interface CompactOpenQuestionItemSource {
+  questionText?: unknown;
+  themeCloud?: unknown;
+  responses?: unknown;
 }
 
 interface CompactOpenQuestionTeam {
@@ -97,10 +108,24 @@ interface CompactOpenQuestionTeam {
   questions: CompactOpenQuestionItem[];
 }
 
+interface CompactOpenQuestionTeamSource {
+  teamName?: unknown;
+  questions?: unknown;
+}
+
 interface MinimalSurveyGroupItem {
   id: string;
   label: string;
   masterTeams: string[];
+}
+
+interface MinimalSurveyGroupSource {
+  id?: unknown;
+  key?: unknown;
+  name?: unknown;
+  title?: unknown;
+  label?: unknown;
+  masterTeams?: unknown;
 }
 
 const DEFAULT_SHARE_COMPACT_OPTIONS: ShareCompactOptions = {
@@ -133,20 +158,32 @@ const trimResponseText = (text: unknown, maxLength: number): string => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-function buildCompactOpenQuestions<T>(
-  openQuestions: T,
+function buildCompactOpenQuestions(
+  openQuestions: unknown[],
+  options: ShareCompactOptions
+): CompactOpenQuestionTeam[];
+function buildCompactOpenQuestions(
+  openQuestions: unknown,
+  options: ShareCompactOptions
+): unknown;
+function buildCompactOpenQuestions(
+  openQuestions: unknown,
   options: ShareCompactOptions
 ) {
   if (!Array.isArray(openQuestions)) return openQuestions;
 
-  const compacted = openQuestions.map((teamItem) => {
-    const team = isRecord(teamItem) ? teamItem : {};
+  const compacted: CompactOpenQuestionTeam[] = openQuestions.map((teamItem) => {
+    const team = isRecord(teamItem)
+      ? (teamItem as CompactOpenQuestionTeamSource)
+      : {};
     const questionsRaw = Array.isArray(team.questions) ? team.questions : [];
 
     const questions = questionsRaw
       .slice(0, options.maxQuestionsPerTeam)
       .map((question): CompactOpenQuestionItem => {
-        const questionRecord = isRecord(question) ? question : {};
+        const questionRecord = isRecord(question)
+          ? (question as CompactOpenQuestionItemSource)
+          : {};
         const themeCloud = Array.isArray(questionRecord.themeCloud)
           ? questionRecord.themeCloud.slice(0, options.maxThemeCloudItems)
           : [];
@@ -158,7 +195,9 @@ function buildCompactOpenQuestions<T>(
         const responses = responsesRaw
           .slice(0, options.maxResponsesPerQuestion)
           .map((response): CompactOpenQuestionResponse => {
-            const responseRecord = isRecord(response) ? response : {};
+            const responseRecord = isRecord(response)
+              ? (response as CompactOpenQuestionResponseSource)
+              : {};
             const themeValue = responseRecord.theme;
             return {
               text: trimResponseText(responseRecord.text, options.maxResponseTextLength),
@@ -183,37 +222,50 @@ function buildCompactOpenQuestions<T>(
     };
   });
 
-  return compacted as T;
+  return compacted;
 }
 
-function buildMinimalSurveyGroups<T>(surveyGroups: T) {
+function buildMinimalSurveyGroups(
+  surveyGroups: unknown[]
+): MinimalSurveyGroupItem[];
+function buildMinimalSurveyGroups(
+  surveyGroups: Record<string, unknown>
+): MinimalSurveyGroupItem[];
+function buildMinimalSurveyGroups(surveyGroups: unknown): unknown;
+function buildMinimalSurveyGroups(surveyGroups: unknown) {
   if (Array.isArray(surveyGroups)) {
-    const compacted = surveyGroups.map((group, index: number): MinimalSurveyGroupItem => {
-      const groupRecord = isRecord(group) ? group : {};
-      return {
-        id: String(
-          groupRecord.id ||
-            groupRecord.key ||
-            groupRecord.name ||
-            groupRecord.title ||
-            `group_${index + 1}`
-        ),
-        label: String(
-          groupRecord.label ||
-            groupRecord.name ||
-            groupRecord.title ||
-            `Skupina ${index + 1}`
-        ),
-        masterTeams: normalizeTeamNames(groupRecord.masterTeams),
-      };
-    });
-    return compacted as T;
+    const compacted: MinimalSurveyGroupItem[] = surveyGroups.map(
+      (group, index: number): MinimalSurveyGroupItem => {
+        const groupRecord = isRecord(group)
+          ? (group as MinimalSurveyGroupSource)
+          : {};
+        return {
+          id: String(
+            groupRecord.id ||
+              groupRecord.key ||
+              groupRecord.name ||
+              groupRecord.title ||
+              `group_${index + 1}`
+          ),
+          label: String(
+            groupRecord.label ||
+              groupRecord.name ||
+              groupRecord.title ||
+              `Skupina ${index + 1}`
+          ),
+          masterTeams: normalizeTeamNames(groupRecord.masterTeams),
+        };
+      }
+    );
+    return compacted;
   }
 
   if (isRecord(surveyGroups)) {
-    const compacted = Object.entries(surveyGroups).map(
+    const compacted: MinimalSurveyGroupItem[] = Object.entries(surveyGroups).map(
       ([groupId, groupValue], index): MinimalSurveyGroupItem => {
-        const group = isRecord(groupValue) ? groupValue : {};
+        const group = isRecord(groupValue)
+          ? (groupValue as MinimalSurveyGroupSource)
+          : {};
         return {
           id: String(group.id || group.key || groupId || `group_${index + 1}`),
           label: String(
@@ -227,7 +279,7 @@ function buildMinimalSurveyGroups<T>(surveyGroups: T) {
         };
       }
     );
-    return compacted as T;
+    return compacted;
   }
 
   return surveyGroups;
