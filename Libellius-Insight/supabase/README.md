@@ -42,10 +42,14 @@ add column if not exists company_name text;
 
 Nová inštalácia tento stĺpec už obsahuje v `schema.sql`.
 
-## 2. Prvý používateľ
+## 2. Vytváranie používateľov
 
-Najprv sa prihláste do aplikácie cez email. Supabase vytvorí používateľa v `auth.users`
-a trigger automaticky vytvorí riadok v `public.profiles`.
+Účty vytvára administrátor ručne v Supabase v časti `Authentication -> Users`.
+Používateľom nastavte email a heslo. Verejnú registráciu odporúčame vypnúť v
+`Authentication -> Providers -> Email` cez možnosť `Allow new users to sign up`.
+
+Trigger automaticky vytvorí riadok v `public.profiles`. Noví používatelia majú
+predvolenú rolu `participant`.
 
 Potom si môžete používateľa povýšiť na admina:
 

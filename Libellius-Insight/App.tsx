@@ -24,7 +24,7 @@ const TypologyAdminResultsView = lazy(
 const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'));
 
 const App: React.FC = () => {
-  const { isConfigured, isLoading: isAuthLoading, user, error: authError, signInWithMagicLink, signInWithPassword, updatePassword, signOut } =
+  const { isConfigured, isLoading: isAuthLoading, user, error: authError, signInWithPassword, updatePassword, signOut } =
     useSupabaseAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -210,7 +210,6 @@ const App: React.FC = () => {
           isLoading={isAuthLoading}
           userEmail={user?.email}
           error={authError}
-          onSignIn={signInWithMagicLink}
           onPasswordSignIn={signInWithPassword}
         />
       )}

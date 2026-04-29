@@ -5,7 +5,6 @@ type AuthAccessPanelProps = {
   isLoading: boolean;
   userEmail?: string | null;
   error: string | null;
-  onSignIn: (email: string) => Promise<{ error: string | null }>;
   onPasswordSignIn: (
     email: string,
     password: string
@@ -16,29 +15,12 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
   isLoading,
   userEmail,
   error,
-  onSignIn,
   onPasswordSignIn,
 }) => {
-  const [authMode, setAuthMode] = useState<"password" | "magic">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setFeedback(null);
-    setIsSubmitting(true);
-
-    const result = await onSignIn(email);
-    if (result.error) {
-      setFeedback(result.error);
-    } else {
-      setFeedback("Odkaz na prihlásenie sme odoslali na zadaný email.");
-    }
-
-    setIsSubmitting(false);
-  };
 
   const handlePasswordSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -79,64 +61,24 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
                 Prihlásenie
               </p>
               <h2 className="mt-3 text-2xl md:text-3xl font-black tracking-tight leading-tight">
-                {authMode === "password" ? "Admin prihlásenie" : "Pokračujte cez email"}
+                Prihlásenie do aplikácie
               </h2>
               <p className="mt-3 text-black/56 font-semibold text-sm md:text-base leading-relaxed">
-                {authMode === "password"
-                  ? "Zadajte svoj administrátorský email a heslo."
-                  : "Zadajte email, ktorý ste použili pri registrácii alebo ktorý vám bol pridelený organizátorom."}
+                Zadajte email a heslo, ktoré vám boli pridelené organizátorom.
               </p>
             </div>
 
             <div className="mt-8">
-              <div className="mb-5 relative grid grid-cols-2 gap-2 rounded-2xl bg-[#fbfaf7] border border-black/10 p-1 overflow-hidden">
-                <div
-                  className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-xl bg-black shadow-lg transition-transform duration-300 ease-out ${
-                    authMode === "magic" ? "translate-x-full" : "translate-x-0"
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("password");
-                    setFeedback(null);
-                  }}
-                  className={`relative z-10 px-4 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-colors duration-300 ${
-                    authMode === "password"
-                      ? "text-white"
-                      : "text-black/45 hover:text-black"
-                  }`}
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("magic");
-                    setFeedback(null);
-                  }}
-                  className={`relative z-10 px-4 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-colors duration-300 ${
-                    authMode === "magic"
-                      ? "text-white"
-                      : "text-black/45 hover:text-black"
-                  }`}
-                >
-                  Email odkaz
-                </button>
-              </div>
-
               {isLoading ? (
                 <div className="flex items-center gap-3 text-black/55 font-bold">
                   <LoaderCircle className="w-5 h-5 animate-spin" />
                   Overujem stav prihlásenia...
                 </div>
               ) : (
-                <div
-                  key={authMode}
-                  className="animate-[authPanelIn_220ms_ease-out]"
+                <form
+                  onSubmit={handlePasswordSignIn}
+                  className="flex flex-col gap-4 animate-[authPanelIn_220ms_ease-out]"
                 >
-                  {authMode === "password" ? (
-                <form onSubmit={handlePasswordSignIn} className="flex flex-col gap-4">
                   <div>
                     <label
                       htmlFor="auth-admin-email"
@@ -183,37 +125,6 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
                     {isSubmitting ? "Prihlasujem..." : "Prihlásiť sa"}
                   </button>
                 </form>
-                  ) : (
-                <form onSubmit={handleSignIn} className="flex flex-col gap-4">
-                  <div>
-                    <label
-                      htmlFor="auth-email"
-                      className="block text-[10px] md:text-xs uppercase tracking-widest font-black text-black/45 mb-3"
-                    >
-                      Emailová adresa
-                    </label>
-                    <div className="relative">
-                      <Mail className="w-5 h-5 text-black/30 absolute left-5 top-1/2 -translate-y-1/2" />
-                      <input
-                        id="auth-email"
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="meno@firma.sk"
-                        className="w-full pl-14 pr-5 py-4 md:py-5 rounded-2xl bg-[#fbfaf7] border border-black/10 outline-none focus:ring-2 focus:ring-brand/25 text-base font-semibold"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-7 py-4 md:py-5 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? "Odosielam..." : "Poslať prihlasovací odkaz"}
-                  </button>
-                </form>
-                  )}
-                </div>
               )}
 
               {(feedback || error) && (
