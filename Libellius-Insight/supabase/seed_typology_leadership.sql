@@ -11,49 +11,6 @@ drop policy if exists typology_results_write_own on public.typology_results;
 drop policy if exists typology_results_insert_own on public.typology_results;
 drop policy if exists typology_results_update_own on public.typology_results;
 
-create policy typology_results_select_org_admin
-  on public.typology_results for select to authenticated
-  using (
-    exists (
-      select 1
-      from public.typology_sessions ts
-      left join public.profiles p on p.id = ts.user_id
-      where ts.id = typology_results.session_id
-        and (select public.is_admin_or_consultant())
-        and p.organization_id = (select public.current_profile_organization_id())
-    )
-  );
-
-create policy typology_results_insert_own
-  on public.typology_results for insert to authenticated
-  with check (
-    exists (
-      select 1
-      from public.typology_sessions ts
-      where ts.id = typology_results.session_id
-        and ts.user_id = (select auth.uid())
-    )
-  );
-
-create policy typology_results_update_own
-  on public.typology_results for update to authenticated
-  using (
-    exists (
-      select 1
-      from public.typology_sessions ts
-      where ts.id = typology_results.session_id
-        and ts.user_id = (select auth.uid())
-    )
-  )
-  with check (
-    exists (
-      select 1
-      from public.typology_sessions ts
-      where ts.id = typology_results.session_id
-        and ts.user_id = (select auth.uid())
-    )
-  );
-
 with org as (
   select id from public.organizations where slug = 'libellius'
 ),

@@ -213,7 +213,7 @@ const STRICT_SHARE_COMPACT_OPTIONS: ShareCompactOptions = {
 const MAX_SHARE_ENCRYPTED_PAYLOAD_LENGTH = 290000;
 const MIN_SHARE_PASSWORD_LENGTH = 12;
 const DEFAULT_SHARE_PASSWORD_LENGTH = 16;
-const SHARE_PASSWORD_PRESET_STORAGE_KEY = 'libellius_share_password_preset';
+const SHARE_PASSWORD_PRESET_STORAGE_KEY = 'libellius_share_password_session_preset';
 const SHARE_PASSWORD_ALPHABET =
   'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+-_=';
 
@@ -433,7 +433,7 @@ const evaluateSharePassword = (value: string) => {
 const readStoredSharePassword = () => {
   if (typeof window === 'undefined') return '';
   try {
-    const stored = String(localStorage.getItem(SHARE_PASSWORD_PRESET_STORAGE_KEY) || '').trim();
+    const stored = String(sessionStorage.getItem(SHARE_PASSWORD_PRESET_STORAGE_KEY) || '').trim();
     return stored.length >= MIN_SHARE_PASSWORD_LENGTH ? stored : '';
   } catch {
     return '';
@@ -499,7 +499,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const clearStoredSharePassword = () => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
+      sessionStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
     } catch {
       // ignore
     }
@@ -590,10 +590,10 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       if (typeof window !== 'undefined') {
         try {
           if (rememberSharePassword) {
-            localStorage.setItem(SHARE_PASSWORD_PRESET_STORAGE_KEY, password);
+            sessionStorage.setItem(SHARE_PASSWORD_PRESET_STORAGE_KEY, password);
             setHasStoredSharePassword(true);
           } else {
-            localStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
+            sessionStorage.removeItem(SHARE_PASSWORD_PRESET_STORAGE_KEY);
             setHasStoredSharePassword(false);
           }
         } catch {
@@ -1427,14 +1427,14 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                   disabled={isCreatingShareLink}
                 />
                 <span className="text-xs font-semibold text-black/65">
-                  Uložiť ako predvolené heslo v tomto prehliadači
+                  Uložiť ako predvolené heslo len počas tejto relácie
                 </span>
               </label>
 
               {hasStoredSharePassword && (
                 <div className="flex items-center justify-between rounded-xl border border-brand/15 bg-brand/5 px-3 py-2">
                   <span className="text-[11px] font-bold text-brand/90">
-                    Predvolené heslo je uložené.
+                    Predvolené heslo je uložené iba do zatvorenia prehliadača.
                   </span>
                   <button
                     type="button"

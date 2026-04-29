@@ -1,3 +1,5 @@
+import { getSupabaseBrowserClient, hasSupabaseEnv } from "../lib/supabase";
+
 export interface SharedReportPublicMeta {
   client?: string;
   survey?: string;
@@ -40,9 +42,25 @@ export const createSharedReport = async (
   encryptedPayload: string,
   publicMeta: SharedReportPublicMeta
 ) => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (hasSupabaseEnv()) {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Pre vytvorenie zdieľaného odkazu sa prihláste.');
+    }
+
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   const response = await fetch('/api/share-report-create', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       encryptedPayload,
       publicMeta,

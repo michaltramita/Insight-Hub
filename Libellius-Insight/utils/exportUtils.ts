@@ -131,7 +131,6 @@ export const exportDataToExcel = (dataToExport: any[], fileName: string, callbac
 
 /**
  * Vyexportuje HTML blok ako obrázok PNG vysokej kvality.
- * Využíva html-to-image (natívne prehliadačové renderovanie), čím eliminuje blednutie.
  */
 export const exportBlockToPNG = async (elementId: string, fileName: string, callback?: () => void) => {
   if (callback) callback();
@@ -141,28 +140,20 @@ export const exportBlockToPNG = async (elementId: string, fileName: string, call
     if (!element) return;
 
     try {
-      const htmlToImage = (window as any).htmlToImage;
-      
-      if (!htmlToImage) {
-        alert("Nástroj na export obrázkov sa ešte nenačítal. Skúste to prosím o sekundu.");
-        return;
-      }
-      
-      const dataUrl = await htmlToImage.toPng(element, {
-        cacheBust: true,
-        pixelRatio: 3,
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
-        skipFonts: false,
-        style: {
-          backgroundColor: '#ffffff'
-        },
-        filter: (node: any) => {
+        logging: false,
+        scale: 3,
+        useCORS: true,
+        ignoreElements: (node: Element) => {
           if (node instanceof HTMLElement && node.classList && node.classList.contains('print:hidden')) {
-            return false;
+            return true;
           }
-          return true;
-        }
+          return false;
+        },
       });
+      const dataUrl = canvas.toDataURL('image/png');
       
       const link = document.createElement('a');
       link.download = `${fileName}.png`;

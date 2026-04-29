@@ -111,27 +111,20 @@ const groupQuestions = (rows: TypologyQuestionRow[]): TypologyQuestionGroup[] =>
     }));
 };
 
-const calculateScores = (
-  groups: TypologyQuestionGroup[],
-  answers: TypologyAnswerMap
-) => {
-  const scores: Record<TypologyStyleCode, number> = {
-    a: 0,
-    b: 0,
-    c: 0,
-    d: 0,
-  };
-
-  groups.forEach((group) => {
-    group.options.forEach((option) => {
-      scores[option.styleCode] += answers[option.id] || 0;
-    });
-  });
-
-  const dominantStyle = (Object.entries(scores) as Array<[TypologyStyleCode, number]>)
-    .sort((left, right) => right[1] - left[1])[0]?.[0] || null;
-
-  return { scores, dominantStyle };
+const readSubmitErrorMessage = (message: string) => {
+  if (message.includes("typology_test_already_completed")) {
+    return "Test už bol odoslaný. Opakované vyplnenie nie je povolené.";
+  }
+  if (message.includes("invalid_answers")) {
+    return "Odpovede nie sú kompletné alebo nemajú správne rozdelenie hodnôt 1 až 4.";
+  }
+  if (
+    message.includes("typology_access_denied") ||
+    message.includes("typology_test_not_available")
+  ) {
+    return "Test momentálne nemáte sprístupnený.";
+  }
+  return message;
 };
 
 export const loadTypologyTest = async (
@@ -190,83 +183,18 @@ export const submitTypologyTest = async (
 ) => {
   const supabase = getSupabaseBrowserClient();
   const db = supabase as any;
-  const { scores, dominantStyle } = calculateScores(test.groups, answers);
 
-  const { data: session, error: sessionError } = await db
-    .from("typology_sessions")
-    .upsert(
-      {
-        test_id: test.id,
-        user_id: user.id,
-        status: "in_progress",
-      },
-      { onConflict: "test_id,user_id" }
-    )
-    .select("id")
-    .single();
-
-  if (sessionError || !session) {
-    throw new Error(sessionError?.message || "Nepodarilo sa vytvoriť testovú session.");
+  if (!user?.id) {
+    throw new Error("Nie ste prihlásený.");
   }
 
-  const sessionId = String(session.id);
-  const answerRows = test.groups.flatMap((group) =>
-    group.options.map((option) => ({
-      session_id: sessionId,
-      question_id: option.id,
-      score: answers[option.id],
-    }))
-  );
+  const { error } = await db.rpc("submit_typology_test", {
+    p_test_id: test.id,
+    p_answers: answers,
+  });
 
-  const { error: answersError } = await db
-    .from("typology_answers")
-    .upsert(answerRows, { onConflict: "session_id,question_id" });
-
-  if (answersError) {
-    throw new Error(answersError.message);
-  }
-
-  const resultPayload = {
-    session_id: sessionId,
-    scores,
-    dominant_style: dominantStyle,
-    calculated_at: new Date().toISOString(),
-  };
-
-  const { error: resultInsertError } = await db
-    .from("typology_results")
-    .insert(resultPayload);
-
-  if (resultInsertError) {
-    if (resultInsertError.code !== "23505") {
-      throw new Error(resultInsertError.message);
-    }
-
-    const { error: resultUpdateError } = await db
-      .from("typology_results")
-      .update({
-        scores,
-        dominant_style: dominantStyle,
-        calculated_at: resultPayload.calculated_at,
-      })
-      .eq("session_id", sessionId);
-
-    if (resultUpdateError) {
-      throw new Error(resultUpdateError.message);
-    }
-  }
-
-  const { error: completeError } = await db
-    .from("typology_sessions")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId)
-    .eq("user_id", user.id);
-
-  if (completeError) {
-    throw new Error(completeError.message);
+  if (error) {
+    throw new Error(readSubmitErrorMessage(error.message));
   }
 };
 

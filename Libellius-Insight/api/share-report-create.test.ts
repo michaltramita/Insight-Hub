@@ -3,8 +3,17 @@ import { put } from "@vercel/blob";
 import { consumeRateLimit, getClientIp } from "./rate-limit.js";
 import handler from "./share-report-create";
 
+const supabaseMocks = vi.hoisted(() => ({
+  createClient: vi.fn(),
+  getUser: vi.fn(),
+}));
+
 vi.mock("@vercel/blob", () => ({
   put: vi.fn(),
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: supabaseMocks.createClient,
 }));
 
 vi.mock("./rate-limit.js", () => ({
@@ -51,6 +60,7 @@ const baseReq = (): MockReq => ({
   method: "POST",
   headers: {
     "content-type": "application/json",
+    authorization: "Bearer test-access-token",
   },
   body: {
     encryptedPayload: "v2.aaa.bbb.ccc",
@@ -72,10 +82,25 @@ beforeEach(() => {
   putMock.mockReset();
   consumeRateLimitMock.mockReset();
   getClientIpMock.mockReset();
+  supabaseMocks.createClient.mockReset();
+  supabaseMocks.getUser.mockReset();
 
   putMock.mockResolvedValue({});
   consumeRateLimitMock.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
   getClientIpMock.mockReturnValue("127.0.0.1");
+  supabaseMocks.createClient.mockReturnValue({
+    auth: {
+      getUser: supabaseMocks.getUser,
+    },
+  });
+  supabaseMocks.getUser.mockResolvedValue({
+    data: {
+      user: {
+        id: "user-1",
+      },
+    },
+    error: null,
+  });
 });
 
 afterEach(() => {
@@ -87,6 +112,20 @@ afterEach(() => {
 });
 
 describe("api/share-report-create handler", () => {
+  it("returns 401 when authorization token is missing", async () => {
+    const req = baseReq();
+    delete req.headers?.authorization;
+    const res = createMockRes();
+
+    await handler(req as any, res as any);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Pre vytvorenie zdieľaného odkazu sa prihláste.",
+    });
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
   it("returns 201 + stable response contract on success", async () => {
     const req = baseReq();
     const res = createMockRes();

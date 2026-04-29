@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { get } from '@vercel/blob';
+import type { VercelRequest, VercelResponse } from './vercel-types.js';
 import {
   buildShareBlobPath,
   isValidShareId,

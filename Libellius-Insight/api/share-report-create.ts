@@ -1,5 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { put } from '@vercel/blob';
+import { createClient } from '@supabase/supabase-js';
+import type { VercelRequest, VercelResponse } from './vercel-types.js';
 import {
   buildShareBlobPath,
   createShareTimestamps,
@@ -15,6 +16,9 @@ const CREATE_RATE_LIMIT = {
   limit: 20,
   windowMs: 60_000,
 };
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey =
+  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 const readContentLength = (req: VercelRequest) => {
   const rawHeader = Array.isArray(req.headers['content-length'])
@@ -57,6 +61,34 @@ const isValidEncryptedPayload = (value: unknown) => {
   );
 };
 
+const readBearerToken = (req: VercelRequest) => {
+  const rawHeader = Array.isArray(req.headers.authorization)
+    ? req.headers.authorization[0]
+    : req.headers.authorization;
+  const match = String(rawHeader || '').match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+};
+
+const requireAuthenticatedUser = async (req: VercelRequest) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase Auth nie je nakonfigurovaný pre API endpoint.');
+  }
+
+  const token = readBearerToken(req);
+  if (!token) return null;
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) return null;
+  return data.user;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -85,6 +117,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     res.setHeader('Cache-Control', 'no-store');
+
+    const authUser = await requireAuthenticatedUser(req);
+    if (!authUser) {
+      return res.status(401).json({
+        error: 'Pre vytvorenie zdieľaného odkazu sa prihláste.',
+      });
+    }
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return res.status(500).json({

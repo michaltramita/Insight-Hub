@@ -30,6 +30,7 @@ interface EngagementData {
 }
 
 interface EngagementChartTeam extends EngagementTeam {
+  [key: string]: string | number | boolean | undefined;
   count: number;
   percentage: number;
   isActive: boolean;

@@ -1,5 +1,5 @@
-import type { VercelRequest } from '@vercel/node';
 import { Redis } from '@upstash/redis';
+import type { VercelRequest } from './vercel-types.js';
 
 type RateLimitEntry = {
   count: number;

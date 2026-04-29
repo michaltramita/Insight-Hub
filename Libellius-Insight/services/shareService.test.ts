@@ -1,5 +1,18 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSharedReport, resolveSharedReport } from "./shareService";
+
+const supabaseMocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+}));
+
+vi.mock("../lib/supabase", () => ({
+  hasSupabaseEnv: () => true,
+  getSupabaseBrowserClient: () => ({
+    auth: {
+      getSession: supabaseMocks.getSession,
+    },
+  }),
+}));
 
 type MockResponse = {
   ok: boolean;
@@ -8,6 +21,17 @@ type MockResponse = {
 };
 
 const asResponse = (value: MockResponse) => value as unknown as Response;
+
+beforeEach(() => {
+  supabaseMocks.getSession.mockReset();
+  supabaseMocks.getSession.mockResolvedValue({
+    data: {
+      session: {
+        access_token: "test-access-token",
+      },
+    },
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -33,7 +57,10 @@ describe("createSharedReport", () => {
     expect(result).toEqual({ shareId: "abc123XYZ_" });
     expect(fetchMock).toHaveBeenCalledWith("/api/share-report-create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-access-token",
+      },
       body: JSON.stringify({
         encryptedPayload: "encrypted_payload",
         publicMeta: {
@@ -104,6 +131,18 @@ describe("createSharedReport", () => {
 
     await expect(createSharedReport("payload", {})).rejects.toThrow(
       "Server nevrátil platné ID zdieľania."
+    );
+  });
+
+  it("requires an authenticated session before creating a share link", async () => {
+    supabaseMocks.getSession.mockResolvedValueOnce({
+      data: {
+        session: null,
+      },
+    });
+
+    await expect(createSharedReport("payload", {})).rejects.toThrow(
+      "Pre vytvorenie zdieľaného odkazu sa prihláste."
     );
   });
 });
