@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let browserClient: ReturnType<typeof createClient> | null = null;
-const authStorageKey = "libellius-insighthub-auth";
+const authStorageKey = "libellius-insighthub-session";
 
 const assertSupabaseEnv = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -24,7 +24,7 @@ export const getSupabaseBrowserClient = () => {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storageKey: authStorageKey,
-      storage: typeof window !== "undefined" ? window.localStorage : undefined,
+      storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
     },
   });
 
