@@ -16,9 +16,11 @@ const CREATE_RATE_LIMIT = {
   limit: 20,
   windowMs: 60_000,
 };
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey =
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+const readSupabaseApiConfig = () => ({
+  url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+});
 
 const readContentLength = (req: VercelRequest) => {
   const rawHeader = Array.isArray(req.headers['content-length'])
@@ -70,14 +72,15 @@ const readBearerToken = (req: VercelRequest) => {
 };
 
 const requireAuthenticatedUser = async (req: VercelRequest) => {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase Auth nie je nakonfigurovaný pre API endpoint.');
-  }
-
   const token = readBearerToken(req);
   if (!token) return null;
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const { url, anonKey } = readSupabaseApiConfig();
+  if (!url || !anonKey) {
+    throw new Error('Supabase Auth nie je nakonfigurovaný pre API endpoint.');
+  }
+
+  const supabase = createClient(url, anonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

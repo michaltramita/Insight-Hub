@@ -76,9 +76,13 @@ const putMock = put as unknown as Mock;
 const consumeRateLimitMock = consumeRateLimit as unknown as Mock;
 const getClientIpMock = getClientIp as unknown as Mock;
 const originalBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
+const originalSupabaseUrl = process.env.SUPABASE_URL;
+const originalSupabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 beforeEach(() => {
   process.env.BLOB_READ_WRITE_TOKEN = "test-token";
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "test-anon-key";
   putMock.mockReset();
   consumeRateLimitMock.mockReset();
   getClientIpMock.mockReset();
@@ -108,6 +112,18 @@ afterEach(() => {
     delete process.env.BLOB_READ_WRITE_TOKEN;
   } else {
     process.env.BLOB_READ_WRITE_TOKEN = originalBlobToken;
+  }
+
+  if (originalSupabaseUrl === undefined) {
+    delete process.env.SUPABASE_URL;
+  } else {
+    process.env.SUPABASE_URL = originalSupabaseUrl;
+  }
+
+  if (originalSupabaseAnonKey === undefined) {
+    delete process.env.SUPABASE_ANON_KEY;
+  } else {
+    process.env.SUPABASE_ANON_KEY = originalSupabaseAnonKey;
   }
 });
 
