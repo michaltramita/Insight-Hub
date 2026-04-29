@@ -226,17 +226,34 @@ export const submitTypologyTest = async (
     throw new Error(answersError.message);
   }
 
-  const { error: resultError } = await db
-    .from("typology_results")
-    .upsert({
-      session_id: sessionId,
-      scores,
-      dominant_style: dominantStyle,
-      calculated_at: new Date().toISOString(),
-    });
+  const resultPayload = {
+    session_id: sessionId,
+    scores,
+    dominant_style: dominantStyle,
+    calculated_at: new Date().toISOString(),
+  };
 
-  if (resultError) {
-    throw new Error(resultError.message);
+  const { error: resultInsertError } = await db
+    .from("typology_results")
+    .insert(resultPayload);
+
+  if (resultInsertError) {
+    if (resultInsertError.code !== "23505") {
+      throw new Error(resultInsertError.message);
+    }
+
+    const { error: resultUpdateError } = await db
+      .from("typology_results")
+      .update({
+        scores,
+        dominant_style: dominantStyle,
+        calculated_at: resultPayload.calculated_at,
+      })
+      .eq("session_id", sessionId);
+
+    if (resultUpdateError) {
+      throw new Error(resultUpdateError.message);
+    }
   }
 
   const { error: completeError } = await db
