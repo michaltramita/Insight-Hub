@@ -200,6 +200,16 @@ as $$
   select coalesce(public.current_profile_role() in ('admin', 'consultant'), false)
 $$;
 
+create or replace function public.is_global_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(public.current_profile_role() = 'admin', false)
+$$;
+
 insert into public.modules (code, title, description, sort_order, is_active)
 values
   (
@@ -275,7 +285,7 @@ create policy organizations_select_own
   on public.organizations for select to authenticated
   using (
     id = (select public.current_profile_organization_id())
-    or (select public.is_admin_or_consultant())
+    or (select public.is_global_admin())
   );
 
 drop policy if exists profiles_select_self_or_org_admin on public.profiles;
@@ -283,8 +293,9 @@ create policy profiles_select_self_or_org_admin
   on public.profiles for select to authenticated
   using (
     id = (select auth.uid())
+    or (select public.is_global_admin())
     or (
-      (select public.is_admin_or_consultant())
+      (select public.current_profile_role()) = 'consultant'
       and organization_id = (select public.current_profile_organization_id())
     )
   );
@@ -305,8 +316,9 @@ create policy module_assignments_select_own_or_org_admin
   on public.module_assignments for select to authenticated
   using (
     user_id = (select auth.uid())
+    or (select public.is_global_admin())
     or (
-      (select public.is_admin_or_consultant())
+      (select public.current_profile_role()) = 'consultant'
       and organization_id = (select public.current_profile_organization_id())
     )
   );
@@ -315,12 +327,18 @@ drop policy if exists module_assignments_write_org_admin on public.module_assign
 create policy module_assignments_write_org_admin
   on public.module_assignments for all to authenticated
   using (
-    (select public.is_admin_or_consultant())
-    and organization_id = (select public.current_profile_organization_id())
+    (select public.is_global_admin())
+    or (
+      (select public.current_profile_role()) = 'consultant'
+      and organization_id = (select public.current_profile_organization_id())
+    )
   )
   with check (
-    (select public.is_admin_or_consultant())
-    and organization_id = (select public.current_profile_organization_id())
+    (select public.is_global_admin())
+    or (
+      (select public.current_profile_role()) = 'consultant'
+      and organization_id = (select public.current_profile_organization_id())
+    )
   );
 
 drop policy if exists typology_tests_select_assigned_or_org_admin on public.typology_tests;
@@ -337,8 +355,9 @@ create policy typology_tests_select_assigned_or_org_admin
         and (ma.ends_at is null or ma.ends_at >= now())
         and (ma.organization_id is null or ma.organization_id = typology_tests.organization_id)
     )
+    or (select public.is_global_admin())
     or (
-      (select public.is_admin_or_consultant())
+      (select public.current_profile_role()) = 'consultant'
       and organization_id = (select public.current_profile_organization_id())
     )
   );
@@ -347,12 +366,18 @@ drop policy if exists typology_tests_write_org_admin on public.typology_tests;
 create policy typology_tests_write_org_admin
   on public.typology_tests for all to authenticated
   using (
-    (select public.is_admin_or_consultant())
-    and organization_id = (select public.current_profile_organization_id())
+    (select public.is_global_admin())
+    or (
+      (select public.current_profile_role()) = 'consultant'
+      and organization_id = (select public.current_profile_organization_id())
+    )
   )
   with check (
-    (select public.is_admin_or_consultant())
-    and organization_id = (select public.current_profile_organization_id())
+    (select public.is_global_admin())
+    or (
+      (select public.current_profile_role()) = 'consultant'
+      and organization_id = (select public.current_profile_organization_id())
+    )
   );
 
 drop policy if exists typology_questions_select_assigned_or_org_admin on public.typology_questions;
@@ -364,6 +389,8 @@ create policy typology_questions_select_assigned_or_org_admin
       from public.typology_tests tt
       where tt.id = typology_questions.test_id
         and (
+          (select public.is_global_admin())
+          or
           exists (
             select 1
             from public.module_assignments ma
@@ -375,7 +402,7 @@ create policy typology_questions_select_assigned_or_org_admin
               and (ma.organization_id is null or ma.organization_id = tt.organization_id)
           )
           or (
-            (select public.is_admin_or_consultant())
+            (select public.current_profile_role()) = 'consultant'
             and tt.organization_id = (select public.current_profile_organization_id())
           )
         )
@@ -390,8 +417,13 @@ create policy typology_questions_write_org_admin
       select 1
       from public.typology_tests tt
       where tt.id = typology_questions.test_id
-        and (select public.is_admin_or_consultant())
-        and tt.organization_id = (select public.current_profile_organization_id())
+        and (
+          (select public.is_global_admin())
+          or (
+            (select public.current_profile_role()) = 'consultant'
+            and tt.organization_id = (select public.current_profile_organization_id())
+          )
+        )
     )
   )
   with check (
@@ -399,8 +431,13 @@ create policy typology_questions_write_org_admin
       select 1
       from public.typology_tests tt
       where tt.id = typology_questions.test_id
-        and (select public.is_admin_or_consultant())
-        and tt.organization_id = (select public.current_profile_organization_id())
+        and (
+          (select public.is_global_admin())
+          or (
+            (select public.current_profile_role()) = 'consultant'
+            and tt.organization_id = (select public.current_profile_organization_id())
+          )
+        )
     )
   );
 
@@ -409,8 +446,9 @@ create policy typology_sessions_select_own_or_org_admin
   on public.typology_sessions for select to authenticated
   using (
     user_id = (select auth.uid())
+    or (select public.is_global_admin())
     or (
-      (select public.is_admin_or_consultant())
+      (select public.current_profile_role()) = 'consultant'
       and exists (
         select 1
         from public.profiles p
@@ -442,8 +480,9 @@ create policy typology_answers_select_own_or_org_admin
       where ts.id = typology_answers.session_id
         and (
           ts.user_id = (select auth.uid())
+          or (select public.is_global_admin())
           or (
-            (select public.is_admin_or_consultant())
+            (select public.current_profile_role()) = 'consultant'
             and p.organization_id = (select public.current_profile_organization_id())
           )
         )
@@ -490,13 +529,16 @@ drop policy if exists typology_results_select_org_admin on public.typology_resul
 create policy typology_results_select_org_admin
   on public.typology_results for select to authenticated
   using (
-    exists (
-      select 1
-      from public.typology_sessions ts
-      left join public.profiles p on p.id = ts.user_id
-      where ts.id = typology_results.session_id
-        and (select public.is_admin_or_consultant())
-        and p.organization_id = (select public.current_profile_organization_id())
+    (select public.is_global_admin())
+    or (
+      (select public.current_profile_role()) = 'consultant'
+      and exists (
+        select 1
+        from public.typology_sessions ts
+        left join public.profiles p on p.id = ts.user_id
+        where ts.id = typology_results.session_id
+          and p.organization_id = (select public.current_profile_organization_id())
+      )
     )
   );
 
