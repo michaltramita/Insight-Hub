@@ -11,15 +11,38 @@ interface FileUploadProps {
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode }) => {
   const [isDragging, setIsDragging] = useState(false);
 
+  const isFeedback360Mode = mode === '360_FEEDBACK';
+
+  const allowedExtensions = isFeedback360Mode
+    ? ['xlsx', 'csv', 'json']
+    : ['xlsx', 'csv', 'pdf', 'json'];
+  const allowedMimeTypes = isFeedback360Mode
+    ? [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/json',
+        'text/csv',
+      ]
+    : [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/json',
+        'text/csv',
+      ];
+
+  const acceptAttr = isFeedback360Mode
+    ? '.xlsx,.csv,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/json'
+    : '.pdf,.xlsx,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv';
+
+  const unsupportedFileMessage = isFeedback360Mode
+    ? 'V 360 móde sú podporované súbory Excel/CSV (.xlsx/.csv) alebo JSON report.'
+    : 'Prosím nahrajte iba podporované súbory (PDF, Excel alebo JSON report).';
+
   const isSupportedFile = (file: File) => {
-    const supportedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
-      'application/json' 
-    ];
     const extension = file.name.split('.').pop()?.toLowerCase();
-    return supportedTypes.includes(file.type) || 
-           ['xlsx', 'pdf', 'json', 'csv'].includes(extension || '');
+    return (
+      allowedMimeTypes.includes(file.type) ||
+      allowedExtensions.includes(extension || '')
+    );
   };
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -42,15 +65,20 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       if (isSupportedFile(file)) {
         onFileSelect(file);
       } else {
-        alert("Prosím nahrajte iba podporované súbory (PDF, Excel alebo JSON report).");
+        alert(unsupportedFileMessage);
       }
     }
-  }, [onFileSelect, isAnalyzing]);
+  }, [onFileSelect, isAnalyzing, unsupportedFileMessage]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAnalyzing) return;
     if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0]);
+      const file = e.target.files[0];
+      if (isSupportedFile(file)) {
+        onFileSelect(file);
+      } else {
+        alert(unsupportedFileMessage);
+      }
     }
   };
 
@@ -62,8 +90,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
       };
     }
     return {
-      title: 'Nahrajte výsledky z 360° spätnej väzby',
-      description: 'Podporujeme PDF, Excel aj vopred analyzované JSON formáty.'
+      title: 'Nahrajte dáta 360° (Excel/CSV) alebo JSON report',
+      description: 'Primárny vstup je Excel/CSV. JSON report môžete použiť ako hotový export.'
     };
   };
 
@@ -88,7 +116,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isAnalyzing, mode
     >
         <input 
           type="file" 
-        accept=".pdf,.xlsx,.csv,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+        accept={acceptAttr} 
           className="hidden" 
           id="file-upload"
         onChange={handleChange}

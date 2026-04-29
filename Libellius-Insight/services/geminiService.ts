@@ -1,7 +1,14 @@
 import { analyzeDocument } from "./gemini/analyzeSatisfaction";
 import { parseExcelFile } from "./gemini/excelParsing";
+import { parseFeedback360Report } from "./feedback360Parser";
+import { parseFeedback360Spreadsheet } from "./feedback360Spreadsheet";
 
-export { analyzeDocument, parseExcelFile };
+export {
+  analyzeDocument,
+  parseExcelFile,
+  parseFeedback360Report,
+  parseFeedback360Spreadsheet,
+};
 
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {

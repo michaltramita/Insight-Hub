@@ -1322,9 +1322,6 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
               <p className="text-xs font-bold text-black/60">
                 © {new Date().getFullYear()} Libellius. Všetky práva vyhradené.
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-1">
-                Generované pomocou umelej inteligencie
-              </p>
             </div>
           </div>
         </div>

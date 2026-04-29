@@ -26,6 +26,105 @@ export interface EmployeeProfile {
   recommendations: string;
 }
 
+export interface Feedback360RaterAverages {
+  subordinate: number;
+  manager: number;
+  peer: number;
+  average: number;
+  self: number;
+}
+
+export interface Feedback360FrequencyDistribution {
+  na: number;
+  one: number;
+  two: number;
+  three: number;
+  four: number;
+  five: number;
+  six: number;
+}
+
+export interface Feedback360RespondentCounts {
+  subordinate: number;
+  manager: number;
+  peer: number;
+  self?: number;
+}
+
+export interface Feedback360StatementResult {
+  id: string;
+  statement: string;
+  competencyId: string;
+  competencyLabel: string;
+  averages: Feedback360RaterAverages;
+  frequencyDistribution?: Feedback360FrequencyDistribution;
+}
+
+export interface Feedback360CompetencyResult {
+  id: string;
+  label: string;
+  averages: Feedback360RaterAverages;
+  statements: Feedback360StatementResult[];
+  respondentCounts?: Feedback360RespondentCounts;
+}
+
+export interface Feedback360StrengthWeaknessItem {
+  statementId: string;
+  statement: string;
+  competencyId: string;
+  competencyLabel: string;
+  average: number;
+}
+
+export interface Feedback360PotentialItem {
+  statementId: string;
+  statement: string;
+  competencyId: string;
+  competencyLabel: string;
+  average: number;
+  self: number;
+  diff: number;
+}
+
+export interface Feedback360ImplementationPlan {
+  participantName: string;
+  date?: string;
+  priorities: string[];
+}
+
+export interface Feedback360ParticipantSummary {
+  id: string;
+  name: string;
+  competencies: Feedback360CompetencyResult[];
+  overallAverage: number;
+  overallSelf: number;
+}
+
+export interface Feedback360CompanyReport {
+  respondentCounts: Feedback360RespondentCounts;
+  competencies: Feedback360CompetencyResult[];
+  strengths: Feedback360StrengthWeaknessItem[];
+  developmentNeeds: Feedback360StrengthWeaknessItem[];
+  participants: Feedback360ParticipantSummary[];
+}
+
+export interface Feedback360IndividualReport {
+  id: string;
+  name: string;
+  competencies: Feedback360CompetencyResult[];
+  overestimatedPotential: Feedback360PotentialItem[];
+  hiddenPotential: Feedback360PotentialItem[];
+  implementationPlan?: Feedback360ImplementationPlan;
+}
+
+export interface Feedback360Data {
+  companyName: string;
+  surveyName: string;
+  scaleMax: number;
+  companyReport: Feedback360CompanyReport;
+  individuals: Feedback360IndividualReport[];
+}
+
 export interface EngagementTeam {
   name: string;
   count: number;
@@ -131,6 +230,7 @@ export interface FeedbackAnalysisResult {
   };
   employees?: EmployeeProfile[];
   satisfaction?: EmployeeSatisfactionData;
+  feedback360?: Feedback360Data;
 }
 
 export enum AppStatus {

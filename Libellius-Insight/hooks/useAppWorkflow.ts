@@ -244,7 +244,7 @@ export const useAppWorkflow = () => {
 
     if (fileName.endsWith(".json")) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
           if (!jsonData || typeof jsonData !== "object" || Array.isArray(jsonData)) {
@@ -252,14 +252,32 @@ export const useAppWorkflow = () => {
           }
 
           const hasKnownReportShape =
-            "mode" in jsonData || "satisfaction" in jsonData || "employees" in jsonData;
+            "mode" in jsonData ||
+            "satisfaction" in jsonData ||
+            "employees" in jsonData ||
+            "feedback360" in jsonData ||
+            "individuals" in jsonData ||
+            "companyReport" in jsonData;
           if (!hasKnownReportShape) {
             throw new Error("JSON neobsahuje podporovaný formát reportu.");
           }
 
+          const shouldUseFeedback360Parser =
+            selectedMode === "360_FEEDBACK" ||
+            jsonData.mode === "360_FEEDBACK" ||
+            "feedback360" in jsonData ||
+            "individuals" in jsonData ||
+            "companyReport" in jsonData;
+
+          const normalizedData = shouldUseFeedback360Parser
+            ? (await import("../services/geminiService")).parseFeedback360Report(
+                jsonData
+              )
+            : (jsonData as FeedbackAnalysisResult);
+
           sessionStorage.removeItem("libellius_show_goodbye");
           setShowSharedGoodbye(false);
-          setResult(jsonData);
+          setResult(normalizedData);
           setStatus(AppStatus.SUCCESS);
         } catch (err: any) {
           setError(err?.message || "Chybný formát JSON.");
@@ -267,6 +285,34 @@ export const useAppWorkflow = () => {
         }
       };
       reader.readAsText(file);
+      return;
+    }
+
+    if (selectedMode === "360_FEEDBACK") {
+      const isSpreadsheet360 = fileName.endsWith(".xlsx") || fileName.endsWith(".csv");
+      if (!isSpreadsheet360) {
+        setError(
+          "Pre 360 mód sú podporované súbory .xlsx/.csv (primárny vstup) alebo .json report."
+        );
+        setStatus(AppStatus.ERROR);
+        return;
+      }
+
+      setStatus(AppStatus.ANALYZING);
+      setError(null);
+
+      try {
+        const { parseFeedback360Spreadsheet } = await import("../services/geminiService");
+        const data = await parseFeedback360Spreadsheet(file);
+
+        sessionStorage.removeItem("libellius_show_goodbye");
+        setShowSharedGoodbye(false);
+        setResult(data);
+        setStatus(AppStatus.SUCCESS);
+      } catch (err: any) {
+        setError(err?.message || "Chyba spracovania 360 Excel/CSV.");
+        setStatus(AppStatus.ERROR);
+      }
       return;
     }
 
