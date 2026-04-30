@@ -102,6 +102,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       autoRefreshToken: false,
     },
   });
+  const userScopedClient = createClient(url, anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
   const adminClient = createClient(url, serviceRoleKey, {
     auth: {
       persistSession: false,
@@ -115,13 +126,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return sendError(res, 401, 'Pre vytvorenie používateľa sa prihláste ako admin.');
     }
 
-    const { data: actorProfile, error: actorProfileError } = await adminClient
-      .from('profiles')
-      .select('id, role')
-      .eq('id', authData.user.id)
-      .single();
+    const { data: isAdmin, error: adminCheckError } =
+      await userScopedClient.rpc('is_global_admin');
 
-    if (actorProfileError || actorProfile?.role !== 'admin') {
+    if (adminCheckError || isAdmin !== true) {
       return sendError(res, 403, 'Na vytvorenie používateľa nemáte oprávnenie.');
     }
 

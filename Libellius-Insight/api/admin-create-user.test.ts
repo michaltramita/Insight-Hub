@@ -104,7 +104,7 @@ afterEach(() => {
   else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey;
 });
 
-const createClients = (options?: { actorRole?: string }) => {
+const createClients = (options?: { isAdmin?: boolean }) => {
   const authClient = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -113,18 +113,18 @@ const createClients = (options?: { actorRole?: string }) => {
       }),
     },
   };
+  const userScopedClient = {
+    rpc: vi.fn().mockResolvedValue({
+      data: options?.isAdmin ?? true,
+      error: null,
+    }),
+  };
   const createUser = vi.fn().mockResolvedValue({
     data: { user: { id: "user-1" } },
     error: null,
   });
   const queues: Record<string, any[]> = {
-    profiles: [
-      singleBuilder({
-        data: { id: "admin-1", role: options?.actorRole || "admin" },
-        error: null,
-      }),
-      upsertBuilder({ error: null }),
-    ],
+    profiles: [upsertBuilder({ error: null })],
     organizations: [singleBuilder({ data: { id: "org-1" }, error: null })],
     modules: [
       modulesBuilder({
@@ -148,8 +148,11 @@ const createClients = (options?: { actorRole?: string }) => {
     }),
   };
 
-  createClientMock.mockReturnValueOnce(authClient).mockReturnValueOnce(adminClient);
-  return { authClient, adminClient, createUser };
+  createClientMock
+    .mockReturnValueOnce(authClient)
+    .mockReturnValueOnce(userScopedClient)
+    .mockReturnValueOnce(adminClient);
+  return { authClient, userScopedClient, adminClient, createUser };
 };
 
 describe("api/admin-create-user handler", () => {
@@ -168,7 +171,7 @@ describe("api/admin-create-user handler", () => {
   });
 
   it("returns 403 when authenticated user is not admin", async () => {
-    createClients({ actorRole: "participant" });
+    createClients({ isAdmin: false });
     const req = baseReq();
     const res = createMockRes();
 
