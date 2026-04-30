@@ -105,6 +105,10 @@ afterEach(() => {
 });
 
 const createClients = (options?: { isAdmin?: boolean }) => {
+  const moduleBuilder = modulesBuilder({
+    data: [{ code: "TYPOLOGY_LEADERSHIP" }],
+    error: null,
+  });
   const authClient = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -118,6 +122,10 @@ const createClients = (options?: { isAdmin?: boolean }) => {
       data: options?.isAdmin ?? true,
       error: null,
     }),
+    from: vi.fn((table: string) => {
+      if (table !== "modules") throw new Error(`Unexpected user table: ${table}`);
+      return moduleBuilder;
+    }),
   };
   const createUser = vi.fn().mockResolvedValue({
     data: { user: { id: "user-1" } },
@@ -126,12 +134,6 @@ const createClients = (options?: { isAdmin?: boolean }) => {
   const queues: Record<string, any[]> = {
     profiles: [upsertBuilder({ error: null })],
     organizations: [singleBuilder({ data: { id: "org-1" }, error: null })],
-    modules: [
-      modulesBuilder({
-        data: [{ code: "TYPOLOGY_LEADERSHIP" }],
-        error: null,
-      }),
-    ],
     module_assignments: [upsertBuilder({ error: null })],
     admin_audit_log: [insertBuilder({ error: null })],
   };

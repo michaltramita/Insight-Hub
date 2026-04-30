@@ -154,7 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (moduleCodes.length > 0) {
-      const { data: modules, error: modulesError } = await adminClient
+      const { data: modules, error: modulesError } = await userScopedClient
         .from('modules')
         .select('code')
         .in('code', moduleCodes)
@@ -165,7 +165,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         modulesError ||
         moduleCodes.some((moduleCode) => !validCodes.has(moduleCode))
       ) {
-        return sendError(res, 400, 'Požiadavka obsahuje neplatný modul.');
+        return sendError(
+          res,
+          400,
+          'Vybraný modul nie je aktívny alebo chýba v databáze.'
+        );
       }
     }
 
