@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   BarChart3,
+  BrainCircuit,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -41,8 +42,9 @@ type QuestionGroupCardProps = {
   ) => void;
 };
 
-type TypologyResultsActionProps = {
-  canViewResults?: boolean;
+type AdminTypologyEntryProps = {
+  onBack: () => void;
+  onStartTest: () => void;
   onOpenResults?: () => void;
 };
 
@@ -76,21 +78,88 @@ const findResumeGroupIndex = (
     : firstIncompleteIndex;
 };
 
-const TypologyResultsAction: React.FC<TypologyResultsActionProps> = ({
-  canViewResults,
+const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
+  onBack,
+  onStartTest,
   onOpenResults,
 }) => {
-  if (!canViewResults || !onOpenResults) return null;
-
   return (
-    <button
-      type="button"
-      onClick={onOpenResults}
-      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-brand text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all"
-    >
-      <BarChart3 className="w-4 h-4" />
-      Zobraziť výsledky
-    </button>
+    <div className="w-full max-w-5xl mx-auto animate-fade-in">
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-6 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Späť na prehľad
+      </button>
+
+      <div className="mb-8">
+        <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand mb-3">
+          Typologický modul
+        </p>
+        <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
+          Test typológie pri vedení ľudí
+        </h1>
+        <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
+          Vyberte, či chcete spustiť vlastný test alebo otvoriť admin prehľad
+          výsledkov účastníkov.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+        <button
+          type="button"
+          onClick={onStartTest}
+          className="group min-h-[320px] p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] hover:border-black hover:bg-black/5 transition-all"
+        >
+          <div className="absolute top-0 right-0 p-6 md:p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
+            <BrainCircuit className="w-24 h-24 md:w-32 md:h-32 text-black" />
+          </div>
+          <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg z-10">
+            <BrainCircuit className="w-8 h-8 md:w-10 md:h-10" />
+          </div>
+          <div className="z-10 flex-1">
+            <span className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
+              Spustiť test
+            </span>
+            <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
+              Otvoriť dotazník a pokračovať vo vlastnom vypĺňaní alebo kontrole
+              testu.
+            </p>
+          </div>
+          <div className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest text-center shadow-lg">
+            Spustiť test
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenResults}
+          disabled={!onOpenResults}
+          className="group min-h-[320px] p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] hover:border-black hover:bg-black/5 transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+        >
+          <div className="absolute top-0 right-0 p-6 md:p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
+            <BarChart3 className="w-24 h-24 md:w-32 md:h-32 text-black" />
+          </div>
+          <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg z-10">
+            <BarChart3 className="w-8 h-8 md:w-10 md:h-10" />
+          </div>
+          <div className="z-10 flex-1">
+            <span className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
+              Zobraziť výsledky
+            </span>
+            <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
+              Otvoriť admin prehľad dokončených testov, grafy a pripravené
+              profily.
+            </p>
+          </div>
+          <div className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full bg-brand text-white font-black text-xs sm:text-sm uppercase tracking-widest text-center shadow-lg">
+            Zobraziť výsledky
+          </div>
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -189,9 +258,20 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const [isAutosaving, setIsAutosaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
+  const [hasEnteredTestFlow, setHasEnteredTestFlow] = useState(!canViewResults);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const backLabel = canViewResults ? "Späť na výber" : "Späť na prehľad";
+  const handleBackFromTest = () => {
+    if (canViewResults) {
+      setHasEnteredTestFlow(false);
+      return;
+    }
+
+    onBack();
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -430,6 +510,16 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
     );
   }
 
+  if (canViewResults && !hasEnteredTestFlow) {
+    return (
+      <AdminTypologyEntry
+        onBack={onBack}
+        onStartTest={() => setHasEnteredTestFlow(true)}
+        onOpenResults={onOpenResults}
+      />
+    );
+  }
+
   if (isSubmitted) {
     return (
       <div className="min-h-[calc(100vh-180px)] flex flex-col items-center justify-center text-center px-4">
@@ -450,15 +540,11 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
           <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleBackFromTest}
               className="px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
             >
-              Späť na prehľad
+              {backLabel}
             </button>
-            <TypologyResultsAction
-              canViewResults={canViewResults}
-              onOpenResults={onOpenResults}
-            />
           </div>
         </div>
       </div>
@@ -471,16 +557,12 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBackFromTest}
             className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            Späť na prehľad
+            {backLabel}
           </button>
-          <TypologyResultsAction
-            canViewResults={canViewResults}
-            onOpenResults={onOpenResults}
-          />
         </div>
 
         <div className="min-h-[calc(100vh-240px)] flex flex-col items-center justify-center text-center px-4">
@@ -493,10 +575,10 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             </p>
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleBackFromTest}
               className="mt-8 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
             >
-              Späť
+              {backLabel}
             </button>
           </div>
         </div>
@@ -510,16 +592,12 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBackFromTest}
             className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            Späť na prehľad
+            {backLabel}
           </button>
-          <TypologyResultsAction
-            canViewResults={canViewResults}
-            onOpenResults={onOpenResults}
-          />
         </div>
 
         <div className="rounded-[2rem] border border-black/5 bg-white shadow-2xl shadow-black/5 overflow-hidden">
@@ -608,16 +686,12 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBackFromTest}
           className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
-          Späť na prehľad
+          {backLabel}
         </button>
-        <TypologyResultsAction
-          canViewResults={canViewResults}
-          onOpenResults={onOpenResults}
-        />
       </div>
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 md:mb-10">
         <div>
