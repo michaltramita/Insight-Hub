@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useState } from 'react';
 import AuthAccessPanel from './components/AuthAccessPanel';
 import FileUpload from './components/FileUpload';
 import { AppStatus } from './types';
-import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock } from 'lucide-react';
+import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock, ShieldCheck } from 'lucide-react';
 import { useAppWorkflow } from './hooks/useAppWorkflow';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import { useModuleAssignments } from './hooks/useModuleAssignments';
@@ -21,6 +21,7 @@ const TypologyTestView = lazy(
 const TypologyAdminResultsView = lazy(
   () => import('./components/typology/TypologyAdminResultsView')
 );
+const AdminUsersView = lazy(() => import('./components/admin/AdminUsersView'));
 const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'));
 
 const App: React.FC = () => {
@@ -32,7 +33,8 @@ const App: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [showTypologyTest, setShowTypologyTest] = useState(false);
   const [showTypologyResults, setShowTypologyResults] = useState(false);
-  const { isAdminLike } = useCurrentProfile(user);
+  const [showAdminUsers, setShowAdminUsers] = useState(false);
+  const { profile, isAdminLike } = useCurrentProfile(user);
   const {
     assignments,
     isLoading: isLoadingAssignments,
@@ -76,6 +78,7 @@ const App: React.FC = () => {
   const canSeeSatisfaction =
     !shouldUseAssignments || hasModule('ZAMESTNANECKA_SPOKOJNOST');
   const canSeeTypology = !shouldUseAssignments || hasModule('TYPOLOGY_LEADERSHIP');
+  const isGlobalAdmin = profile?.role === 'admin';
   const hasAnyAssignedModule =
     canSeeFeedback360 || canSeeSatisfaction || canSeeTypology;
 
@@ -127,6 +130,19 @@ const App: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {isGlobalAdmin && (
+                  <button
+                    onClick={() => {
+                      setShowTypologyTest(false);
+                      setShowTypologyResults(false);
+                      setShowAdminUsers(true);
+                    }}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/8 text-white px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span className="hidden sm:inline">Správa prístupov</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setPasswordFeedback(null);
@@ -308,7 +324,24 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {(showTypologyTest || showTypologyResults) && user && !showSharedGoodbye && (
+        {showAdminUsers && user && isGlobalAdmin && !showSharedGoodbye && (
+          <Suspense
+            fallback={
+              <div className="w-full py-20 text-center">
+                <p className="text-sm font-bold uppercase tracking-widest text-black/40">
+                  Načítavam admin rozhranie...
+                </p>
+              </div>
+            }
+          >
+            <AdminUsersView
+              currentUserId={user.id}
+              onBack={() => setShowAdminUsers(false)}
+            />
+          </Suspense>
+        )}
+
+        {(showTypologyTest || showTypologyResults) && user && !showAdminUsers && !showSharedGoodbye && (
           <Suspense
             fallback={
               <div className="w-full py-20 text-center">
@@ -331,7 +364,7 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
-        {!showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
+        {!showAdminUsers && !showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
