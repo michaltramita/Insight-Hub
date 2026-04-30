@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronLeft,
@@ -139,6 +140,17 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   useEffect(() => {
     loadOverview();
   }, []);
+
+  useEffect(() => {
+    if (!isCreateOpen || typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCreateOpen]);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -520,27 +532,35 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         </div>
       )}
 
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-[90] bg-black/35 backdrop-blur-sm flex items-center justify-center px-4">
-          <form
-            onSubmit={handleCreateUser}
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-8 relative"
-          >
-            <button
-              type="button"
-              onClick={() => setIsCreateOpen(false)}
-              className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
-              aria-label="Zavrieť"
+      {isCreateOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+            <form
+              onSubmit={handleCreateUser}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-create-user-title"
+              className="w-full max-w-3xl max-h-[min(720px,92vh)] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-9 relative"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
+                aria-label="Zavrieť"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
             <div className="pr-12">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
                 <Plus className="w-3 h-3" />
                 Nový účastník
               </div>
-              <h2 className="mt-5 text-2xl md:text-3xl font-black tracking-tight">
+              <h2
+                id="admin-create-user-title"
+                className="mt-5 text-2xl md:text-4xl font-black tracking-tight"
+              >
                 Vytvoriť používateľa
               </h2>
               <p className="mt-3 text-black/55 font-semibold leading-relaxed">
@@ -559,7 +579,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   }))
                 }
                 placeholder="email@firma.sk"
-                className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
                 required
               />
               <input
@@ -572,7 +592,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   }))
                 }
                 placeholder="Dočasné heslo"
-                className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
                 minLength={8}
                 required
               />
@@ -586,7 +606,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   }))
                 }
                 placeholder="Meno a priezvisko"
-                className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
               />
               <input
                 type="text"
@@ -598,7 +618,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   }))
                 }
                 placeholder="Spoločnosť"
-                className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
               />
               <select
                 value={createForm.organizationId || ""}
@@ -608,7 +628,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                     organizationId: event.target.value || null,
                   }))
                 }
-                className="md:col-span-2 w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
+                className="md:col-span-2 w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
               >
                 <option value="">Bez organizácie</option>
                 {overview.organizations.map((organization) => (
@@ -664,9 +684,10 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               )}
               Vytvoriť používateľa
             </button>
-          </form>
-        </div>
-      )}
+            </form>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
