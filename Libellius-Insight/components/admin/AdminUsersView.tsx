@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   LoaderCircle,
   Plus,
@@ -52,6 +53,9 @@ const createDraftFromUser = (user: AdminManagedUser): UserDraft => ({
   moduleCodes: user.moduleCodes,
 });
 
+const getUserDisplayName = (user: AdminManagedUser) =>
+  user.fullName?.trim() || "Bez mena";
+
 const formatDate = (value: string | null) => {
   if (!value) return "Bez výsledku";
   return new Intl.DateTimeFormat("sk-SK", {
@@ -98,6 +102,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const defaultOrganizationId = useMemo(
     () =>
@@ -325,18 +330,40 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           {filteredUsers.map((user) => {
             const draft = drafts[user.id] || createDraftFromUser(user);
             const isSelf = user.id === currentUserId;
+            const isExpanded = expandedUserId === user.id;
 
             return (
               <section
                 key={user.id}
                 className="rounded-[2rem] border border-black/5 bg-[#f9f9f9] shadow-xl shadow-black/5 overflow-hidden"
               >
-                <div className="p-5 md:p-6 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedUserId((current) =>
+                      current === user.id ? null : user.id
+                    )
+                  }
+                  className="w-full px-5 py-5 md:px-6 md:py-6 flex items-center justify-between gap-4 text-left hover:bg-white transition-colors"
+                  aria-expanded={isExpanded}
+                >
+                  <span className="min-w-0 text-xl md:text-2xl font-black tracking-tight truncate">
+                    {getUserDisplayName(user)}
+                  </span>
+                  <ChevronDown
+                    className={`w-5 h-5 shrink-0 text-black/35 transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-black/5 p-5 md:p-6 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] animate-fade-in">
                   <div className="min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="text-xl md:text-2xl font-black tracking-tight truncate">
-                          {user.fullName || "Bez mena"}
+                          {getUserDisplayName(user)}
                         </p>
                         <p className="mt-1 text-sm font-bold text-black/45 truncate">
                           {user.email}
@@ -478,6 +505,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                     </div>
                   </div>
                 </div>
+                )}
               </section>
             );
           })}
