@@ -54,6 +54,35 @@ const readApiError = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+const mapAdminFinalizeError = (error: unknown) => {
+  const message = readApiError(error, 'Profil používateľa sa nepodarilo uložiť.');
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('admin_access_denied')) {
+    return {
+      status: 403,
+      error: 'Na vytvorenie používateľa nemáte oprávnenie.',
+    };
+  }
+  if (normalized.includes('admin_invalid_organization')) {
+    return { status: 400, error: 'Vybraná organizácia neexistuje.' };
+  }
+  if (normalized.includes('admin_invalid_module')) {
+    return {
+      status: 400,
+      error: 'Vybraný modul nie je aktívny alebo chýba v databáze.',
+    };
+  }
+  if (normalized.includes('duplicate') || normalized.includes('unique')) {
+    return {
+      status: 409,
+      error: 'Používateľ alebo profil s týmto emailom už existuje.',
+    };
+  }
+
+  return { status: 500, error: message };
+};
+
 const sendError = (res: VercelResponse, status: number, error: string) =>
   res.status(status).json({ error });
 
@@ -133,46 +162,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return sendError(res, 403, 'Na vytvorenie používateľa nemáte oprávnenie.');
     }
 
-    let resolvedOrganizationId = organizationId;
-    if (resolvedOrganizationId) {
-      const { data: organization, error: organizationError } = await adminClient
-        .from('organizations')
-        .select('id')
-        .eq('id', resolvedOrganizationId)
-        .single();
-
-      if (organizationError || !organization) {
-        return sendError(res, 400, 'Vybraná organizácia neexistuje.');
-      }
-    } else {
-      const { data: defaultOrganization } = await adminClient
-        .from('organizations')
-        .select('id')
-        .eq('slug', 'libellius')
-        .single();
-      resolvedOrganizationId = defaultOrganization?.id || null;
-    }
-
-    if (moduleCodes.length > 0) {
-      const { data: modules, error: modulesError } = await userScopedClient
-        .from('modules')
-        .select('code')
-        .in('code', moduleCodes)
-        .eq('is_active', true);
-
-      const validCodes = new Set((modules || []).map((module) => module.code));
-      if (
-        modulesError ||
-        moduleCodes.some((moduleCode) => !validCodes.has(moduleCode))
-      ) {
-        return sendError(
-          res,
-          400,
-          'Vybraný modul nie je aktívny alebo chýba v databáze.'
-        );
-      }
-    }
-
     const { data: createdUser, error: createError } =
       await adminClient.auth.admin.createUser({
         email,
@@ -189,57 +178,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userId = createdUser.user.id;
 
-    const { error: profileError } = await adminClient.from('profiles').upsert(
+    const { error: finalizeError } = await userScopedClient.rpc(
+      'admin_finalize_created_user',
       {
-        id: userId,
-        email,
-        full_name: fullName || null,
-        company_name: companyName || null,
-        role: 'participant',
-        organization_id: resolvedOrganizationId,
-      },
-      { onConflict: 'id' }
+        p_user_id: userId,
+        p_email: email,
+        p_full_name: fullName || null,
+        p_company_name: companyName || null,
+        p_organization_id: organizationId,
+        p_module_codes: moduleCodes,
+      }
     );
 
-    if (profileError) {
-      return sendError(
-        res,
-        500,
-        readApiError(profileError, 'Profil používateľa sa nepodarilo uložiť.')
-      );
+    if (finalizeError) {
+      await adminClient.auth.admin.deleteUser(userId).catch(() => undefined);
+      const mappedError = mapAdminFinalizeError(finalizeError);
+      return sendError(res, mappedError.status, mappedError.error);
     }
-
-    if (moduleCodes.length > 0) {
-      const assignmentRows = moduleCodes.map((moduleCode) => ({
-        user_id: userId,
-        organization_id: resolvedOrganizationId,
-        module_code: moduleCode,
-        status: 'active',
-        assigned_by: authData.user.id,
-      }));
-      const { error: assignmentError } = await adminClient
-        .from('module_assignments')
-        .upsert(assignmentRows, { onConflict: 'user_id,module_code' });
-
-      if (assignmentError) {
-        return sendError(
-          res,
-          500,
-          readApiError(assignmentError, 'Prístupy používateľa sa nepodarilo uložiť.')
-        );
-      }
-    }
-
-    await adminClient.from('admin_audit_log').insert({
-      actor_id: authData.user.id,
-      action: 'admin_create_user',
-      target_user_id: userId,
-      details: {
-        email,
-        organization_id: resolvedOrganizationId,
-        module_codes: moduleCodes,
-      },
-    });
 
     return res.status(201).json({ userId });
   } catch (error: unknown) {

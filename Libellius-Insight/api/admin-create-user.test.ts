@@ -227,7 +227,7 @@ describe("api/admin-create-user handler", () => {
   });
 
   it("returns 201 and creates auth user, profile and assignments", async () => {
-    const { adminClient, createUser } = createClients();
+    const { userScopedClient, createUser } = createClients();
     const req = baseReq();
     const res = createMockRes();
 
@@ -241,8 +241,17 @@ describe("api/admin-create-user handler", () => {
       email_confirm: true,
       user_metadata: { full_name: "Participant User" },
     });
-    expect(adminClient.from).toHaveBeenCalledWith("profiles");
-    expect(adminClient.from).toHaveBeenCalledWith("module_assignments");
-    expect(adminClient.from).toHaveBeenCalledWith("admin_audit_log");
+    expect(userScopedClient.rpc).toHaveBeenCalledWith("is_global_admin");
+    expect(userScopedClient.rpc).toHaveBeenCalledWith(
+      "admin_finalize_created_user",
+      {
+        p_user_id: "user-1",
+        p_email: "participant@example.com",
+        p_full_name: "Participant User",
+        p_company_name: "Libellius",
+        p_organization_id: "org-1",
+        p_module_codes: ["TYPOLOGY_LEADERSHIP"],
+      }
+    );
   });
 });
