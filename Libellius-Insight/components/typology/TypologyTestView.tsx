@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
+  BarChart3,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,8 @@ import {
 
 type TypologyTestViewProps = {
   user: User;
+  canViewResults?: boolean;
+  onOpenResults?: () => void;
   onBack: () => void;
 };
 
@@ -36,6 +39,11 @@ type QuestionGroupCardProps = {
     optionId: string,
     score: number
   ) => void;
+};
+
+type TypologyResultsActionProps = {
+  canViewResults?: boolean;
+  onOpenResults?: () => void;
 };
 
 const REQUIRED_SCORES = [1, 2, 3, 4];
@@ -66,6 +74,24 @@ const findResumeGroupIndex = (
   return firstIncompleteIndex === -1
     ? Math.max(groups.length - 1, 0)
     : firstIncompleteIndex;
+};
+
+const TypologyResultsAction: React.FC<TypologyResultsActionProps> = ({
+  canViewResults,
+  onOpenResults,
+}) => {
+  if (!canViewResults || !onOpenResults) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpenResults}
+      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-brand text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all"
+    >
+      <BarChart3 className="w-4 h-4" />
+      Zobraziť výsledky
+    </button>
+  );
 };
 
 const QuestionGroupCard: React.FC<QuestionGroupCardProps> = ({
@@ -141,7 +167,12 @@ const QuestionGroupCard: React.FC<QuestionGroupCardProps> = ({
   );
 };
 
-const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => {
+const TypologyTestView: React.FC<TypologyTestViewProps> = ({
+  user,
+  canViewResults = false,
+  onOpenResults,
+  onBack,
+}) => {
   const [test, setTest] = useState<TypologyTest | null>(null);
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -416,13 +447,19 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
             Vaše odpovede boli uložené. Výsledok bude súčasťou rozvojového
             programu a dozviete sa ho počas spoločnej práce s konzultantom.
           </p>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mt-9 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
-          >
-            Späť na prehľad
-          </button>
+          <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
+            >
+              Späť na prehľad
+            </button>
+            <TypologyResultsAction
+              canViewResults={canViewResults}
+              onOpenResults={onOpenResults}
+            />
+          </div>
         </div>
       </div>
     );
@@ -430,21 +467,38 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
 
   if (!test) {
     return (
-      <div className="min-h-[calc(100vh-180px)] flex flex-col items-center justify-center text-center px-4">
-        <div className="w-full max-w-4xl bg-[#f9f9f9] border border-black/5 rounded-[2rem] px-7 py-10 md:px-12 md:py-14">
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-            Test zatiaľ nie je dostupný
-          </h1>
-          <p className="mt-5 text-black/55 font-semibold">
-            Organizátor ho sprístupní pred začiatkom programu.
-          </p>
+      <div className="w-full max-w-5xl mx-auto animate-fade-in">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="mt-8 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
+            className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
           >
-            Späť
+            <ChevronLeft className="w-4 h-4" />
+            Späť na prehľad
           </button>
+          <TypologyResultsAction
+            canViewResults={canViewResults}
+            onOpenResults={onOpenResults}
+          />
+        </div>
+
+        <div className="min-h-[calc(100vh-240px)] flex flex-col items-center justify-center text-center px-4">
+          <div className="w-full max-w-4xl bg-[#f9f9f9] border border-black/5 rounded-[2rem] px-7 py-10 md:px-12 md:py-14">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+              Test zatiaľ nie je dostupný
+            </h1>
+            <p className="mt-5 text-black/55 font-semibold">
+              Organizátor ho sprístupní pred začiatkom programu.
+            </p>
+            <button
+              type="button"
+              onClick={onBack}
+              className="mt-8 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
+            >
+              Späť
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -453,14 +507,20 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
   if (!hasConfirmedProfile) {
     return (
       <div className="w-full max-w-5xl mx-auto animate-fade-in">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-6 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Späť na prehľad
-        </button>
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Späť na prehľad
+          </button>
+          <TypologyResultsAction
+            canViewResults={canViewResults}
+            onOpenResults={onOpenResults}
+          />
+        </div>
 
         <div className="rounded-[2rem] border border-black/5 bg-white shadow-2xl shadow-black/5 overflow-hidden">
           <div className="bg-black text-white px-6 py-8 md:px-10 md:py-10">
@@ -545,16 +605,22 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
 
   return (
     <div className="w-full max-w-5xl mx-auto animate-fade-in">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Späť na prehľad
+        </button>
+        <TypologyResultsAction
+          canViewResults={canViewResults}
+          onOpenResults={onOpenResults}
+        />
+      </div>
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 md:mb-10">
         <div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mb-6 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Späť na prehľad
-          </button>
           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand mb-3">
             Rozvojový dotazník
           </p>

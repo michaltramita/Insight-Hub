@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const [showAdminUsers, setShowAdminUsers] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const { profile, isAdminLike } = useCurrentProfile(user);
+  const { profile } = useCurrentProfile(user);
   const {
     assignments,
     isLoading: isLoadingAssignments,
@@ -411,6 +411,8 @@ const App: React.FC = () => {
             ) : (
               <TypologyTestView
                 user={user}
+                canViewResults={isGlobalAdmin}
+                onOpenResults={() => setShowTypologyResults(true)}
                 onBack={() => setShowTypologyTest(false)}
               />
             )}
@@ -524,8 +526,14 @@ const App: React.FC = () => {
                   {canSeeSatisfaction ? 'VYBRAŤ TENTO MÓD' : 'BEZ PRÍSTUPU'}
                 </div>
               </button>
-              <div
-                aria-disabled={!canSeeTypology}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canSeeTypology) return;
+                  setShowTypologyResults(false);
+                  setShowTypologyTest(true);
+                }}
+                disabled={!canSeeTypology}
                 className={`group md:col-span-2 p-5 sm:p-6 md:p-7 border-2 border-black/5 rounded-[2rem] md:rounded-[2.25rem] text-left flex flex-col md:flex-row md:items-center gap-5 md:gap-7 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all ${
                 canSeeTypology
                   ? 'hover:border-black hover:bg-black/5'
@@ -541,34 +549,14 @@ const App: React.FC = () => {
                   <span className="text-[26px] sm:text-[28px] md:text-[32px] font-black block mb-2 md:mb-3 tracking-tight uppercase leading-tight">Test typológie pri vedení ľudí</span>
                   <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-3xl">Spoznajte, ako sa rozhodujete, komunikujete a reagujete v spolupráci, pod tlakom aj pri zmene.</p>
                 </div>
-                <div className="z-10 w-full md:w-auto flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (canSeeTypology) setShowTypologyTest(true);
-                    }}
-                    disabled={!canSeeTypology}
-                    className={`px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center whitespace-nowrap flex items-center justify-center gap-2 transition-all ${
+                <div className={`z-10 w-full md:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center whitespace-nowrap flex items-center justify-center gap-2 transition-all ${
                     canSeeTypology ? 'bg-black text-white' : 'bg-black/10 text-black'
                   }`}
-                  >
-                    {!canSeeTypology && <Lock className="w-4 h-4" />}
-                    {canSeeTypology ? 'VYPLNIŤ TEST' : 'BEZ PRÍSTUPU'}
-                  </button>
-                  {canSeeTypology && isAdminLike && (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShowTypologyResults(true);
-                      }}
-                      className="px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center whitespace-nowrap bg-brand text-white hover:bg-black transition-all"
-                    >
-                      Výsledky
-                    </button>
-                  )}
+                >
+                  {!canSeeTypology && <Lock className="w-4 h-4" />}
+                  {canSeeTypology ? 'VYBRAŤ TENTO MODUL' : 'BEZ PRÍSTUPU'}
                 </div>
-              </div>
+              </button>
             </div>
             )}
           </div>

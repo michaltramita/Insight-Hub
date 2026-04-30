@@ -115,7 +115,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
             className="mb-6 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            Späť na prehľad
+            Späť na test
           </button>
           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand mb-3">
             Admin prehľad
