@@ -23,6 +23,8 @@ export type TypologyTest = {
   description: string | null;
   groups: TypologyQuestionGroup[];
   completedAt: string | null;
+  savedAnswers: TypologyAnswerMap;
+  savedAt: string | null;
 };
 
 type TypologyTestRow = {
@@ -47,6 +49,12 @@ type TypologySessionRow = {
 };
 
 export type TypologyAnswerMap = Record<string, number>;
+
+type TypologyAnswerRow = {
+  question_id: string;
+  score: number;
+  updated_at: string;
+};
 
 export type TypologyAdminResult = {
   sessionId: string;
@@ -119,6 +127,12 @@ const readSubmitErrorMessage = (message: string) => {
     return "Odpovede nie sú kompletné alebo nemajú správne rozdelenie hodnôt 1 až 4.";
   }
   if (
+    message.includes("invalid_progress_answers") ||
+    message.includes("invalid_answers_payload")
+  ) {
+    return "Rozpracované odpovede sa nepodarilo uložiť, pretože nemajú správny formát.";
+  }
+  if (
     message.includes("typology_access_denied") ||
     message.includes("typology_test_not_available")
   ) {
@@ -168,12 +182,56 @@ export const loadTypologyTest = async (
   }
 
   const session = (sessions?.[0] as TypologySessionRow | undefined) || null;
+  const savedAnswers: TypologyAnswerMap = {};
+  let savedAt: string | null = null;
+
+  if (session?.status === "in_progress") {
+    const { data: answerRows, error: answerError } = await supabase
+      .from("typology_answers")
+      .select("question_id, score, updated_at")
+      .eq("session_id", session.id);
+
+    if (answerError) {
+      throw new Error(answerError.message);
+    }
+
+    ((answerRows || []) as TypologyAnswerRow[]).forEach((row) => {
+      savedAnswers[row.question_id] = row.score;
+      if (!savedAt || row.updated_at > savedAt) {
+        savedAt = row.updated_at;
+      }
+    });
+  }
 
   return {
     ...test,
     groups: groupQuestions((questions || []) as TypologyQuestionRow[]),
     completedAt: session?.status === "completed" ? session.completed_at : null,
+    savedAnswers,
+    savedAt,
   };
+};
+
+export const saveTypologyProgress = async (
+  user: User,
+  test: TypologyTest,
+  answers: TypologyAnswerMap
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+
+  if (!user?.id) {
+    throw new Error("Nie ste prihlásený.");
+  }
+
+  const { error } = await db.rpc("save_typology_progress", {
+    p_test_id: test.id,
+    p_answers: answers,
+  });
+
+  if (error) {
+    throw new Error(readSubmitErrorMessage(error.message));
+  }
 };
 
 export const submitTypologyTest = async (

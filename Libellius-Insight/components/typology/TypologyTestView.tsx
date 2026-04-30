@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { CheckCircle2, ChevronLeft, LoaderCircle, Send } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+  Send,
+} from "lucide-react";
 import {
   loadTypologyTest,
+  saveTypologyProgress,
   submitTypologyTest,
   TypologyAnswerMap,
   TypologyQuestionGroup,
@@ -16,6 +23,19 @@ import {
 type TypologyTestViewProps = {
   user: User;
   onBack: () => void;
+};
+
+type TestViewMode = "single" | "all";
+
+type QuestionGroupCardProps = {
+  group: TypologyQuestionGroup;
+  answers: TypologyAnswerMap;
+  variant?: "standard" | "focus";
+  onScoreSelect: (
+    group: TypologyQuestionGroup,
+    optionId: string,
+    score: number
+  ) => void;
 };
 
 const REQUIRED_SCORES = [1, 2, 3, 4];
@@ -35,14 +55,109 @@ const isGroupComplete = (
   );
 };
 
+const findResumeGroupIndex = (
+  groups: TypologyQuestionGroup[],
+  answers: TypologyAnswerMap
+) => {
+  const firstIncompleteIndex = groups.findIndex(
+    (group) => !isGroupComplete(group, answers)
+  );
+
+  return firstIncompleteIndex === -1
+    ? Math.max(groups.length - 1, 0)
+    : firstIncompleteIndex;
+};
+
+const QuestionGroupCard: React.FC<QuestionGroupCardProps> = ({
+  group,
+  answers,
+  variant = "standard",
+  onScoreSelect,
+}) => {
+  const isComplete = isGroupComplete(group, answers);
+  const isFocus = variant === "focus";
+
+  return (
+    <section
+      className={`rounded-[2rem] border border-black/5 bg-[#f9f9f9] shadow-xl shadow-black/5 ${
+        isFocus ? "p-5 md:p-8" : "p-5 md:p-7"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <h2
+          className={`font-black tracking-tight ${
+            isFocus ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"
+          }`}
+        >
+          Otázka {group.questionNo}
+        </h2>
+        <div
+          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+            isComplete ? "bg-brand text-white" : "bg-black/5 text-black/45"
+          }`}
+        >
+          {isComplete ? "Hotovo" : "Vyberte 1-4"}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {group.options.map((option) => (
+          <div
+            key={option.id}
+            className={`grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 lg:items-center rounded-2xl bg-white border border-black/5 px-4 py-4 ${
+              isFocus ? "md:px-6 md:py-5" : "md:px-5"
+            }`}
+          >
+            <p
+              className={`text-left font-bold leading-relaxed ${
+                isFocus ? "text-lg md:text-xl" : "text-base md:text-lg"
+              }`}
+            >
+              {option.statement}
+            </p>
+            <div className="grid grid-cols-4 gap-2 min-w-[220px]">
+              {REQUIRED_SCORES.map((score) => {
+                const isSelected = answers[option.id] === score;
+                return (
+                  <button
+                    key={score}
+                    type="button"
+                    onClick={() => onScoreSelect(group, option.id, score)}
+                    className={`h-11 rounded-xl font-black text-sm transition-all ${
+                      isSelected
+                        ? "bg-black text-white shadow-lg"
+                        : "bg-black/5 text-black/50 hover:bg-black/10"
+                    }`}
+                  >
+                    {score}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => {
   const [test, setTest] = useState<TypologyTest | null>(null);
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [hasConfirmedProfile, setHasConfirmedProfile] = useState(false);
   const [answers, setAnswers] = useState<TypologyAnswerMap>({});
+  const [viewMode, setViewMode] = useState<TestViewMode>("single");
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  const [lastTouchedQuestionNo, setLastTouchedQuestionNo] = useState<number | null>(
+    null
+  );
+  const [hasAnswerChanges, setHasAnswerChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isAutosaving, setIsAutosaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +171,16 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
     void Promise.all([loadTypologyTest(user), loadCurrentUserProfile(user)])
       .then(([loadedTest, loadedProfile]) => {
         if (!isMounted) return;
+        const savedAnswers = loadedTest?.savedAnswers || {};
+
         setTest(loadedTest);
+        setAnswers(savedAnswers);
+        setCurrentGroupIndex(
+          loadedTest ? findResumeGroupIndex(loadedTest.groups, savedAnswers) : 0
+        );
+        setLastSavedAt(loadedTest?.savedAt || null);
+        setAutosaveError(null);
+        setHasAnswerChanges(false);
         setFullName(loadedProfile?.fullName || "");
         setCompanyName(loadedProfile?.companyName || "");
         setHasConfirmedProfile(
@@ -88,8 +212,115 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
     return test.groups.filter((group) => isGroupComplete(group, answers)).length;
   }, [answers, test]);
 
+  useEffect(() => {
+    if (!test || currentGroupIndex < test.groups.length) return;
+    setCurrentGroupIndex(Math.max(test.groups.length - 1, 0));
+  }, [currentGroupIndex, test]);
+
+  const currentGroup = test?.groups[currentGroupIndex] || null;
+  const currentGroupComplete = Boolean(
+    currentGroup && isGroupComplete(currentGroup, answers)
+  );
+  const stepProgress = test?.groups.length
+    ? ((currentGroupIndex + 1) / test.groups.length) * 100
+    : 0;
+  const groupCount = test?.groups.length || 0;
   const isComplete = Boolean(test && completedGroups === test.groups.length);
   const isProfileComplete = Boolean(fullName.trim() && companyName.trim());
+  const answeredCount = Object.keys(answers).length;
+  const saveStatusText = isAutosaving
+    ? "Ukladám priebeh..."
+    : autosaveError
+      ? autosaveError
+      : answeredCount > 0 && lastSavedAt
+        ? "Priebeh je uložený."
+        : "Priebeh sa uloží automaticky.";
+
+  useEffect(() => {
+    if (
+      !test ||
+      !hasConfirmedProfile ||
+      !hasAnswerChanges ||
+      isSubmitted ||
+      isSubmitting ||
+      answeredCount === 0
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setIsAutosaving(true);
+      setAutosaveError(null);
+
+      void saveTypologyProgress(user, test, answers)
+        .then(() => {
+          setLastSavedAt(new Date().toISOString());
+        })
+        .catch((saveError: unknown) => {
+          setAutosaveError(
+            saveError instanceof Error
+              ? saveError.message
+              : "Priebeh testu sa nepodarilo uložiť."
+          );
+        })
+        .finally(() => {
+          setIsAutosaving(false);
+        });
+    }, 650);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    answeredCount,
+    answers,
+    hasAnswerChanges,
+    hasConfirmedProfile,
+    isSubmitted,
+    isSubmitting,
+    test,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (
+      viewMode !== "single" ||
+      !currentGroup ||
+      !currentGroupComplete ||
+      lastTouchedQuestionNo !== currentGroup.questionNo ||
+      currentGroupIndex >= groupCount - 1
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCurrentGroupIndex((index) => Math.min(index + 1, groupCount - 1));
+      setLastTouchedQuestionNo(null);
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    currentGroup,
+    currentGroupComplete,
+    currentGroupIndex,
+    groupCount,
+    lastTouchedQuestionNo,
+    viewMode,
+  ]);
+
+  const handleModeChange = (nextMode: TestViewMode) => {
+    setViewMode(nextMode);
+    setLastTouchedQuestionNo(null);
+
+    if (nextMode === "single" && test) {
+      const firstIncompleteIndex = test.groups.findIndex(
+        (group) => !isGroupComplete(group, answers)
+      );
+      setCurrentGroupIndex(
+        firstIncompleteIndex === -1
+          ? Math.max(test.groups.length - 1, 0)
+          : firstIncompleteIndex
+      );
+    }
+  };
 
   const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -120,6 +351,8 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
     optionId: string,
     score: number
   ) => {
+    setLastTouchedQuestionNo(group.questionNo);
+    setHasAnswerChanges(true);
     setAnswers((current) => {
       const next = { ...current };
 
@@ -142,6 +375,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
 
     try {
       await submitTypologyTest(user, test, answers);
+      setHasAnswerChanges(false);
       setIsSubmitted(true);
     } catch (submitError: unknown) {
       setError(
@@ -332,6 +566,32 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
             že vás tvrdenie vystihuje najviac, hodnota 1 najmenej. Každú hodnotu
             použite v jednej štvorici iba raz.
           </p>
+          <div className="mt-7 inline-grid grid-cols-2 rounded-full border border-black/10 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              aria-pressed={viewMode === "single"}
+              onClick={() => handleModeChange("single")}
+              className={`rounded-full px-5 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+                viewMode === "single"
+                  ? "bg-black text-white shadow-lg"
+                  : "text-black/40 hover:text-black"
+              }`}
+            >
+              Po otázkach
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "all"}
+              onClick={() => handleModeChange("all")}
+              className={`rounded-full px-5 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+                viewMode === "all"
+                  ? "bg-black text-white shadow-lg"
+                  : "text-black/40 hover:text-black"
+              }`}
+            >
+              Všetky naraz
+            </button>
+          </div>
         </div>
         <div className="rounded-2xl bg-[#f9f9f9] border border-black/5 px-5 py-4 text-left md:text-right shrink-0">
           <p className="text-[10px] font-black uppercase tracking-widest text-black/35">
@@ -349,77 +609,136 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({ user, onBack }) => 
         </div>
       )}
 
-      <div className="space-y-6">
-        {test.groups.map((group) => (
-          <section
-            key={group.questionNo}
-            className="rounded-[2rem] border border-black/5 bg-[#f9f9f9] shadow-xl shadow-black/5 p-5 md:p-7"
-          >
-            <div className="flex items-center justify-between gap-4 mb-5">
-              <h2 className="text-xl md:text-2xl font-black tracking-tight">
-                Otázka {group.questionNo}
-              </h2>
-              <div
-                className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                  isGroupComplete(group, answers)
-                    ? "bg-brand text-white"
-                    : "bg-black/8 text-black/45"
-                }`}
-              >
-                {isGroupComplete(group, answers) ? "Hotovo" : "Vyberte 1-4"}
+      {viewMode === "single" && currentGroup ? (
+        <div className="space-y-6">
+          <div className="rounded-[1.5rem] border border-black/5 bg-white px-5 py-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand">
+                Otázka {currentGroupIndex + 1} z {test.groups.length}
+              </p>
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-black/35">
+                  {currentGroupComplete ? "Otázka dokončená" : "Doplňte hodnoty 1-4"}
+                </p>
+                <p
+                  className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
+                    autosaveError ? "text-brand" : "text-black/30"
+                  }`}
+                >
+                  {saveStatusText}
+                </p>
               </div>
             </div>
-            <div className="space-y-4">
-              {group.options.map((option) => (
-                <div
-                  key={option.id}
-                  className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 lg:items-center rounded-2xl bg-white border border-black/5 px-4 py-4 md:px-5"
-                >
-                  <p className="text-left text-base md:text-lg font-bold leading-relaxed">
-                    {option.statement}
-                  </p>
-                  <div className="grid grid-cols-4 gap-2 min-w-[220px]">
-                    {REQUIRED_SCORES.map((score) => {
-                      const isSelected = answers[option.id] === score;
-                      return (
-                        <button
-                          key={score}
-                          type="button"
-                          onClick={() => handleScoreSelect(group, option.id, score)}
-                          className={`h-11 rounded-xl font-black text-sm transition-all ${
-                            isSelected
-                              ? "bg-black text-white shadow-lg"
-                              : "bg-black/5 text-black/50 hover:bg-black/10"
-                          }`}
-                        >
-                          {score}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+            <div
+              className="h-2.5 rounded-full bg-black/5 overflow-hidden"
+              role="progressbar"
+              aria-valuemin={1}
+              aria-valuemax={test.groups.length}
+              aria-valuenow={currentGroupIndex + 1}
+              aria-label="Postup v teste"
+            >
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-500 ease-out"
+                style={{ width: `${stepProgress}%` }}
+              />
             </div>
-          </section>
-        ))}
-      </div>
+          </div>
 
-      <div className="sticky bottom-4 mt-8 z-30">
-        <div className="w-full rounded-[1.5rem] bg-white/90 backdrop-blur border border-black/10 shadow-2xl px-4 py-4 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <p className="text-sm font-bold text-black/55">
-            Pred odoslaním musia byť všetky štvorice vyplnené hodnotami 1, 2, 3 a 4.
-          </p>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!isComplete || isSubmitting}
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
-          >
-            <Send className="w-4 h-4" />
-            {isSubmitting ? "Odosielam..." : "Odoslať test"}
-          </button>
+          <QuestionGroupCard
+            group={currentGroup}
+            answers={answers}
+            variant="focus"
+            onScoreSelect={handleScoreSelect}
+          />
+
+          <div className="rounded-[1.5rem] bg-white/90 backdrop-blur border border-black/10 shadow-2xl px-4 py-4 md:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentGroupIndex((index) => Math.max(index - 1, 0))
+              }
+              disabled={currentGroupIndex === 0}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-black/10 bg-white text-black font-black text-xs uppercase tracking-widest hover:border-black/30 transition-all disabled:opacity-35 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Predchádzajúca
+            </button>
+
+            <p className="text-sm font-bold text-black/50 text-center">
+              {currentGroupComplete
+                ? currentGroupIndex < test.groups.length - 1
+                  ? "Ďalšia otázka sa zobrazí automaticky."
+                  : "Test je pripravený na odoslanie."
+                : "Každú hodnotu 1, 2, 3 a 4 použite iba raz."}
+            </p>
+
+            {currentGroupIndex < test.groups.length - 1 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentGroupIndex((index) =>
+                    Math.min(index + 1, test.groups.length - 1)
+                  )
+                }
+                disabled={!currentGroupComplete}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                Ďalšia otázka
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!isComplete || isSubmitting}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                {isSubmitting ? "Odosielam..." : "Odoslať test"}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="space-y-6">
+            {test.groups.map((group) => (
+              <QuestionGroupCard
+                key={group.questionNo}
+                group={group}
+                answers={answers}
+                onScoreSelect={handleScoreSelect}
+              />
+            ))}
+          </div>
+
+          <div className="sticky bottom-4 mt-8 z-30">
+            <div className="w-full rounded-[1.5rem] bg-white/90 backdrop-blur border border-black/10 shadow-2xl px-4 py-4 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-black/55">
+                  Pred odoslaním musia byť všetky štvorice vyplnené hodnotami 1, 2, 3 a 4.
+                </p>
+                <p
+                  className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
+                    autosaveError ? "text-brand" : "text-black/30"
+                  }`}
+                >
+                  {saveStatusText}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!isComplete || isSubmitting}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                {isSubmitting ? "Odosielam..." : "Odoslať test"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
