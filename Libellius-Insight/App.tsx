@@ -36,6 +36,7 @@ const App: React.FC = () => {
   const [showAdminUsers, setShowAdminUsers] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const previousUserIdRef = useRef<string | null>(null);
   const {
     profile,
     isLoading: isLoadingProfile,
@@ -90,6 +91,20 @@ const App: React.FC = () => {
   const isBootstrappingAccess =
     shouldUseAssignments && (isLoadingAssignments || isLoadingProfile);
   const accessLoadError = assignmentsError || profileError;
+
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    const previousUserId = previousUserIdRef.current;
+    previousUserIdRef.current = currentUserId;
+
+    if (!currentUserId || previousUserId === currentUserId) return;
+
+    setShowAccountMenu(false);
+    setShowAdminUsers(false);
+    setShowTypologyTest(false);
+    setShowTypologyResults(false);
+    handleBackToMode();
+  }, [user?.id]);
 
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
