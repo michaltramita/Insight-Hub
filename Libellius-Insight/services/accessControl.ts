@@ -88,10 +88,14 @@ export const loadCurrentUserProfile = async (
     .from("profiles")
     .select("id, email, full_name, company_name, role, organization_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (!data) {
+    return null;
   }
 
   const row = data as {

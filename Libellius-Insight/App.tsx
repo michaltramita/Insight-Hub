@@ -36,7 +36,11 @@ const App: React.FC = () => {
   const [showAdminUsers, setShowAdminUsers] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const { profile } = useCurrentProfile(user);
+  const {
+    profile,
+    isLoading: isLoadingProfile,
+    error: profileError,
+  } = useCurrentProfile(user);
   const {
     assignments,
     isLoading: isLoadingAssignments,
@@ -83,6 +87,9 @@ const App: React.FC = () => {
   const isGlobalAdmin = profile?.role === 'admin';
   const hasAnyAssignedModule =
     canSeeFeedback360 || canSeeSatisfaction || canSeeTypology;
+  const isBootstrappingAccess =
+    shouldUseAssignments && (isLoadingAssignments || isLoadingProfile);
+  const accessLoadError = assignmentsError || profileError;
 
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -436,7 +443,7 @@ const App: React.FC = () => {
             <p className="text-base sm:text-lg md:text-2xl text-black/50 mb-10 md:mb-16 mt-6 md:mt-8 max-w-2xl font-medium px-4 leading-relaxed">
               PREHĽADNÁ VIZUALIZÁCIA VAŠICH VÝSLEDKOV.
             </p>
-            {shouldUseAssignments && isLoadingAssignments && (
+            {isBootstrappingAccess && (
               <div className="w-full max-w-5xl border border-black/5 rounded-[2rem] bg-[#f9f9f9] px-6 py-10 md:py-12 shadow-xl shadow-black/5">
                 <p className="text-sm md:text-base font-black uppercase tracking-widest text-black/40">
                   Načítavam vaše dostupné moduly...
@@ -444,7 +451,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {shouldUseAssignments && !isLoadingAssignments && assignmentsError && (
+            {shouldUseAssignments && !isBootstrappingAccess && accessLoadError && (
               <div className="w-full max-w-5xl border border-brand/15 rounded-[2rem] bg-brand/5 px-6 py-10 md:py-12 shadow-xl shadow-black/5">
                 <p className="text-sm md:text-base font-black uppercase tracking-widest text-brand">
                   Prístupové nastavenia sa nepodarilo načítať
@@ -455,7 +462,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {shouldUseAssignments && !isLoadingAssignments && !assignmentsError && assignments.length === 0 && (
+            {shouldUseAssignments && !isBootstrappingAccess && !accessLoadError && assignments.length === 0 && (
               <div className="w-full max-w-5xl border border-black/5 rounded-[2rem] bg-[#f9f9f9] px-6 py-10 md:py-12 shadow-xl shadow-black/5">
                 <p className="text-sm md:text-base font-black uppercase tracking-widest text-black/40">
                   Zatiaľ nemáte pridelený žiadny modul
@@ -466,7 +473,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {!isLoadingAssignments && !assignmentsError && hasAnyAssignedModule && (
+            {!isBootstrappingAccess && !accessLoadError && hasAnyAssignedModule && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-0 sm:px-2">
               <button
                 onClick={() => selectMode('360_FEEDBACK')}

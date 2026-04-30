@@ -5,6 +5,8 @@ import {
   loadCurrentUserProfile,
 } from "../services/accessControl";
 
+const PROFILE_RETRY_DELAYS_MS = [0, 250, 800, 1800];
+
 type CurrentProfileState = {
   profile: AppUserProfile | null;
   isLoading: boolean;
@@ -30,12 +32,30 @@ export const useCurrentProfile = (user: User | null): CurrentProfileState => {
     setIsLoading(true);
     setError(null);
 
-    void loadCurrentUserProfile(user)
-      .then((nextProfile) => {
+    const sleep = (ms: number) =>
+      new Promise((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
+    void (async () => {
+      try {
+        let nextProfile: AppUserProfile | null = null;
+
+        for (let attempt = 0; attempt < PROFILE_RETRY_DELAYS_MS.length; attempt += 1) {
+          if (attempt > 0) {
+            await sleep(PROFILE_RETRY_DELAYS_MS[attempt]);
+            if (!isMounted) return;
+          }
+
+          nextProfile = await loadCurrentUserProfile(user);
+          if (nextProfile) {
+            break;
+          }
+        }
+
         if (!isMounted) return;
         setProfile(nextProfile);
-      })
-      .catch((profileError: unknown) => {
+      } catch (profileError: unknown) {
         if (!isMounted) return;
         setError(
           profileError instanceof Error
@@ -43,12 +63,12 @@ export const useCurrentProfile = (user: User | null): CurrentProfileState => {
             : "Profil sa nepodarilo načítať."
         );
         setProfile(null);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setIsLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       isMounted = false;

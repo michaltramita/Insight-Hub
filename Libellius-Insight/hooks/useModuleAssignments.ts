@@ -6,6 +6,8 @@ import {
   loadActiveModuleAssignments,
 } from "../services/accessControl";
 
+const MODULE_ASSIGNMENT_RETRY_DELAYS_MS = [0, 300, 900, 2000];
+
 type ModuleAssignmentState = {
   assignments: AppModuleAssignment[];
   isLoading: boolean;
@@ -31,12 +33,34 @@ export const useModuleAssignments = (user: User | null): ModuleAssignmentState =
     setIsLoading(true);
     setError(null);
 
-    void loadActiveModuleAssignments(user)
-      .then((nextAssignments) => {
+    const sleep = (ms: number) =>
+      new Promise((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
+    void (async () => {
+      try {
+        let nextAssignments: AppModuleAssignment[] = [];
+
+        for (
+          let attempt = 0;
+          attempt < MODULE_ASSIGNMENT_RETRY_DELAYS_MS.length;
+          attempt += 1
+        ) {
+          if (attempt > 0) {
+            await sleep(MODULE_ASSIGNMENT_RETRY_DELAYS_MS[attempt]);
+            if (!isMounted) return;
+          }
+
+          nextAssignments = await loadActiveModuleAssignments(user);
+          if (nextAssignments.length > 0) {
+            break;
+          }
+        }
+
         if (!isMounted) return;
         setAssignments(nextAssignments);
-      })
-      .catch((assignmentError: unknown) => {
+      } catch (assignmentError: unknown) {
         if (!isMounted) return;
         setError(
           assignmentError instanceof Error
@@ -44,12 +68,12 @@ export const useModuleAssignments = (user: User | null): ModuleAssignmentState =
             : "Nepodarilo sa načítať prístupové nastavenia."
         );
         setAssignments([]);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setIsLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       isMounted = false;
