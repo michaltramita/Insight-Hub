@@ -1,8 +1,8 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import AuthAccessPanel from './components/AuthAccessPanel';
 import FileUpload from './components/FileUpload';
 import { AppStatus } from './types';
-import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock, ShieldCheck, UserCircle } from 'lucide-react';
 import { useAppWorkflow } from './hooks/useAppWorkflow';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import { useModuleAssignments } from './hooks/useModuleAssignments';
@@ -34,6 +34,8 @@ const App: React.FC = () => {
   const [showTypologyTest, setShowTypologyTest] = useState(false);
   const [showTypologyResults, setShowTypologyResults] = useState(false);
   const [showAdminUsers, setShowAdminUsers] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const { profile, isAdminLike } = useCurrentProfile(user);
   const {
     assignments,
@@ -98,6 +100,33 @@ const App: React.FC = () => {
     setIsUpdatingPassword(false);
   };
 
+  useEffect(() => {
+    if (!showAccountMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        accountMenuRef.current &&
+        !accountMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowAccountMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowAccountMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAccountMenu]);
+
   return (
     <div className="min-h-screen bg-white text-black font-sans relative flex flex-col">
       {needsKey && (
@@ -111,7 +140,7 @@ const App: React.FC = () => {
 
       {isConfigured && user && !isSharedFlow && (
         <header className="sticky top-0 z-[55] w-full bg-black text-white border-b border-white/10">
-          <div className="w-full max-w-5xl mx-auto px-4 md:px-0 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="w-full max-w-5xl mx-auto px-4 md:px-0 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-4 min-w-0 h-12 overflow-hidden">
               <img
                 src="/Libelius_logo_white_HQ-01-2.png"
@@ -120,47 +149,71 @@ const App: React.FC = () => {
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:justify-end">
-              <div className="min-w-0 rounded-full border border-white/10 bg-white/8 px-4 py-2">
-                <p className="text-[10px] uppercase tracking-widest font-black text-white/40">
-                  Prihlásený účet
-                </p>
-                <p className="text-xs font-bold text-white/85 truncate max-w-[260px]">
-                  {user.email}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isGlobalAdmin && (
-                  <button
-                    onClick={() => {
-                      setShowTypologyTest(false);
-                      setShowTypologyResults(false);
-                      setShowAdminUsers(true);
-                    }}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/8 text-white px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span className="hidden sm:inline">Správa prístupov</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setPasswordFeedback(null);
-                    setShowPasswordDialog(true);
-                  }}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-white text-black px-4 text-[10px] font-black uppercase tracking-widest hover:bg-brand hover:text-white transition-all"
-                >
-                  <KeyRound className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nastaviť heslo</span>
-                </button>
-                <button
-                  onClick={() => void signOut()}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/8 text-white px-4 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Odhlásiť sa</span>
-                </button>
-              </div>
+            <div ref={accountMenuRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAccountMenu((current) => !current)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/8 text-white hover:bg-white hover:text-black transition-all"
+                aria-label="Otvoriť používateľské menu"
+                aria-expanded={showAccountMenu}
+                title="Používateľské menu"
+              >
+                <UserCircle className="w-5 h-5" />
+              </button>
+
+              {showAccountMenu && (
+                <div className="absolute right-0 top-full mt-3 w-[min(86vw,320px)] overflow-hidden rounded-3xl border border-black/10 bg-white text-black shadow-2xl">
+                  <div className="border-b border-black/5 px-5 py-4">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
+                      Prihlásený účet
+                    </p>
+                    <p className="mt-1 truncate text-sm font-black text-black">
+                      {user.email}
+                    </p>
+                  </div>
+
+                  <div className="p-2">
+                    {isGlobalAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+                          setShowTypologyTest(false);
+                          setShowTypologyResults(false);
+                          setShowAdminUsers(true);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-black/70 hover:bg-black hover:text-white transition-all"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        Správa prístupov
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        setPasswordFeedback(null);
+                        setShowPasswordDialog(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-black/70 hover:bg-black hover:text-white transition-all"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                      Nastaviť heslo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        void signOut();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-brand hover:bg-brand hover:text-white transition-all"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Odhlásiť sa
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
