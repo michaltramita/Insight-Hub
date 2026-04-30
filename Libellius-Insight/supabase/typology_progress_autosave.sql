@@ -97,7 +97,9 @@ begin
   join public.typology_questions tq on tq.id = va.question_id
   where tq.test_id = p_test_id;
 
-  if v_answer_count <> jsonb_object_length(p_answers) then
+  if v_answer_count <> (
+    select count(*)::integer from jsonb_object_keys(p_answers)
+  ) then
     raise exception 'invalid_progress_answers' using errcode = '22023';
   end if;
 
@@ -120,7 +122,7 @@ begin
   select count(*)
     into v_invalid_group_count
   from grouped_answers
-  where answer_count <> distinct_score_count;
+  where grouped_answers.answer_count <> grouped_answers.distinct_score_count;
 
   if v_invalid_group_count > 0 then
     raise exception 'invalid_progress_answers' using errcode = '22023';
@@ -138,11 +140,11 @@ begin
     'in_progress',
     null
   )
-  on conflict (test_id, user_id) do update
+  on conflict on constraint typology_sessions_test_id_user_id_key do update
     set status = 'in_progress',
         completed_at = null
     where public.typology_sessions.status <> 'completed'
-  returning id into v_session_id;
+  returning public.typology_sessions.id into v_session_id;
 
   if v_session_id is null then
     raise exception 'typology_test_already_completed' using errcode = '23505';
@@ -171,7 +173,7 @@ begin
   from jsonb_each(p_answers) as answer_entries(key, value)
   join public.typology_questions tq on tq.id = answer_entries.key::uuid
   where tq.test_id = p_test_id
-  on conflict (session_id, question_id) do update
+  on conflict on constraint typology_answers_session_id_question_id_key do update
     set score = excluded.score,
         updated_at = v_saved_at;
 

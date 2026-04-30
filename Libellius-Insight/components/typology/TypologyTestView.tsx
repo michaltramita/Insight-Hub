@@ -78,6 +78,26 @@ const findResumeGroupIndex = (
     : firstIncompleteIndex;
 };
 
+const buildCompletedAnswerMap = (
+  groups: TypologyQuestionGroup[],
+  answers: TypologyAnswerMap
+) => {
+  const completedAnswers: TypologyAnswerMap = {};
+
+  groups.forEach((group) => {
+    if (!isGroupComplete(group, answers)) return;
+
+    group.options.forEach((option) => {
+      const score = answers[option.id];
+      if (typeof score === "number") {
+        completedAnswers[option.id] = score;
+      }
+    });
+  });
+
+  return completedAnswers;
+};
+
 const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
   onBack,
   onStartTest,
@@ -186,13 +206,11 @@ const QuestionGroupCard: React.FC<QuestionGroupCardProps> = ({
         >
           Otázka {group.questionNo}
         </h2>
-        <div
-          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-            isComplete ? "bg-brand text-white" : "bg-black/5 text-black/45"
-          }`}
-        >
-          {isComplete ? "Hotovo" : "Vyberte 1-4"}
-        </div>
+        {!isFocus && isComplete ? (
+          <div className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand text-white">
+            Hotovo
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-4">
@@ -249,14 +267,10 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const [answers, setAnswers] = useState<TypologyAnswerMap>({});
   const [viewMode, setViewMode] = useState<TestViewMode>("single");
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
-  const [lastTouchedQuestionNo, setLastTouchedQuestionNo] = useState<number | null>(
-    null
-  );
   const [hasAnswerChanges, setHasAnswerChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isAutosaving, setIsAutosaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const [hasEnteredTestFlow, setHasEnteredTestFlow] = useState(!canViewResults);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -289,7 +303,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         setCurrentGroupIndex(
           loadedTest ? findResumeGroupIndex(loadedTest.groups, savedAnswers) : 0
         );
-        setLastSavedAt(loadedTest?.savedAt || null);
         setAutosaveError(null);
         setHasAnswerChanges(false);
         setFullName(loadedProfile?.fullName || "");
@@ -338,88 +351,14 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const groupCount = test?.groups.length || 0;
   const isComplete = Boolean(test && completedGroups === test.groups.length);
   const isProfileComplete = Boolean(fullName.trim() && companyName.trim());
-  const answeredCount = Object.keys(answers).length;
   const saveStatusText = isAutosaving
-    ? "Ukladám priebeh..."
+    ? "Ukladám dokončenú otázku..."
     : autosaveError
       ? autosaveError
-      : answeredCount > 0 && lastSavedAt
-        ? "Priebeh je uložený."
-        : "Priebeh sa uloží automaticky.";
-
-  useEffect(() => {
-    if (
-      !test ||
-      !hasConfirmedProfile ||
-      !hasAnswerChanges ||
-      isSubmitted ||
-      isSubmitting ||
-      answeredCount === 0
-    ) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setIsAutosaving(true);
-      setAutosaveError(null);
-
-      void saveTypologyProgress(user, test, answers)
-        .then(() => {
-          setLastSavedAt(new Date().toISOString());
-        })
-        .catch((saveError: unknown) => {
-          setAutosaveError(
-            saveError instanceof Error
-              ? saveError.message
-              : "Priebeh testu sa nepodarilo uložiť."
-          );
-        })
-        .finally(() => {
-          setIsAutosaving(false);
-        });
-    }, 650);
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    answeredCount,
-    answers,
-    hasAnswerChanges,
-    hasConfirmedProfile,
-    isSubmitted,
-    isSubmitting,
-    test,
-    user,
-  ]);
-
-  useEffect(() => {
-    if (
-      viewMode !== "single" ||
-      !currentGroup ||
-      !currentGroupComplete ||
-      lastTouchedQuestionNo !== currentGroup.questionNo ||
-      currentGroupIndex >= groupCount - 1
-    ) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setCurrentGroupIndex((index) => Math.min(index + 1, groupCount - 1));
-      setLastTouchedQuestionNo(null);
-    }, 700);
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    currentGroup,
-    currentGroupComplete,
-    currentGroupIndex,
-    groupCount,
-    lastTouchedQuestionNo,
-    viewMode,
-  ]);
+      : null;
 
   const handleModeChange = (nextMode: TestViewMode) => {
     setViewMode(nextMode);
-    setLastTouchedQuestionNo(null);
 
     if (nextMode === "single" && test) {
       const firstIncompleteIndex = test.groups.findIndex(
@@ -462,8 +401,8 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
     optionId: string,
     score: number
   ) => {
-    setLastTouchedQuestionNo(group.questionNo);
     setHasAnswerChanges(true);
+    setAutosaveError(null);
     setAnswers((current) => {
       const next = { ...current };
 
@@ -476,6 +415,56 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       next[optionId] = score;
       return next;
     });
+  };
+
+  const saveCompletedProgress = async () => {
+    if (
+      !test ||
+      !hasConfirmedProfile ||
+      !hasAnswerChanges ||
+      isSubmitted ||
+      isSubmitting
+    ) {
+      return true;
+    }
+
+    const completedAnswers = buildCompletedAnswerMap(test.groups, answers);
+    const completedAnswerCount = Object.keys(completedAnswers).length;
+
+    if (completedAnswerCount === 0) {
+      return true;
+    }
+
+    setIsAutosaving(true);
+    setAutosaveError(null);
+
+    try {
+      await saveTypologyProgress(user, test, completedAnswers);
+      setHasAnswerChanges(false);
+      return true;
+    } catch (saveError: unknown) {
+      setAutosaveError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Priebeh testu sa nepodarilo uložiť."
+      );
+      return false;
+    } finally {
+      setIsAutosaving(false);
+    }
+  };
+
+  const handleNextGroup = async () => {
+    if (!test || !currentGroupComplete || currentGroupIndex >= test.groups.length - 1) {
+      return;
+    }
+
+    const wasSaved = await saveCompletedProgress();
+    if (!wasSaved) return;
+
+    setCurrentGroupIndex((index) =>
+      Math.min(index + 1, test.groups.length - 1)
+    );
   };
 
   const handleSubmit = async () => {
@@ -612,6 +601,26 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               Tieto údaje použijeme iba na správne označenie výsledku a profilu,
               ktorý bude pripravený pre rozvojový program.
             </p>
+            <div className="mt-7 grid gap-3 md:grid-cols-2 max-w-4xl">
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-2">
+                  Ako test vyplniť
+                </p>
+                <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
+                  V každej štvorici tvrdení použite hodnoty 1, 2, 3 a 4 vždy iba raz.
+                  Hodnota 4 vás vystihuje najviac, hodnota 1 najmenej.
+                </p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-2">
+                  Priebeh vyplnenia
+                </p>
+                <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
+                  Po potvrdení každej otázky sa váš priebeh uloží. Ak test zavriete,
+                  po návrate môžete pokračovať tam, kde ste skončili.
+                </p>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleProfileSubmit} className="p-6 md:p-10 space-y-5">
@@ -701,11 +710,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
           <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
             {test.title}
           </h1>
-          <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-            Pri každej štvorici tvrdení prideľte body 1 až 4. Hodnota 4 znamená,
-            že vás tvrdenie vystihuje najviac, hodnota 1 najmenej. Každú hodnotu
-            použite v jednej štvorici iba raz.
-          </p>
           <div className="mt-7 inline-grid grid-cols-2 rounded-full border border-black/10 bg-white p-1 shadow-sm">
             <button
               type="button"
@@ -756,18 +760,15 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand">
                 Otázka {currentGroupIndex + 1} z {test.groups.length}
               </p>
-              <div className="text-left sm:text-right">
-                <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-black/35">
-                  {currentGroupComplete ? "Otázka dokončená" : "Doplňte hodnoty 1-4"}
-                </p>
+              {saveStatusText && (
                 <p
-                  className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
+                  className={`text-[10px] md:text-xs font-black uppercase tracking-widest text-left sm:text-right ${
                     autosaveError ? "text-brand" : "text-black/30"
                   }`}
                 >
                   {saveStatusText}
                 </p>
-              </div>
+              )}
             </div>
             <div
               className="h-2.5 rounded-full bg-black/5 overflow-hidden"
@@ -805,26 +806,27 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             </button>
 
             <p className="text-sm font-bold text-black/50 text-center">
-              {currentGroupComplete
-                ? currentGroupIndex < test.groups.length - 1
-                  ? "Ďalšia otázka sa zobrazí automaticky."
-                  : "Test je pripravený na odoslanie."
-                : "Každú hodnotu 1, 2, 3 a 4 použite iba raz."}
+              {currentGroupComplete ? "" : "V tejto štvorici použite 1, 2, 3 a 4 iba raz."}
             </p>
 
             {currentGroupIndex < test.groups.length - 1 ? (
               <button
                 type="button"
-                onClick={() =>
-                  setCurrentGroupIndex((index) =>
-                    Math.min(index + 1, test.groups.length - 1)
-                  )
-                }
-                disabled={!currentGroupComplete}
+                onClick={handleNextGroup}
+                disabled={!currentGroupComplete || isAutosaving}
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
               >
-                Ďalšia otázka
-                <ChevronRight className="w-4 h-4" />
+                {isAutosaving ? (
+                  <>
+                    <LoaderCircle className="w-4 h-4 animate-spin" />
+                    Ukladám
+                  </>
+                ) : (
+                  <>
+                    Ďalšia otázka
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             ) : (
               <button
@@ -856,15 +858,17 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             <div className="w-full rounded-[1.5rem] bg-white/90 backdrop-blur border border-black/10 shadow-2xl px-4 py-4 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <p className="text-sm font-bold text-black/55">
-                  Pred odoslaním musia byť všetky štvorice vyplnené hodnotami 1, 2, 3 a 4.
+                  V každej štvorici použite hodnoty 1, 2, 3 a 4 vždy iba raz.
                 </p>
-                <p
-                  className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
-                    autosaveError ? "text-brand" : "text-black/30"
-                  }`}
-                >
-                  {saveStatusText}
-                </p>
+                {saveStatusText && (
+                  <p
+                    className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
+                      autosaveError ? "text-brand" : "text-black/30"
+                    }`}
+                  >
+                    {saveStatusText}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
