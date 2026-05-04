@@ -119,7 +119,7 @@ const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
           Typologický modul
         </p>
         <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
-          Test typológie pri vedení ľudí
+          Analýza osobnostnej typológie
         </h1>
         <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
           Vyberte, či chcete spustiť vlastný test alebo otvoriť admin prehľad

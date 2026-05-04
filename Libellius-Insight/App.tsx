@@ -568,8 +568,8 @@ const App: React.FC = () => {
                   <BrainCircuit className="w-8 h-8 md:w-10 md:h-10" />
                 </div>
                 <div className="z-10 flex-1">
-                  <span className="text-[26px] sm:text-[28px] md:text-[32px] font-black block mb-2 md:mb-3 tracking-tight uppercase leading-tight">Test typológie pri vedení ľudí</span>
-                  <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-3xl">Spoznajte, ako sa rozhodujete, komunikujete a reagujete v spolupráci, pod tlakom aj pri zmene.</p>
+                  <span className="text-[26px] sm:text-[28px] md:text-[32px] font-black block mb-2 md:mb-3 tracking-tight uppercase leading-tight">Analýza osobnostnej typológie</span>
+                  <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-3xl">Spoznajte, ako sa rozhodujete, komunikujete a reagujete pri spolupráci, pod tlakom, ako aj v procese zmeny.</p>
                 </div>
                 <div className={`z-10 w-full md:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center whitespace-nowrap flex items-center justify-center gap-2 transition-all ${
                     canSeeTypology ? 'bg-black text-white' : 'bg-black/10 text-black'

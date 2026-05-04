@@ -67,7 +67,7 @@ create table if not exists public.module_assignments (
 create table if not exists public.typology_tests (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references public.organizations(id) on delete cascade,
-  title text not null default 'Test typológie pri vedení ľudí',
+  title text not null default 'Analýza osobnostnej typológie',
   description text,
   status public.test_status not null default 'draft',
   created_by uuid references public.profiles(id) on delete set null,
@@ -994,7 +994,7 @@ values
   ),
   (
     'TYPOLOGY_LEADERSHIP',
-    'Test typológie pri vedení ľudí',
+    'Analýza osobnostnej typológie',
     'Spoznajte, ako sa rozhodujete, komunikujete a reagujete v spolupráci, pod tlakom aj pri zmene.',
     30,
     true

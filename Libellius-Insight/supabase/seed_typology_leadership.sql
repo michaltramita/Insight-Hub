@@ -1,4 +1,4 @@
--- Seed for "Test typológie pri vedení ľudí".
+-- Seed for "Analýza osobnostnej typológie".
 -- Run after supabase/schema.sql and after creating the Libellius organization.
 
 insert into public.organizations (name, slug)
@@ -18,14 +18,14 @@ existing_test as (
   select tt.id
   from public.typology_tests tt
   join org on org.id = tt.organization_id
-  where tt.title = 'Test typológie pri vedení ľudí'
+  where tt.title = 'Analýza osobnostnej typológie'
   limit 1
 ),
 inserted_test as (
   insert into public.typology_tests (organization_id, title, description, status)
   select
     org.id,
-    'Test typológie pri vedení ľudí',
+    'Analýza osobnostnej typológie',
     'Dotazník pracovného a líderského štýlu pre rozvojový program.',
     'active'
   from org
@@ -161,5 +161,5 @@ set
 
 update public.typology_tests
 set status = 'active'
-where title = 'Test typológie pri vedení ľudí'
+where title = 'Analýza osobnostnej typológie'
   and organization_id = (select id from public.organizations where slug = 'libellius');

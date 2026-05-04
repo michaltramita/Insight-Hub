@@ -16,7 +16,7 @@ Skript vytvorí:
 - používateľské profily,
 - moduly aplikácie,
 - priradenia modulov používateľom,
-- základ pre test typológie pri vedení ľudí,
+- základ pre analýzu osobnostnej typológie,
 - RLS pravidlá pre bezpečný prístup k dátam.
 
 ## 1.1. Nahratie otázok typologického testu
@@ -27,7 +27,7 @@ Po schéme spustite aj:
 supabase/seed_typology_leadership.sql
 ```
 
-Tento skript vytvorí aktívny test `Test typológie pri vedení ľudí`, nahrá 24
+Tento skript vytvorí aktívny test `Analýza osobnostnej typológie`, nahrá 24
 štvoríc tvrdení z Excel šablóny a nastaví výsledky tak, aby ich účastník po
 odoslaní nečítal priamo v aplikácii.
 

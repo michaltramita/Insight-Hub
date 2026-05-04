@@ -39,23 +39,19 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
     <section className="min-h-screen w-full bg-[radial-gradient(circle_at_top,_rgba(184,21,71,0.08),_transparent_32%),linear-gradient(180deg,#f8f5ef_0%,#ffffff_58%)] flex flex-col">
       <div className="w-full max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex-1 flex items-center">
         <div className="w-full grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-8 lg:gap-10 items-stretch">
-          <div className="rounded-[2.4rem] border border-black/8 bg-white/85 backdrop-blur-sm shadow-[0_32px_120px_-48px_rgba(0,0,0,0.25)] px-7 py-8 md:px-10 md:py-12 flex flex-col justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] md:text-xs font-black uppercase tracking-widest">
-                <ShieldCheck className="w-3 h-3 md:w-4 md:h-4" />
-                Rozvoj začína porozumením
+          <div className="rounded-[2.4rem] border border-black/8 bg-white/85 backdrop-blur-sm shadow-[0_32px_120px_-48px_rgba(0,0,0,0.25)] px-7 py-10 md:px-10 md:py-16 flex flex-col">
+            <div className="flex min-h-full flex-1 flex-col justify-center">
+              <div className="self-start inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white text-[10px] md:text-xs font-black uppercase tracking-[0.18em] shadow-[0_14px_32px_-22px_rgba(0,0,0,0.55)]">
+                <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
+                <span className="whitespace-nowrap">Rozvoj začína porozumením</span>
               </div>
-              <h1 className="mt-6 text-[clamp(2.4rem,5vw,4.9rem)] font-black tracking-tight leading-[0.95]">
+              <h1 className="mt-10 md:mt-12 text-[3rem] sm:text-[4.15rem] lg:text-[5.25rem] font-black tracking-tight leading-[0.95]">
                 Vitajte v
                 <span className="block text-brand">Libellius InsightHub</span>
               </h1>
-              <p className="mt-6 text-black/58 font-semibold text-base md:text-xl max-w-2xl leading-relaxed">
+              <p className="mt-8 md:mt-10 text-black/68 font-bold text-lg md:text-2xl max-w-3xl leading-relaxed">
                 Miesto, kde sa dáta menia na jasné súvislosti, praktické
                 odporúčania a lepšie rozhodnutia pre rozvoj ľudí aj tímov.
-              </p>
-              <p className="mt-5 text-black/45 font-bold text-sm md:text-base max-w-xl leading-relaxed">
-                Prehľadne. Zrozumiteľne. Bez zbytočných tabuliek a komplikovaných
-                reportov.
               </p>
             </div>
           </div>
