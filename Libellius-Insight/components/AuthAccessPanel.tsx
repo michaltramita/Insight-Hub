@@ -43,28 +43,33 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] md:text-xs font-black uppercase tracking-widest">
                 <ShieldCheck className="w-3 h-3 md:w-4 md:h-4" />
-                Bezpečný vstup
+                Rozvoj začína porozumením
               </div>
               <h1 className="mt-6 text-[clamp(2.4rem,5vw,4.9rem)] font-black tracking-tight leading-[0.95]">
                 Vitajte v
                 <span className="block text-brand">Libellius InsightHub</span>
               </h1>
               <p className="mt-6 text-black/58 font-semibold text-base md:text-xl max-w-2xl leading-relaxed">
-                Prihláste sa do zabezpečeného prostredia, kde nájdete svoje
-                dostupné analýzy, reporty a rozvojové dotazníky.
+                Miesto, kde sa dáta menia na jasné súvislosti, praktické
+                odporúčania a lepšie rozhodnutia pre rozvoj ľudí aj tímov.
+              </p>
+              <p className="mt-5 text-black/45 font-bold text-sm md:text-base max-w-xl leading-relaxed">
+                Prehľadne. Zrozumiteľne. Bez zbytočných tabuliek a komplikovaných
+                reportov.
               </p>
             </div>
           </div>
           <div className="rounded-[2.4rem] border border-black/8 bg-white shadow-[0_32px_120px_-48px_rgba(0,0,0,0.25)] px-6 py-7 md:px-8 md:py-9 flex flex-col justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-widest font-black text-black/38">
-                Prihlásenie
+                Vstup do platformy
               </p>
               <h2 className="mt-3 text-2xl md:text-3xl font-black tracking-tight leading-tight">
-                Prihlásenie do aplikácie
+                Vstúpte do svojho InsightHubu
               </h2>
               <p className="mt-3 text-black/56 font-semibold text-sm md:text-base leading-relaxed">
-                Zadajte email a heslo, ktoré vám boli pridelené organizátorom.
+                Prihláste sa a pozrite si výstupy, ktoré boli pripravené pre vás
+                alebo vašu organizáciu.
               </p>
             </div>
 
@@ -72,7 +77,7 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
               {isLoading ? (
                 <div className="flex items-center gap-3 text-black/55 font-bold">
                   <LoaderCircle className="w-5 h-5 animate-spin" />
-                  Overujem stav prihlásenia...
+                  Pripravujeme váš priestor...
                 </div>
               ) : (
                 <form
@@ -112,7 +117,7 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
                         type="password"
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
-                        placeholder="Zadajte heslo"
+                        placeholder="Zadajte svoje heslo"
                         className="w-full pl-14 pr-5 py-4 md:py-5 rounded-2xl bg-[#fbfaf7] border border-black/10 outline-none focus:ring-2 focus:ring-brand/25 text-base font-semibold"
                       />
                     </div>
@@ -122,7 +127,7 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
                     disabled={isSubmitting}
                     className="px-7 py-4 md:py-5 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSubmitting ? "Prihlasujem..." : "Prihlásiť sa"}
+                    {isSubmitting ? "Prihlasujeme vás..." : "Vstúpiť do InsightHubu"}
                   </button>
                 </form>
               )}
