@@ -29,8 +29,6 @@ type TypologyTestViewProps = {
   onBack: () => void;
 };
 
-type TestViewMode = "single" | "all";
-
 type QuestionGroupCardProps = {
   group: TypologyQuestionGroup;
   answers: TypologyAnswerMap;
@@ -265,7 +263,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const [companyName, setCompanyName] = useState("");
   const [hasConfirmedProfile, setHasConfirmedProfile] = useState(false);
   const [answers, setAnswers] = useState<TypologyAnswerMap>({});
-  const [viewMode, setViewMode] = useState<TestViewMode>("single");
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [hasAnswerChanges, setHasAnswerChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -348,7 +345,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const stepProgress = test?.groups.length
     ? ((currentGroupIndex + 1) / test.groups.length) * 100
     : 0;
-  const groupCount = test?.groups.length || 0;
   const isComplete = Boolean(test && completedGroups === test.groups.length);
   const isProfileComplete = Boolean(fullName.trim() && companyName.trim());
   const saveStatusText = isAutosaving
@@ -356,21 +352,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
     : autosaveError
       ? autosaveError
       : null;
-
-  const handleModeChange = (nextMode: TestViewMode) => {
-    setViewMode(nextMode);
-
-    if (nextMode === "single" && test) {
-      const firstIncompleteIndex = test.groups.findIndex(
-        (group) => !isGroupComplete(group, answers)
-      );
-      setCurrentGroupIndex(
-        firstIncompleteIndex === -1
-          ? Math.max(test.groups.length - 1, 0)
-          : firstIncompleteIndex
-      );
-    }
-  };
 
   const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -603,7 +584,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             </p>
             <div className="mt-7 grid gap-3 md:grid-cols-2 max-w-4xl">
               <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
-                <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-2">
+                <p className="text-sm uppercase tracking-widest font-black text-white/40 mb-2">
                   Ako analýzu vyplniť
                 </p>
                 <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
@@ -612,7 +593,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                 </p>
               </div>
               <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
-                <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-2">
+                <p className="text-sm uppercase tracking-widest font-black text-white/40 mb-2">
                   Priebeh vyplnenia
                 </p>
                 <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
@@ -704,38 +685,9 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       </div>
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 md:mb-10">
         <div>
-          <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand mb-3">
-            Rozvojový dotazník
-          </p>
           <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
             {test.title}
           </h1>
-          <div className="mt-7 inline-grid grid-cols-2 rounded-full border border-black/10 bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              aria-pressed={viewMode === "single"}
-              onClick={() => handleModeChange("single")}
-              className={`rounded-full px-5 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
-                viewMode === "single"
-                  ? "bg-black text-white shadow-lg"
-                  : "text-black/40 hover:text-black"
-              }`}
-            >
-              Po otázkach
-            </button>
-            <button
-              type="button"
-              aria-pressed={viewMode === "all"}
-              onClick={() => handleModeChange("all")}
-              className={`rounded-full px-5 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
-                viewMode === "all"
-                  ? "bg-black text-white shadow-lg"
-                  : "text-black/40 hover:text-black"
-              }`}
-            >
-              Všetky naraz
-            </button>
-          </div>
         </div>
         <div className="rounded-2xl bg-[#f9f9f9] border border-black/5 px-5 py-4 text-left md:text-right shrink-0">
           <p className="text-[10px] font-black uppercase tracking-widest text-black/35">
@@ -753,7 +705,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         </div>
       )}
 
-      {viewMode === "single" && currentGroup ? (
+      {currentGroup && (
         <div className="space-y-6">
           <div className="rounded-[1.5rem] border border-black/5 bg-white px-5 py-5 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -841,47 +793,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             )}
           </div>
         </div>
-      ) : (
-        <>
-          <div className="space-y-6">
-            {test.groups.map((group) => (
-              <QuestionGroupCard
-                key={group.questionNo}
-                group={group}
-                answers={answers}
-                onScoreSelect={handleScoreSelect}
-              />
-            ))}
-          </div>
-
-          <div className="sticky bottom-4 mt-8 z-30">
-            <div className="w-full rounded-[1.5rem] bg-white/90 backdrop-blur border border-black/10 shadow-2xl px-4 py-4 md:px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <p className="text-sm font-bold text-black/55">
-                  V každej štvorici použite hodnoty 1, 2, 3 a 4 vždy iba raz.
-                </p>
-                {saveStatusText && (
-                  <p
-                    className={`mt-1 text-[10px] font-black uppercase tracking-widest ${
-                      autosaveError ? "text-brand" : "text-black/30"
-                    }`}
-                  >
-                    {saveStatusText}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!isComplete || isSubmitting}
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
-              >
-                <Send className="w-4 h-4" />
-                {isSubmitting ? "Odosielam..." : "Odoslať analýzu"}
-              </button>
-            </div>
-          </div>
-        </>
       )}
     </div>
   );
