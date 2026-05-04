@@ -122,7 +122,7 @@ const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
           Analýza osobnostnej typológie
         </h1>
         <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-          Vyberte, či chcete spustiť vlastný test alebo otvoriť admin prehľad
+          Vyberte, či chcete spustiť vlastnú analýzu alebo otvoriť admin prehľad
           výsledkov účastníkov.
         </p>
       </div>
@@ -141,15 +141,15 @@ const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
           </div>
           <div className="z-10 flex-1">
             <span className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
-              Spustiť test
+              Spustiť analýzu
             </span>
             <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
               Otvoriť dotazník a pokračovať vo vlastnom vypĺňaní alebo kontrole
-              testu.
+              analýzy.
             </p>
           </div>
           <div className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest text-center shadow-lg">
-            Spustiť test
+            Spustiť analýzu
           </div>
         </button>
 
@@ -170,7 +170,7 @@ const AdminTypologyEntry: React.FC<AdminTypologyEntryProps> = ({
               Zobraziť výsledky
             </span>
             <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
-              Otvoriť admin prehľad dokončených testov, grafy a pripravené
+              Otvoriť admin prehľad dokončených analýz, grafy a pripravené
               profily.
             </p>
           </div>
@@ -317,7 +317,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Test sa nepodarilo načítať."
+            : "Analýzu sa nepodarilo načítať."
         );
       })
       .finally(() => {
@@ -446,7 +446,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       setAutosaveError(
         saveError instanceof Error
           ? saveError.message
-          : "Priebeh testu sa nepodarilo uložiť."
+          : "Priebeh analýzy sa nepodarilo uložiť."
       );
       return false;
     } finally {
@@ -493,7 +493,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       <div className="min-h-[calc(100vh-180px)] flex items-center justify-center">
         <div className="flex items-center gap-3 text-black/50 font-black uppercase tracking-widest text-sm">
           <LoaderCircle className="w-5 h-5 animate-spin" />
-          Načítavam test
+          Načítavam analýzu
         </div>
       </div>
     );
@@ -517,7 +517,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             <CheckCircle2 className="w-9 h-9" />
           </div>
           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-black/35 mb-4">
-            Test bol odoslaný
+            Analýza bola odoslaná
           </p>
           <h1 className="text-[clamp(2rem,4vw,3.8rem)] font-black tracking-tight leading-tight">
             Ďakujeme za vyplnenie.
@@ -557,7 +557,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
         <div className="min-h-[calc(100vh-240px)] flex flex-col items-center justify-center text-center px-4">
           <div className="w-full max-w-4xl bg-[#f9f9f9] border border-black/5 rounded-[2rem] px-7 py-10 md:px-12 md:py-14">
             <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-              Test zatiaľ nie je dostupný
+              Analýza zatiaľ nie je dostupná
             </h1>
             <p className="mt-5 text-black/55 font-semibold">
               Organizátor ho sprístupní pred začiatkom programu.
@@ -595,7 +595,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               Údaje účastníka
             </p>
             <h1 className="text-[clamp(2rem,5vw,4rem)] font-black tracking-tight leading-tight">
-              Pred vyplnením testu doplňte svoje údaje
+              Pred vyplnením analýzy doplňte svoje údaje
             </h1>
             <p className="mt-5 text-white/60 font-semibold text-base md:text-lg leading-relaxed max-w-3xl">
               Tieto údaje použijeme iba na správne označenie výsledku a profilu,
@@ -604,7 +604,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             <div className="mt-7 grid gap-3 md:grid-cols-2 max-w-4xl">
               <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
                 <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-2">
-                  Ako test vyplniť
+                  Ako analýzu vyplniť
                 </p>
                 <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
                   V každej štvorici tvrdení použite hodnoty 1, 2, 3 a 4 vždy iba raz.
@@ -616,7 +616,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                   Priebeh vyplnenia
                 </p>
                 <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
-                  Po potvrdení každej otázky sa váš priebeh uloží. Ak test zavriete,
+                  Po potvrdení každej otázky sa váš priebeh uloží. Ak analýzu zavriete,
                   po návrate môžete pokračovať tam, kde ste skončili.
                 </p>
               </div>
@@ -668,8 +668,8 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-3">
               <p className="text-sm font-semibold text-black/45 max-w-2xl">
-                Údaje môžete neskôr zmeniť pred opätovným spustením testu, ak vám
-                administrátor test resetuje.
+                Údaje môžete neskôr zmeniť pred opätovným spustením analýzy, ak vám
+                administrátor analýzu resetuje.
               </p>
               <button
                 type="submit"
@@ -681,7 +681,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}
-                Pokračovať na test
+                Pokračovať na analýzu
               </button>
             </div>
           </form>
@@ -776,7 +776,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               aria-valuemin={1}
               aria-valuemax={test.groups.length}
               aria-valuenow={currentGroupIndex + 1}
-              aria-label="Postup v teste"
+              aria-label="Postup v analýze"
             >
               <div
                 className="h-full rounded-full bg-brand transition-all duration-500 ease-out"
@@ -836,7 +836,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
-                {isSubmitting ? "Odosielam..." : "Odoslať test"}
+                {isSubmitting ? "Odosielam..." : "Odoslať analýzu"}
               </button>
             )}
           </div>
@@ -877,7 +877,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-45 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
-                {isSubmitting ? "Odosielam..." : "Odoslať test"}
+                {isSubmitting ? "Odosielam..." : "Odoslať analýzu"}
               </button>
             </div>
           </div>

@@ -121,7 +121,7 @@ const groupQuestions = (rows: TypologyQuestionRow[]): TypologyQuestionGroup[] =>
 
 const readSubmitErrorMessage = (message: string) => {
   if (message.includes("typology_test_already_completed")) {
-    return "Test už bol odoslaný. Opakované vyplnenie nie je povolené.";
+    return "Analýza už bola odoslaná. Opakované vyplnenie nie je povolené.";
   }
   if (message.includes("invalid_answers")) {
     return "Odpovede nie sú kompletné alebo nemajú správne rozdelenie hodnôt 1 až 4.";
@@ -136,7 +136,7 @@ const readSubmitErrorMessage = (message: string) => {
     message.includes("typology_access_denied") ||
     message.includes("typology_test_not_available")
   ) {
-    return "Test momentálne nemáte sprístupnený.";
+    return "Analýzu momentálne nemáte sprístupnenú.";
   }
   return message;
 };

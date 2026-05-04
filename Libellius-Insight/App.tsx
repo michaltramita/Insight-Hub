@@ -483,7 +483,7 @@ const App: React.FC = () => {
                   Zatiaľ nemáte pridelený žiadny modul
                 </p>
                 <p className="mt-4 text-black/55 font-semibold max-w-2xl mx-auto">
-                  Dostupný test alebo report sa zobrazí automaticky po priradení organizátorom.
+                  Dostupná analýza alebo report sa zobrazí automaticky po priradení organizátorom.
                 </p>
               </div>
             )}

@@ -230,13 +230,13 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
 
     try {
       await resetAdminTypologySession(user.id);
-      setSuccess("Typologický test bol resetovaný.");
+      setSuccess("Typologická analýza bola resetovaná.");
       loadOverview();
     } catch (resetError: unknown) {
       setError(
         resetError instanceof Error
           ? resetError.message
-          : "Typologický test sa nepodarilo resetovať."
+          : "Typologickú analýzu sa nepodarilo resetovať."
       );
     } finally {
       setBusyKey(null);
@@ -285,7 +285,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           </h1>
           <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
             Vytvárajte účastníkov, priraďujte im moduly a resetujte rozpracované
-            alebo dokončené typologické testy.
+            alebo dokončené typologické analýzy.
           </p>
         </div>
 
@@ -401,7 +401,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                           ? `Dokončené ${formatDate(user.typologyCompletedAt)}`
                           : user.typologyStatus === "in_progress"
                             ? "Rozpracované"
-                            : "Bez testu"}
+                            : "Bez analýzy"}
                       </div>
                     </div>
                   </div>
@@ -499,7 +499,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         ) : (
                           <RotateCcw className="w-4 h-4" />
                         )}
-                        Resetovať test
+                        Resetovať analýzu
                       </button>
                       <button
                         type="button"

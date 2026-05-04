@@ -1,4 +1,4 @@
--- Libellius InsightHub access-control and typology-test foundation.
+-- Libellius InsightHub access-control and typology-analysis foundation.
 -- Run this in Supabase SQL Editor after creating the project.
 
 create extension if not exists pgcrypto;

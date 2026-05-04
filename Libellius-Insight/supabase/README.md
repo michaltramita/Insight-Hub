@@ -19,7 +19,7 @@ Skript vytvorí:
 - základ pre analýzu osobnostnej typológie,
 - RLS pravidlá pre bezpečný prístup k dátam.
 
-## 1.1. Nahratie otázok typologického testu
+## 1.1. Nahratie otázok typologickej analýzy
 
 Po schéme spustite aj:
 
@@ -27,7 +27,7 @@ Po schéme spustite aj:
 supabase/seed_typology_leadership.sql
 ```
 
-Tento skript vytvorí aktívny test `Analýza osobnostnej typológie`, nahrá 24
+Tento skript vytvorí aktívnu analýzu `Analýza osobnostnej typológie`, nahrá 24
 štvoríc tvrdení z Excel šablóny a nastaví výsledky tak, aby ich účastník po
 odoslaní nečítal priamo v aplikácii.
 
@@ -100,7 +100,7 @@ on conflict (user_id, module_code) do update
 set status = 'active';
 ```
 
-Pre účastníka typologického testu stačí priradiť iba:
+Pre účastníka typologickej analýzy stačí priradiť iba:
 
 ```sql
 insert into public.module_assignments (user_id, organization_id, module_code)

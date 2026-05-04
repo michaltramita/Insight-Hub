@@ -115,7 +115,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
             className="mb-6 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            Späť na test
+            Späť na analýzu
           </button>
           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-brand mb-3">
             Admin prehľad
@@ -124,7 +124,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
             Výsledky typológie
           </h1>
           <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-            Tu vidíte dokončené testy účastníkov. Výsledky sú dostupné iba pre
+            Tu vidíte dokončené analýzy účastníkov. Výsledky sú dostupné iba pre
             admina alebo konzultanta a účastník ich po odoslaní nevidí.
           </p>
         </div>
@@ -167,9 +167,9 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
           </div>
         ) : results.length === 0 ? (
           <div className="px-6 py-14 text-center">
-            <p className="text-xl font-black">Zatiaľ nie sú odoslané žiadne testy.</p>
+            <p className="text-xl font-black">Zatiaľ nie sú odoslané žiadne analýzy.</p>
             <p className="mt-3 text-black/50 font-semibold">
-              Výsledky sa tu zobrazia po odoslaní prvého účastníckeho testu.
+              Výsledky sa tu zobrazia po odoslaní prvej účastníckej analýzy.
             </p>
           </div>
         ) : (
