@@ -18,7 +18,11 @@ existing_test as (
   select tt.id
   from public.typology_tests tt
   join org on org.id = tt.organization_id
-  where tt.title = 'Analýza osobnostnej typológie'
+  where tt.title in (
+    'Analýza osobnostnej typológie',
+    'Test typológie pri vedení ľudí',
+    'Test typológie pri vedení ludí'
+  )
   limit 1
 ),
 inserted_test as (
@@ -160,6 +164,12 @@ set
   sort_order = excluded.sort_order;
 
 update public.typology_tests
-set status = 'active'
-where title = 'Analýza osobnostnej typológie'
+set
+  title = 'Analýza osobnostnej typológie',
+  status = 'active'
+where title in (
+    'Analýza osobnostnej typológie',
+    'Test typológie pri vedení ľudí',
+    'Test typológie pri vedení ludí'
+  )
   and organization_id = (select id from public.organizations where slug = 'libellius');

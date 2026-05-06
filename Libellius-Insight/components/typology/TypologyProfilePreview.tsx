@@ -260,36 +260,44 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
                   Individuálna správa
                 </p>
                 <h1 className="mt-4 text-[clamp(2.2rem,6vw,5rem)] font-black leading-[0.95] tracking-tight">
-                  Profil štýlu vedenia ľudí
+                  Profil osobnostnej typológie
                 </h1>
                 <p className="mt-6 max-w-2xl text-base md:text-xl font-semibold text-white/70 leading-relaxed">
-                  Správa sumarizuje preferovaný spôsob správania v pracovnom a
-                  líderskom kontexte. Slúži ako podklad pre sebareflexiu,
-                  rozhovor a ďalší rozvoj.
+                  Správa sumarizuje preferovaný spôsob správania v pracovnom a líderskom kontexte. Slúži ako podklad pre sebareflexiu a ďalší rozvoj.
                 </p>
               </div>
-              <div className="rounded-3xl bg-white text-black p-5 w-full md:w-[320px] shrink-0">
-                <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                  Účastník
-                </p>
-                <p className="mt-2 text-base md:text-lg font-black leading-tight break-words">
-                  {personName}
-                </p>
-                {companyName && (
-                  <p className="mt-2 text-sm font-black text-brand break-words">
-                    {companyName}
-                  </p>
-                )}
-                {result.fullName && (
-                  <p className="mt-2 text-sm font-bold text-black/45 break-words">
-                    {result.userEmail}
-                  </p>
-                )}
-                <div className="mt-6 pt-5 border-t border-black/10">
+              <div className="w-full md:w-[320px] shrink-0 space-y-4">
+                <div className="rounded-3xl bg-white text-black p-5">
                   <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                    Dátum vyplnenia
+                    Účastník
                   </p>
-                  <p className="mt-1 font-black">{formatDate(result.completedAt)}</p>
+                  <p className="mt-2 text-base md:text-lg font-black leading-tight break-words">
+                    {personName}
+                  </p>
+                  {companyName && (
+                    <p className="mt-2 text-sm font-black text-brand break-words">
+                      {companyName}
+                    </p>
+                  )}
+                  {result.fullName && (
+                    <p className="mt-2 text-sm font-bold text-black/45 break-words">
+                      {result.userEmail}
+                    </p>
+                  )}
+                  <div className="mt-6 pt-5 border-t border-black/10">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
+                      Dátum vyplnenia
+                    </p>
+                    <p className="mt-1 font-black">{formatDate(result.completedAt)}</p>
+                  </div>
+                </div>
+                <div className="rounded-3xl bg-brand text-white px-6 py-5">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-white/65">
+                    Dominantný štýl
+                  </p>
+                  <p className="mt-2 text-2xl md:text-3xl font-black leading-tight">
+                    {primary.content.name}
+                  </p>
                 </div>
               </div>
             </div>
@@ -297,27 +305,19 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
 
           <main className="p-5 md:p-8 print:p-6 space-y-5 md:space-y-7">
             <section className="rounded-[1.8rem] bg-white border border-black/8 p-5 md:p-7 print:break-inside-avoid">
-              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">
-                    Rýchly prehľad
-                  </p>
-                  <h2 className="mt-2 text-3xl md:text-4xl font-black tracking-tight">
-                    {primary.content.name}
-                  </h2>
-                  <p className="mt-3 text-base md:text-lg font-semibold text-black/60 leading-relaxed max-w-3xl">
-                    {buildCombinationSummary(primary, secondary)}
-                  </p>
-                </div>
-                <div className="rounded-3xl bg-brand text-white px-6 py-5 min-w-[160px]">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-white/65">
-                    Dominantný štýl
-                  </p>
-                  <p className="mt-1 text-5xl font-black">{primary.content.label}</p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                  Rýchly prehľad
+                </p>
+                <h2 className="mt-2 text-3xl md:text-4xl font-black tracking-tight">
+                  {primary.content.name}
+                </h2>
+                <p className="mt-3 w-full text-base md:text-lg font-semibold text-black/60 leading-relaxed">
+                  {buildCombinationSummary(primary, secondary)}
+                </p>
               </div>
 
-              <div className="mt-7 grid gap-3">
+              <div className="mt-8 grid gap-4 w-full md:max-w-[880px]">
                 {STYLE_ORDER.map((code) => {
                   const content = TYPOLOGY_PROFILE_CONTENT[code];
                   const score = result.scores?.[code] || 0;
@@ -328,20 +328,20 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
                   const isPrimary = primary.code === code;
 
                   return (
-                    <div key={code} className="grid grid-cols-[74px_1fr_54px] md:grid-cols-[120px_1fr_64px] items-center gap-3">
-                      <div>
-                        <p className="font-black">{content.label}</p>
-                        <p className="text-[10px] uppercase tracking-widest font-black text-black/35 truncate">
-                          {content.name}
-                        </p>
-                      </div>
-                      <div className="h-4 rounded-full bg-black/8 overflow-hidden">
+                    <div
+                      key={code}
+                      className="grid grid-cols-1 sm:grid-cols-[190px_minmax(0,1fr)_64px] md:grid-cols-[200px_minmax(0,1fr)_72px] items-center gap-2 sm:gap-4"
+                    >
+                      <p className="text-xs md:text-sm uppercase tracking-widest font-black text-black/45">
+                        {content.name}
+                      </p>
+                      <div className="h-4 md:h-5 rounded-full bg-black/8 overflow-hidden">
                         <div
                           className={`h-full rounded-full ${isPrimary ? "bg-brand" : "bg-black"}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
-                      <p className="text-right text-xl font-black">{score}</p>
+                      <p className="text-left text-2xl md:text-[1.7rem] font-black tabular-nums">{score}</p>
                     </div>
                   );
                 })}
@@ -382,15 +382,12 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
               )}
             </div>
 
-            <div className="grid md:grid-cols-3 gap-5 md:gap-7">
+            <div className="grid md:grid-cols-2 gap-5 md:gap-7">
               <SectionCard title="Čo ma poháňa" variant="brand">
                 <BulletList items={primary.content.drivers} variant="brand" />
               </SectionCard>
               <SectionCard title="Čo ma môže brzdiť" variant="brand">
                 <BulletList items={primary.content.blockers} variant="brand" />
-              </SectionCard>
-              <SectionCard title="Silné stránky lídra" variant="brand">
-                <BulletList items={primary.content.strengths} variant="brand" />
               </SectionCard>
             </div>
 
@@ -410,14 +407,7 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
               </SectionCard>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-5 md:gap-7">
-              <SectionCard
-                eyebrow="Tlak a záťaž"
-                title="Riziká pod tlakom"
-              >
-                <BulletList items={primary.content.pressureRisks} />
-              </SectionCard>
-
+            <div className="grid gap-5 md:gap-7">
               <SectionCard
                 eyebrow="Rozvoj"
                 title="Odporúčané kroky do praxe"
@@ -436,7 +426,7 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
                     Sebareflexia
                   </p>
                   <h3 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
-                    Otázky pre rozvojový rozhovor
+                    Otázky na sebareflexiu
                   </h3>
                 </div>
               </div>
@@ -469,9 +459,7 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
                   <p className="mt-2 text-sm md:text-base font-semibold text-white/65 leading-relaxed">
                     Profil nie je nálepka ani hodnotenie osobnosti. Popisuje
                     preferovaný štýl správania, ktorý sa môže meniť podľa
-                    situácie, roly, skúseností a aktuálneho tlaku. Najväčšiu
-                    hodnotu má v kombinácii so spätnou väzbou, rozhovorom a
-                    konkrétnou rozvojovou praxou.
+                    situácie, roly, skúseností a aktuálneho tlaku.
                   </p>
                 </div>
               </div>

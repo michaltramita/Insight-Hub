@@ -54,6 +54,11 @@ export type AdminCreateUserInput = {
   moduleCodes: AppModuleCode[];
 };
 
+export type AdminResetUserPasswordInput = {
+  userId: string;
+  password: string;
+};
+
 type AdminManagedUserRow = {
   id: string;
   email: string;
@@ -203,6 +208,39 @@ export const createAdminUser = async (input: AdminCreateUserInput) => {
   const parsed = (await response.json()) as { userId?: string };
   if (!parsed.userId) {
     throw new Error("Server nevrátil ID vytvoreného používateľa.");
+  }
+  return parsed;
+};
+
+export const resetAdminUserPassword = async (
+  input: AdminResetUserPasswordInput
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Pre reset hesla sa prihláste ako admin.");
+  }
+
+  const response = await fetch("/api/admin-reset-user-password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readApiError(response, "Heslo používateľa sa nepodarilo resetovať.")
+    );
+  }
+
+  const parsed = (await response.json()) as { userId?: string };
+  if (!parsed.userId) {
+    throw new Error("Server nevrátil ID používateľa s resetovaným heslom.");
   }
   return parsed;
 };

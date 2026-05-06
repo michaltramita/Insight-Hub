@@ -257,5 +257,5 @@ export const buildCombinationSummary = (
     return `Najvýraznejšie sa prejavuje ${primary.content.name.toLowerCase()}. Profil preto čítajte najmä cez jeho silné stránky, riziká pod tlakom a odporúčania pre líderskú prax.`;
   }
 
-  return `Najvýraznejšie sa prejavuje ${primary.content.name.toLowerCase()}, ktorý dopĺňa ${secondary.content.name.toLowerCase()}. Prvý štýl ukazuje prirodzený spôsob fungovania, druhý často vysvetľuje, ako sa tento prejav mení v práci s ľuďmi, rozhodovaní a pod tlakom.`;
+  return `Dominantný štýl ${primary.content.name.toLowerCase()} ukazuje váš prirodzený spôsob fungovania, sekundárny štýl ${secondary.content.name.toLowerCase()} ho dopĺňa a pomáha lepšie pochopiť, ako sa prejavujete v rôznych situáciách.`;
 };

@@ -24,6 +24,13 @@ const TypologyAdminResultsView = lazy(
 const AdminUsersView = lazy(() => import('./components/admin/AdminUsersView'));
 const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'));
 
+const PASSWORD_CONTEXT_LABEL_BY_ROLE = {
+  admin: 'Admin účet',
+  consultant: 'Konzultantský účet',
+  manager: 'Manažérsky účet',
+  participant: 'Účastnícky účet',
+} as const;
+
 const App: React.FC = () => {
   const { isConfigured, isLoading: isAuthLoading, user, error: authError, signInWithPassword, updatePassword, signOut } =
     useSupabaseAuth();
@@ -91,6 +98,9 @@ const App: React.FC = () => {
   const isBootstrappingAccess =
     shouldUseAssignments && (isLoadingAssignments || isLoadingProfile);
   const accessLoadError = assignmentsError || profileError;
+  const accountPasswordContextLabel = profile?.role
+    ? PASSWORD_CONTEXT_LABEL_BY_ROLE[profile.role]
+    : 'Používateľský účet';
 
   useEffect(() => {
     const currentUserId = user?.id ?? null;
@@ -106,6 +116,19 @@ const App: React.FC = () => {
     handleBackToMode();
   }, [user?.id]);
 
+  const openPasswordDialog = () => {
+    setShowAccountMenu(false);
+    setPasswordFeedback(null);
+    setNewPassword("");
+    setShowPasswordDialog(true);
+  };
+
+  const closePasswordDialog = () => {
+    setShowPasswordDialog(false);
+    setPasswordFeedback(null);
+    setNewPassword("");
+  };
+
   const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPasswordFeedback(null);
@@ -115,7 +138,9 @@ const App: React.FC = () => {
     if (result.error) {
       setPasswordFeedback(result.error);
     } else {
-      setPasswordFeedback("Heslo bolo nastavené. Nabudúce sa môžete prihlásiť cez Admin.");
+      setPasswordFeedback(
+        "Heslo bolo zmenené. Pri ďalšom prihlásení použite nové heslo."
+      );
       setNewPassword("");
     }
 
@@ -212,15 +237,11 @@ const App: React.FC = () => {
                     )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowAccountMenu(false);
-                        setPasswordFeedback(null);
-                        setShowPasswordDialog(true);
-                      }}
+                      onClick={openPasswordDialog}
                       className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-black/70 hover:bg-black hover:text-white transition-all"
                     >
                       <KeyRound className="w-4 h-4" />
-                      Nastaviť heslo
+                      Zmeniť heslo
                     </button>
                     <button
                       type="button"
@@ -246,7 +267,7 @@ const App: React.FC = () => {
           <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-8 relative">
             <button
               type="button"
-              onClick={() => setShowPasswordDialog(false)}
+              onClick={closePasswordDialog}
               className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
               aria-label="Zavrieť"
             >
@@ -255,25 +276,26 @@ const App: React.FC = () => {
             <div className="pr-12">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
                 <KeyRound className="w-3 h-3" />
-                Admin účet
+                {accountPasswordContextLabel}
               </div>
               <h2 className="mt-5 text-2xl md:text-3xl font-black tracking-tight">
-                Nastaviť heslo
+                Zmeniť heslo
               </h2>
               <p className="mt-3 text-black/55 font-semibold leading-relaxed">
-                Heslo sa uloží k aktuálne prihlásenému účtu {user.email}.
+                Zadajte nové heslo pre účet {user.email}. Použijete ho pri
+                ďalšom prihlásení do InsightHubu.
               </p>
             </div>
             <form onSubmit={handleUpdatePassword} className="mt-7 space-y-4">
               <div>
                 <label
-                  htmlFor="new-admin-password"
+                  htmlFor="new-account-password"
                   className="block text-[10px] md:text-xs uppercase tracking-widest font-black text-black/45 mb-3"
                 >
                   Nové heslo
                 </label>
                 <input
-                  id="new-admin-password"
+                  id="new-account-password"
                   type="password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
@@ -289,7 +311,7 @@ const App: React.FC = () => {
                 disabled={isUpdatingPassword}
                 className="w-full px-7 py-4 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isUpdatingPassword ? "Ukladám..." : "Uložiť heslo"}
+                {isUpdatingPassword ? "Ukladám..." : "Uložiť nové heslo"}
               </button>
             </form>
           </div>

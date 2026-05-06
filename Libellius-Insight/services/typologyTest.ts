@@ -21,6 +21,8 @@ export type TypologyTest = {
   id: string;
   title: string;
   description: string | null;
+  participantResultsAvailableAt: string | null;
+  participantResult: TypologyParticipantResult | null;
   groups: TypologyQuestionGroup[];
   completedAt: string | null;
   savedAnswers: TypologyAnswerMap;
@@ -31,6 +33,7 @@ type TypologyTestRow = {
   id: string;
   title: string;
   description: string | null;
+  participant_results_available_at: string | null;
 };
 
 type TypologyQuestionRow = {
@@ -46,6 +49,13 @@ type TypologySessionRow = {
   id: string;
   status: "in_progress" | "completed";
   completed_at: string | null;
+  profiles:
+    | {
+        email: string;
+        full_name: string | null;
+        company_name: string | null;
+      }
+    | null;
 };
 
 export type TypologyAnswerMap = Record<string, number>;
@@ -54,6 +64,23 @@ type TypologyAnswerRow = {
   question_id: string;
   score: number;
   updated_at: string;
+};
+
+export type TypologyParticipantResult = {
+  sessionId: string;
+  userEmail: string | null;
+  fullName: string | null;
+  companyName: string | null;
+  scores: Record<TypologyStyleCode, number> | null;
+  dominantStyle: TypologyStyleCode | null;
+  calculatedAt: string | null;
+};
+
+type TypologyResultRow = {
+  session_id: string;
+  scores: Record<TypologyStyleCode, number> | null;
+  dominant_style: TypologyStyleCode | null;
+  calculated_at: string | null;
 };
 
 export type TypologyAdminResult = {
@@ -94,6 +121,51 @@ type TypologyAdminSessionRow = {
       }
     | null;
 };
+
+const TYPOLOGY_ANALYSIS_TITLE = "Analýza osobnostnej typológie";
+const LEGACY_TYPOLOGY_TITLES = new Set([
+  "Test typológie pri vedení ľudí",
+  "Test typológie pri vedení ludí",
+]);
+
+const normalizeTypologyTitle = (title: string) =>
+  LEGACY_TYPOLOGY_TITLES.has(title) ? TYPOLOGY_ANALYSIS_TITLE : title;
+
+const hasReleasedAt = (releasedAt: string | null, now: Date) => {
+  if (!releasedAt) return false;
+
+  const releaseTime = Date.parse(releasedAt);
+  return Number.isFinite(releaseTime) && releaseTime <= now.getTime();
+};
+
+export const canParticipantViewTypologyResult = (
+  test: Pick<TypologyTest, "completedAt" | "participantResultsAvailableAt">,
+  now: Date = new Date()
+) => Boolean(test.completedAt && hasReleasedAt(test.participantResultsAvailableAt, now));
+
+const isForbiddenSelectError = (error: { code?: string; message?: string }) => {
+  const message = error.message || "";
+
+  return (
+    error.code === "42501" ||
+    message.toLowerCase().includes("permission denied") ||
+    message.toLowerCase().includes("row-level security")
+  );
+};
+
+const toParticipantResult = (
+  row: TypologyResultRow,
+  session: TypologySessionRow,
+  user: User
+): TypologyParticipantResult => ({
+  sessionId: row.session_id,
+  userEmail: session.profiles?.email || user.email || null,
+  fullName: session.profiles?.full_name || null,
+  companyName: session.profiles?.company_name || null,
+  scores: row.scores || null,
+  dominantStyle: row.dominant_style || null,
+  calculatedAt: row.calculated_at || null,
+});
 
 const groupQuestions = (rows: TypologyQuestionRow[]): TypologyQuestionGroup[] => {
   const groups = new Map<number, TypologyQuestionOption[]>();
@@ -148,7 +220,7 @@ export const loadTypologyTest = async (
 
   const { data: tests, error: testError } = await supabase
     .from("typology_tests")
-    .select("id, title, description")
+    .select("id, title, description, participant_results_available_at")
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .limit(1);
@@ -172,7 +244,7 @@ export const loadTypologyTest = async (
 
   const { data: sessions, error: sessionError } = await supabase
     .from("typology_sessions")
-    .select("id, status, completed_at")
+    .select("id, status, completed_at, profiles(email, full_name, company_name)")
     .eq("test_id", test.id)
     .eq("user_id", user.id)
     .limit(1);
@@ -184,6 +256,7 @@ export const loadTypologyTest = async (
   const session = (sessions?.[0] as TypologySessionRow | undefined) || null;
   const savedAnswers: TypologyAnswerMap = {};
   let savedAt: string | null = null;
+  let participantResult: TypologyParticipantResult | null = null;
 
   if (session?.status === "in_progress") {
     const { data: answerRows, error: answerError } = await supabase
@@ -203,10 +276,42 @@ export const loadTypologyTest = async (
     });
   }
 
+  const completedAt = session?.status === "completed" ? session.completed_at : null;
+  const participantResultsAvailableAt = test.participant_results_available_at || null;
+
+  const canViewParticipantResult = canParticipantViewTypologyResult({
+    completedAt,
+    participantResultsAvailableAt,
+  });
+
+  if (session?.status === "completed") {
+    const { data: resultRow, error: resultError } = await supabase
+      .from("typology_results")
+      .select("session_id, scores, dominant_style, calculated_at")
+      .eq("session_id", session.id)
+      .maybeSingle();
+
+    if (resultError) {
+      if (canViewParticipantResult && !isForbiddenSelectError(resultError)) {
+        throw new Error(resultError.message);
+      }
+    } else if (canViewParticipantResult && resultRow) {
+      participantResult = toParticipantResult(
+        resultRow as TypologyResultRow,
+        session,
+        user
+      );
+    }
+  }
+
   return {
-    ...test,
+    id: test.id,
+    title: normalizeTypologyTitle(test.title),
+    description: test.description,
+    participantResultsAvailableAt,
+    participantResult,
     groups: groupQuestions((questions || []) as TypologyQuestionRow[]),
-    completedAt: session?.status === "completed" ? session.completed_at : null,
+    completedAt,
     savedAnswers,
     savedAt,
   };

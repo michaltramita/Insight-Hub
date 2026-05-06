@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   ChevronDown,
   ChevronLeft,
+  KeyRound,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -20,6 +21,7 @@ import {
   AdminManagedUser,
   createAdminUser,
   loadAdminAccessOverview,
+  resetAdminUserPassword,
   resetAdminTypologySession,
   updateAdminUserAccess,
 } from "../../services/adminAccess";
@@ -104,6 +106,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [passwordResets, setPasswordResets] = useState<Record<string, string>>({});
 
   const defaultOrganizationId = useMemo(
     () =>
@@ -193,6 +196,13 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }));
   };
 
+  const updateResetPassword = (userId: string, password: string) => {
+    setPasswordResets((current) => ({
+      ...current,
+      [userId]: password,
+    }));
+  };
+
   const handleSaveUser = async (user: AdminManagedUser) => {
     const draft = drafts[user.id];
     if (!draft) return;
@@ -243,6 +253,42 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const handleResetPassword = async (user: AdminManagedUser) => {
+    if (user.id === currentUserId) {
+      setError("Vlastné heslo si zmeňte v používateľskom menu.");
+      setSuccess(null);
+      return;
+    }
+
+    const nextPassword = (passwordResets[user.id] || "").trim();
+    if (nextPassword.length < 8) {
+      setError("Nové dočasné heslo musí mať aspoň 8 znakov.");
+      setSuccess(null);
+      return;
+    }
+
+    setBusyKey(`password:${user.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await resetAdminUserPassword({
+        userId: user.id,
+        password: nextPassword,
+      });
+      updateResetPassword(user.id, "");
+      setSuccess(`Heslo pre používateľa ${getUserDisplayName(user)} bolo resetované.`);
+    } catch (resetError: unknown) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Heslo používateľa sa nepodarilo resetovať."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusyKey("create");
@@ -284,8 +330,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             Používatelia a prístupy
           </h1>
           <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-            Vytvárajte účastníkov, priraďujte im moduly a resetujte rozpracované
-            alebo dokončené typologické analýzy.
+            Vytvárajte účastníkov, priraďujte im moduly, resetujte heslá a
+            spravujte rozpracované alebo dokončené typologické analýzy.
           </p>
         </div>
 
@@ -343,6 +389,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             const draft = drafts[user.id] || createDraftFromUser(user);
             const isSelf = user.id === currentUserId;
             const isExpanded = expandedUserId === user.id;
+            const resetPasswordValue = passwordResets[user.id] || "";
 
             return (
               <section
@@ -487,11 +534,50 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       })}
                     </div>
 
+                    {!isSelf && (
+                      <div className="border-t border-black/5 pt-4 space-y-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
+                            Reset hesla
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-black/45 leading-relaxed">
+                            Nastavte používateľovi nové dočasné heslo. Po resetovaní
+                            ho odovzdajte bezpečným kanálom.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                          <input
+                            type="password"
+                            value={resetPasswordValue}
+                            onChange={(event) =>
+                              updateResetPassword(user.id, event.target.value)
+                            }
+                            placeholder="Nové dočasné heslo"
+                            aria-label={`Nové dočasné heslo pre ${getUserDisplayName(user)}`}
+                            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleResetPassword(user)}
+                            disabled={busyKey !== null}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
+                          >
+                            {busyKey === `password:${user.id}` ? (
+                              <LoaderCircle className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <KeyRound className="w-4 h-4" />
+                            )}
+                            Resetovať heslo
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                       <button
                         type="button"
                         onClick={() => handleResetTypology(user)}
-                        disabled={busyKey === `reset:${user.id}`}
+                        disabled={busyKey !== null}
                         className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-black/10 bg-white text-black font-black text-[10px] uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-50"
                       >
                         {busyKey === `reset:${user.id}` ? (
@@ -504,7 +590,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSaveUser(user)}
-                        disabled={busyKey === `save:${user.id}`}
+                        disabled={busyKey !== null}
                         className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-black text-white font-black text-[10px] uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
                       >
                         {busyKey === `save:${user.id}` ? (
@@ -564,7 +650,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 Vytvoriť používateľa
               </h2>
               <p className="mt-3 text-black/55 font-semibold leading-relaxed">
-                Účet bude vytvorený s rolou účastníka a dočasným heslom.
+                Účet bude vytvorený s rolou účastníka a dočasným heslom, ktoré
+                môžete neskôr resetovať v detaile používateľa.
               </p>
             </div>
 

@@ -70,6 +70,7 @@ create table if not exists public.typology_tests (
   title text not null default 'Analýza osobnostnej typológie',
   description text,
   status public.test_status not null default 'draft',
+  participant_results_available_at timestamptz null,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1298,6 +1299,7 @@ create policy typology_answers_update_own
 
 drop policy if exists typology_results_select_own_or_org_admin on public.typology_results;
 drop policy if exists typology_results_select_org_admin on public.typology_results;
+drop policy if exists typology_results_select_released_own on public.typology_results;
 create policy typology_results_select_org_admin
   on public.typology_results for select to authenticated
   using (
@@ -1311,6 +1313,20 @@ create policy typology_results_select_org_admin
         where ts.id = typology_results.session_id
           and p.organization_id = (select public.current_profile_organization_id())
       )
+    )
+  );
+
+create policy typology_results_select_released_own
+  on public.typology_results for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.typology_sessions ts
+      join public.typology_tests tt on tt.id = ts.test_id
+      where ts.id = typology_results.session_id
+        and ts.user_id = (select auth.uid())
+        and tt.participant_results_available_at is not null
+        and tt.participant_results_available_at <= now()
     )
   );
 

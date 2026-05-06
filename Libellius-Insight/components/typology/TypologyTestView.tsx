@@ -252,6 +252,46 @@ const QuestionGroupCard: React.FC<QuestionGroupCardProps> = ({
   );
 };
 
+const TypologyAnswerLegend: React.FC<{ variant?: "light" | "dark" }> = ({
+  variant = "light",
+}) => {
+  const isDark = variant === "dark";
+  const cardClass = isDark
+    ? "border-white/10 bg-white/5"
+    : "border-black/5 bg-[#f9f9f9]";
+  const headingClass = "text-brand";
+  const bodyClass = isDark ? "text-white/75" : "text-black/60";
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      <div className={`rounded-[1.5rem] border px-5 py-4 ${cardClass}`}>
+        <p className={`text-sm uppercase tracking-widest font-black mb-2 ${headingClass}`}>
+          Hodnotenie odpovedí
+        </p>
+        <p className={`text-sm md:text-base font-semibold leading-relaxed ${bodyClass}`}>
+          V každej štvorici tvrdení použite hodnoty 1, 2, 3 a 4 vždy iba raz.
+        </p>
+      </div>
+      <div className={`rounded-[1.5rem] border px-5 py-4 ${cardClass}`}>
+        <p className={`text-sm uppercase tracking-widest font-black mb-2 ${headingClass}`}>
+          Význam hodnôt
+        </p>
+        <p className={`text-sm md:text-base font-semibold leading-relaxed ${bodyClass}`}>
+          Hodnota 4 vás vystihuje najviac, hodnota 1 najmenej.
+        </p>
+      </div>
+      <div className={`rounded-[1.5rem] border px-5 py-4 ${cardClass}`}>
+        <p className={`text-sm uppercase tracking-widest font-black mb-2 ${headingClass}`}>
+          Priebeh vyplnenia
+        </p>
+        <p className={`text-sm md:text-base font-semibold leading-relaxed ${bodyClass}`}>
+          Po potvrdení každej otázky sa váš priebeh uloží a po návrate môžete pokračovať tam, kde ste skončili.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   user,
   canViewResults = false,
@@ -582,25 +622,8 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               Tieto údaje použijeme iba na správne označenie výsledku a profilu,
               ktorý bude pripravený pre rozvojový program.
             </p>
-            <div className="mt-7 grid gap-3 md:grid-cols-2 max-w-4xl">
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
-                <p className="text-sm uppercase tracking-widest font-black text-white/40 mb-2">
-                  Ako analýzu vyplniť
-                </p>
-                <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
-                  V každej štvorici tvrdení použite hodnoty 1, 2, 3 a 4 vždy iba raz.
-                  Hodnota 4 vás vystihuje najviac, hodnota 1 najmenej.
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4">
-                <p className="text-sm uppercase tracking-widest font-black text-white/40 mb-2">
-                  Priebeh vyplnenia
-                </p>
-                <p className="text-sm md:text-base font-semibold text-white/75 leading-relaxed">
-                  Po potvrdení každej otázky sa váš priebeh uloží. Ak analýzu zavriete,
-                  po návrate môžete pokračovať tam, kde ste skončili.
-                </p>
-              </div>
+            <div className="mt-7 max-w-5xl">
+              <TypologyAnswerLegend variant="dark" />
             </div>
           </div>
 
@@ -683,19 +706,12 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
           {backLabel}
         </button>
       </div>
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8 md:mb-10">
-        <div>
-          <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
-            {test.title}
-          </h1>
-        </div>
-        <div className="rounded-2xl bg-[#f9f9f9] border border-black/5 px-5 py-4 text-left md:text-right shrink-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-black/35">
-            Vyplnené
-          </p>
-          <p className="text-2xl font-black mt-1">
-            {completedGroups}/{test.groups.length}
-          </p>
+      <div className="mb-8 md:mb-10">
+        <h1 className="text-[clamp(2rem,5vw,4.2rem)] font-black tracking-tight leading-tight">
+          {test.title}
+        </h1>
+        <div className="mt-7 rounded-[2rem] bg-black px-5 py-5 md:px-6 md:py-6">
+          <TypologyAnswerLegend variant="dark" />
         </div>
       </div>
 
@@ -756,10 +772,6 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               <ChevronLeft className="w-4 h-4" />
               Predchádzajúca
             </button>
-
-            <p className="text-sm font-bold text-black/50 text-center">
-              {currentGroupComplete ? "" : "V tejto štvorici použite 1, 2, 3 a 4 iba raz."}
-            </p>
 
             {currentGroupIndex < test.groups.length - 1 ? (
               <button

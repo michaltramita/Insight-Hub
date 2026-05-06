@@ -15,24 +15,18 @@ import {
   TypologyAdminResult,
   TypologyStyleCode,
 } from "../../services/typologyTest";
+import { TYPOLOGY_PROFILE_CONTENT } from "../../services/typologyProfile";
 import TypologyProfilePreview from "./TypologyProfilePreview";
 
 type TypologyAdminResultsViewProps = {
   onBack: () => void;
 };
 
-const STYLE_LABELS: Record<TypologyStyleCode, string> = {
-  a: "A",
-  b: "B",
-  c: "C",
-  d: "D",
-};
-
 const STYLE_NAMES: Record<TypologyStyleCode, string> = {
-  a: "A",
-  b: "B",
-  c: "C",
-  d: "D",
+  a: TYPOLOGY_PROFILE_CONTENT.a.name,
+  b: TYPOLOGY_PROFILE_CONTENT.b.name,
+  c: TYPOLOGY_PROFILE_CONTENT.c.name,
+  d: TYPOLOGY_PROFILE_CONTENT.d.name,
 };
 
 const formatDate = (value: string | null) => {
@@ -45,11 +39,6 @@ const formatDate = (value: string | null) => {
     minute: "2-digit",
   }).format(new Date(value));
 };
-
-const readScore = (
-  scores: Record<TypologyStyleCode, number> | null,
-  code: TypologyStyleCode
-) => scores?.[code] ?? "-";
 
 const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
   onBack,
@@ -68,7 +57,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
   const chartData = useMemo(() => {
     if (!selectedResult?.scores) return [];
     return (["a", "b", "c", "d"] as TypologyStyleCode[]).map((code) => ({
-      code: STYLE_LABELS[code],
+      code,
       name: STYLE_NAMES[code],
       score: selectedResult.scores?.[code] || 0,
       fill: selectedResult.dominantStyle === code ? "#B81547" : "#111111",
@@ -180,11 +169,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                   <th className="px-4 py-4 font-black">Účastník</th>
                   <th className="px-4 py-4 font-black">Stav</th>
                   <th className="px-4 py-4 font-black">Dokončené</th>
-                  <th className="px-3 py-4 font-black text-center">A</th>
-                  <th className="px-3 py-4 font-black text-center">B</th>
-                  <th className="px-3 py-4 font-black text-center">C</th>
-                  <th className="px-3 py-4 font-black text-center">D</th>
-                  <th className="px-4 py-4 font-black">Dominantný</th>
+                  <th className="px-4 py-4 font-black">Štýl</th>
                   <th className="px-4 py-4 font-black text-right">Profil</th>
                 </tr>
               </thead>
@@ -213,17 +198,10 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                     <td className="px-4 py-4 text-sm font-bold text-black/55 whitespace-nowrap">
                       {formatDate(result.completedAt)}
                     </td>
-                    {(["a", "b", "c", "d"] as TypologyStyleCode[]).map((code) => (
-                      <td key={code} className="px-3 py-4 text-center">
-                        <span className="inline-flex min-w-8 h-8 items-center justify-center rounded-lg bg-black/5 text-sm font-black">
-                          {readScore(result.scores, code)}
-                        </span>
-                      </td>
-                    ))}
                     <td className="px-4 py-4">
-                      <span className="font-black text-base">
+                      <span className="inline-flex rounded-full bg-black/5 px-4 py-2 text-sm font-black leading-tight text-black">
                         {result.dominantStyle
-                          ? STYLE_LABELS[result.dominantStyle]
+                          ? STYLE_NAMES[result.dominantStyle]
                           : "-"}
                       </span>
                     </td>
@@ -277,7 +255,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
               </p>
               <p className="text-3xl font-black mt-1 text-brand">
                 {selectedResult.dominantStyle
-                  ? STYLE_LABELS[selectedResult.dominantStyle]
+                  ? STYLE_NAMES[selectedResult.dominantStyle]
                   : "-"}
               </p>
             </div>
@@ -289,10 +267,12 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                 <BarChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.08)" />
                   <XAxis
-                    dataKey="code"
+                    dataKey="name"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: "#111", fontWeight: 900 }}
+                    interval={0}
+                    height={54}
+                    tick={{ fill: "#111", fontWeight: 900, fontSize: 11 }}
                   />
                   <YAxis
                     tickLine={false}
@@ -304,7 +284,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                   <Tooltip
                     cursor={{ fill: "rgba(0,0,0,0.04)" }}
                     formatter={(value) => [`${value} bodov`, "Skóre"]}
-                    labelFormatter={(label) => `Štýl ${label}`}
+                    labelFormatter={(label) => String(label)}
                   />
                   <Bar dataKey="score" radius={[14, 14, 4, 4]}>
                     {chartData.map((entry) => (
@@ -319,14 +299,13 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                 <div
                   key={item.code}
                   className={`rounded-2xl border px-4 py-4 ${
-                    selectedResult.dominantStyle &&
-                    STYLE_LABELS[selectedResult.dominantStyle] === item.code
+                    selectedResult.dominantStyle === item.code
                       ? "border-brand/25 bg-brand/5"
                       : "border-black/5 bg-[#f9f9f9]"
                   }`}
                 >
                   <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                    Štýl {item.code}
+                    {item.name}
                   </p>
                   <p className="mt-2 text-2xl font-black">{item.score}</p>
                 </div>
