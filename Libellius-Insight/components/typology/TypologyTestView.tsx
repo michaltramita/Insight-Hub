@@ -776,7 +776,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                   type="text"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Napr. Michal Tramita"
+                  placeholder="Napr. Martin Kováč"
                   className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-5 py-4 text-base font-bold outline-none focus:ring-2 focus:ring-brand/25"
                 />
               </div>
@@ -793,7 +793,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
                   type="text"
                   value={companyName}
                   onChange={(event) => setCompanyName(event.target.value)}
-                  placeholder="Napr. Libellius"
+                  placeholder="Napr. DemoLab"
                   className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-5 py-4 text-base font-bold outline-none focus:ring-2 focus:ring-brand/25"
                 />
               </div>
