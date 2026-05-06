@@ -578,7 +578,7 @@ const App: React.FC = () => {
                   setShowTypologyTest(true);
                 }}
                 disabled={!canSeeTypology}
-                className={`group md:col-span-2 p-5 sm:p-6 md:p-7 border-2 border-black/5 rounded-[2rem] md:rounded-[2.25rem] text-left flex flex-col md:flex-row md:items-center gap-5 md:gap-7 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all ${
+                className={`group md:col-span-2 p-5 sm:p-6 md:p-7 border-2 border-black/5 rounded-[2rem] md:rounded-[2.25rem] text-left flex flex-col items-start md:flex-row md:items-center gap-5 md:gap-7 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all ${
                 canSeeTypology
                   ? 'hover:border-black hover:bg-black/5'
                   : 'opacity-35 grayscale cursor-not-allowed'
@@ -586,7 +586,7 @@ const App: React.FC = () => {
                 <div className="absolute top-1/2 right-0 -translate-y-1/2 p-6 md:p-8 opacity-5 group-hover:opacity-10 pointer-events-none">
                   <BrainCircuit className="w-24 h-24 md:w-36 md:h-36 text-black" />
                 </div>
-                <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg z-10 shrink-0">
+                <div className="inline-flex items-center justify-center p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg z-10 shrink-0">
                   <BrainCircuit className="w-8 h-8 md:w-10 md:h-10" />
                 </div>
                 <div className="z-10 flex-1">
