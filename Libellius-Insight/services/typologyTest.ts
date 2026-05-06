@@ -122,6 +122,13 @@ type TypologyAdminSessionRow = {
     | null;
 };
 
+type SupabaseSelectError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
 const TYPOLOGY_ANALYSIS_TITLE = "Analýza osobnostnej typológie";
 const LEGACY_TYPOLOGY_TITLES = new Set([
   "Test typológie pri vedení ľudí",
@@ -130,6 +137,15 @@ const LEGACY_TYPOLOGY_TITLES = new Set([
 
 const normalizeTypologyTitle = (title: string) =>
   LEGACY_TYPOLOGY_TITLES.has(title) ? TYPOLOGY_ANALYSIS_TITLE : title;
+
+const includesReleaseColumnName = (value?: string) =>
+  Boolean(value?.includes("participant_results_available_at"));
+
+const isMissingParticipantReleaseColumnError = (error: SupabaseSelectError) =>
+  error.code === "42703" ||
+  includesReleaseColumnName(error.message) ||
+  includesReleaseColumnName(error.details) ||
+  includesReleaseColumnName(error.hint);
 
 const hasReleasedAt = (releasedAt: string | null, now: Date) => {
   if (!releasedAt) return false;
@@ -213,22 +229,49 @@ const readSubmitErrorMessage = (message: string) => {
   return message;
 };
 
-export const loadTypologyTest = async (
-  user: User
-): Promise<TypologyTest | null> => {
+const loadActiveTypologyTests = async (): Promise<TypologyTestRow[]> => {
   const supabase = getSupabaseBrowserClient();
 
-  const { data: tests, error: testError } = await supabase
+  const { data, error } = await supabase
     .from("typology_tests")
     .select("id, title, description, participant_results_available_at")
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .limit(1);
 
-  if (testError) {
-    throw new Error(testError.message);
+  if (!error) {
+    return (data || []) as TypologyTestRow[];
   }
 
+  if (!isMissingParticipantReleaseColumnError(error)) {
+    throw new Error(error.message);
+  }
+
+  const { data: legacyData, error: legacyError } = await supabase
+    .from("typology_tests")
+    .select("id, title, description")
+    .eq("status", "active")
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (legacyError) {
+    throw new Error(legacyError.message);
+  }
+
+  return ((legacyData || []) as Array<Omit<TypologyTestRow, "participant_results_available_at">>).map(
+    (row) => ({
+      ...row,
+      participant_results_available_at: null,
+    })
+  );
+};
+
+export const loadTypologyTest = async (
+  user: User
+): Promise<TypologyTest | null> => {
+  const supabase = getSupabaseBrowserClient();
+
+  const tests = await loadActiveTypologyTests();
   const test = (tests?.[0] as TypologyTestRow | undefined) || null;
   if (!test) return null;
 

@@ -14,6 +14,13 @@ export type AdminModule = {
   sortOrder: number;
 };
 
+export type AdminTypologyTest = {
+  id: string;
+  title: string;
+  status: string;
+  participantResultsAvailableAt: string | null;
+};
+
 export type AdminManagedUser = {
   id: string;
   email: string;
@@ -34,6 +41,7 @@ export type AdminAccessOverview = {
   users: AdminManagedUser[];
   organizations: AdminOrganization[];
   modules: AdminModule[];
+  typologyTests: AdminTypologyTest[];
 };
 
 export type AdminUserAccessUpdate = {
@@ -88,6 +96,13 @@ type AdminModuleRow = {
   sort_order: number;
 };
 
+type AdminTypologyTestRow = {
+  id: string;
+  title: string;
+  status: string;
+  participant_results_available_at: string | null;
+};
+
 const readApiError = async (response: Response, fallbackMessage: string) => {
   try {
     const parsed = await response.json();
@@ -104,19 +119,25 @@ export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> =>
   const supabase = getSupabaseBrowserClient();
   const db = supabase as any;
 
-  const [usersResult, organizationsResult, modulesResult] = await Promise.all([
-    db.rpc("admin_list_users"),
-    supabase.from("organizations").select("id, name, slug").order("name"),
-    supabase
-      .from("modules")
-      .select("code, title, description, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
-  ]);
+  const [usersResult, organizationsResult, modulesResult, typologyTestsResult] =
+    await Promise.all([
+      db.rpc("admin_list_users"),
+      supabase.from("organizations").select("id, name, slug").order("name"),
+      supabase
+        .from("modules")
+        .select("code, title, description, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("typology_tests")
+        .select("id, title, status, participant_results_available_at")
+        .order("created_at", { ascending: true }),
+    ]);
 
   if (usersResult.error) throw new Error(usersResult.error.message);
   if (organizationsResult.error) throw new Error(organizationsResult.error.message);
   if (modulesResult.error) throw new Error(modulesResult.error.message);
+  if (typologyTestsResult.error) throw new Error(typologyTestsResult.error.message);
 
   return {
     users: ((usersResult.data || []) as AdminManagedUserRow[]).map((row) => ({
@@ -147,6 +168,14 @@ export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> =>
       description: row.description,
       sortOrder: row.sort_order,
     })),
+    typologyTests: ((typologyTestsResult.data || []) as AdminTypologyTestRow[]).map(
+      (row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        participantResultsAvailableAt: row.participant_results_available_at,
+      })
+    ),
   };
 };
 
@@ -175,6 +204,24 @@ export const resetAdminTypologySession = async (userId: string) => {
   const { error } = await db.rpc("admin_reset_typology_session", {
     p_user_id: userId,
   });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const updateAdminTypologyResultRelease = async (
+  testId: string,
+  participantResultsAvailableAt: string | null
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("typology_tests")
+    .update({
+      participant_results_available_at: participantResultsAvailableAt,
+    })
+    .eq("id", testId);
 
   if (error) {
     throw new Error(error.message);

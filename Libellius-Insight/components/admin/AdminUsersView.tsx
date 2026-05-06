@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  CalendarClock,
   ChevronDown,
   ChevronLeft,
   KeyRound,
@@ -19,10 +20,12 @@ import {
   AdminAccessOverview,
   AdminCreateUserInput,
   AdminManagedUser,
+  AdminTypologyTest,
   createAdminUser,
   loadAdminAccessOverview,
   resetAdminUserPassword,
   resetAdminTypologySession,
+  updateAdminTypologyResultRelease,
   updateAdminUserAccess,
 } from "../../services/adminAccess";
 
@@ -70,6 +73,24 @@ const formatDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
+const formatReleaseDate = (value: string | null) => {
+  if (!value) return "Výsledky sú zamknuté bez nastaveného dátumu.";
+  return `Výsledky sa účastníkom zobrazia od ${formatDate(value)}.`;
+};
+
+const toDateTimeLocalValue = (value: string | null) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
+
+const fromDateTimeLocalValue = (value: string) =>
+  value ? new Date(value).toISOString() : null;
+
 const hasModule = (modules: AppModuleCode[], code: AppModuleCode) =>
   modules.includes(code);
 
@@ -89,6 +110,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     users: [],
     organizations: [],
     modules: [],
+    typologyTests: [],
   });
   const [drafts, setDrafts] = useState<Record<string, UserDraft>>({});
   const [search, setSearch] = useState("");
@@ -107,6 +129,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [passwordResets, setPasswordResets] = useState<Record<string, string>>({});
+  const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
 
   const defaultOrganizationId = useMemo(
     () =>
@@ -127,6 +150,14 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         setDrafts(
           Object.fromEntries(
             nextOverview.users.map((user) => [user.id, createDraftFromUser(user)])
+          )
+        );
+        setReleaseDrafts(
+          Object.fromEntries(
+            nextOverview.typologyTests.map((test) => [
+              test.id,
+              toDateTimeLocalValue(test.participantResultsAvailableAt),
+            ])
           )
         );
       })
@@ -201,6 +232,61 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       ...current,
       [userId]: password,
     }));
+  };
+
+  const updateReleaseDraft = (testId: string, value: string) => {
+    setReleaseDrafts((current) => ({
+      ...current,
+      [testId]: value,
+    }));
+  };
+
+  const handleSaveResultRelease = async (typologyTest: AdminTypologyTest) => {
+    const draftValue = releaseDrafts[typologyTest.id] || "";
+
+    setBusyKey(`release:${typologyTest.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateAdminTypologyResultRelease(
+        typologyTest.id,
+        fromDateTimeLocalValue(draftValue)
+      );
+      setSuccess("Dátum sprístupnenia výsledkov bol uložený.");
+      loadOverview();
+    } catch (releaseError: unknown) {
+      setError(
+        releaseError instanceof Error
+          ? releaseError.message
+          : "Dátum sprístupnenia výsledkov sa nepodarilo uložiť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleReleaseNow = async (typologyTest: AdminTypologyTest) => {
+    const nowValue = new Date().toISOString();
+    updateReleaseDraft(typologyTest.id, toDateTimeLocalValue(nowValue));
+
+    setBusyKey(`release:${typologyTest.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateAdminTypologyResultRelease(typologyTest.id, nowValue);
+      setSuccess("Výsledky typológie sú sprístupnené účastníkom.");
+      loadOverview();
+    } catch (releaseError: unknown) {
+      setError(
+        releaseError instanceof Error
+          ? releaseError.message
+          : "Výsledky sa nepodarilo sprístupniť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   const handleSaveUser = async (user: AdminManagedUser) => {
@@ -385,6 +471,81 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         </div>
       ) : (
         <div className="space-y-5">
+          {overview.typologyTests.length > 0 && (
+            <section className="rounded-[2rem] border border-black/5 bg-white px-5 py-5 md:px-6 md:py-6 shadow-xl shadow-black/5">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
+                  <CalendarClock className="w-3 h-3" />
+                  Výsledky účastníkov
+                </div>
+                <h2 className="mt-4 text-2xl md:text-3xl font-black tracking-tight">
+                  Sprístupnenie výsledkov typológie
+                </h2>
+                <p className="mt-2 text-sm md:text-base font-semibold text-black/50 leading-relaxed max-w-2xl">
+                  Účastník po odoslaní analýzy uvidí výsledok až po nastavenom
+                  dátume. Dovtedy sa mu zobrazí zamknutá obrazovka.
+                </p>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {overview.typologyTests.map((typologyTest) => {
+                  const draftValue = releaseDrafts[typologyTest.id] || "";
+                  return (
+                    <div
+                      key={typologyTest.id}
+                      className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-4"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-black text-black truncate">
+                            {typologyTest.title}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-black/45">
+                            {formatReleaseDate(
+                              typologyTest.participantResultsAvailableAt
+                            )}
+                          </p>
+                        </div>
+                        <input
+                          type="datetime-local"
+                          value={draftValue}
+                          onChange={(event) =>
+                            updateReleaseDraft(typologyTest.id, event.target.value)
+                          }
+                          className="h-12 rounded-2xl border border-black/10 bg-white px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                          aria-label={`Dátum sprístupnenia výsledkov pre ${typologyTest.title}`}
+                        />
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveResultRelease(typologyTest)}
+                            disabled={busyKey !== null}
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-black px-5 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
+                          >
+                            {busyKey === `release:${typologyTest.id}` ? (
+                              <LoaderCircle className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4" />
+                            )}
+                            Uložiť dátum
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReleaseNow(typologyTest)}
+                            disabled={busyKey !== null}
+                            className="inline-flex h-12 items-center justify-center rounded-full border border-black/10 bg-white px-5 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white disabled:opacity-50"
+                          >
+                            Sprístupniť hneď
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {filteredUsers.map((user) => {
             const draft = drafts[user.id] || createDraftFromUser(user);
             const isSelf = user.id === currentUserId;

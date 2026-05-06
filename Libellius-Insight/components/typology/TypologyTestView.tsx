@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Lock,
   LoaderCircle,
   Send,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   saveTypologyProgress,
   submitTypologyTest,
   TypologyAnswerMap,
+  TypologyAdminResult,
   TypologyQuestionGroup,
   TypologyTest,
 } from "../../services/typologyTest";
@@ -21,6 +23,7 @@ import {
   loadCurrentUserProfile,
   updateCurrentUserProfileDetails,
 } from "../../services/accessControl";
+import TypologyProfilePreview from "./TypologyProfilePreview";
 
 type TypologyTestViewProps = {
   user: User;
@@ -47,6 +50,52 @@ type AdminTypologyEntryProps = {
 };
 
 const REQUIRED_SCORES = [1, 2, 3, 4];
+
+const formatResultReleaseDate = (value: string | null) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const isFutureDate = (value: string | null) => {
+  if (!value) return false;
+
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time > Date.now();
+};
+
+const toParticipantProfileResult = (
+  test: TypologyTest,
+  user: User
+): TypologyAdminResult | null => {
+  const participantResult = test.participantResult;
+  if (!participantResult?.scores) return null;
+
+  return {
+    sessionId: participantResult.sessionId,
+    userEmail: participantResult.userEmail || user.email || "Účastník",
+    fullName: participantResult.fullName,
+    companyName: participantResult.companyName,
+    status: "completed",
+    startedAt:
+      test.completedAt ||
+      participantResult.calculatedAt ||
+      new Date().toISOString(),
+    completedAt: test.completedAt,
+    scores: participantResult.scores,
+    dominantStyle: participantResult.dominantStyle,
+    calculatedAt: participantResult.calculatedAt,
+  };
+};
 
 const isGroupComplete = (
   group: TypologyQuestionGroup,
@@ -311,6 +360,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const [hasEnteredTestFlow, setHasEnteredTestFlow] = useState(!canViewResults);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshingResult, setIsRefreshingResult] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -496,8 +546,13 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
 
     try {
       await submitTypologyTest(user, test, answers);
+      const refreshedTest = await loadTypologyTest(user);
       setHasAnswerChanges(false);
-      setIsSubmitted(true);
+      if (refreshedTest) {
+        setTest(refreshedTest);
+        setAnswers(refreshedTest.savedAnswers);
+      }
+      setIsSubmitted(Boolean(refreshedTest?.completedAt) || true);
     } catch (submitError: unknown) {
       setError(
         submitError instanceof Error
@@ -506,6 +561,28 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRefreshSubmittedResult = async () => {
+    setIsRefreshingResult(true);
+    setError(null);
+
+    try {
+      const refreshedTest = await loadTypologyTest(user);
+      setTest(refreshedTest);
+      if (refreshedTest) {
+        setAnswers(refreshedTest.savedAnswers);
+      }
+      setIsSubmitted(Boolean(refreshedTest?.completedAt));
+    } catch (refreshError: unknown) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : "Stav výsledku sa nepodarilo obnoviť."
+      );
+    } finally {
+      setIsRefreshingResult(false);
     }
   };
 
@@ -531,22 +608,57 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   }
 
   if (isSubmitted) {
+    const participantProfileResult = test
+      ? toParticipantProfileResult(test, user)
+      : null;
+    if (participantProfileResult) {
+      return (
+        <TypologyProfilePreview
+          result={participantProfileResult}
+          onClose={handleBackFromTest}
+        />
+      );
+    }
+
+    const releaseDateLabel = formatResultReleaseDate(
+      test?.participantResultsAvailableAt || null
+    );
+    const hasFutureRelease = isFutureDate(test?.participantResultsAvailableAt || null);
+    const title = hasFutureRelease
+      ? "Výsledky sú zatiaľ zamknuté"
+      : test?.participantResultsAvailableAt
+        ? "Výsledky sa pripravujú"
+        : "Výsledky ešte nie sú sprístupnené";
+    const body = hasFutureRelease && releaseDateLabel
+      ? `Svoj profil osobnostnej typológie si budete môcť pozrieť od ${releaseDateLabel}.`
+      : test?.participantResultsAvailableAt
+        ? "Dátum sprístupnenia už nastal, ale výsledok ešte nie je dostupný. Skúste obnoviť stav o chvíľu."
+        : "Organizátor zatiaľ nenastavil dátum sprístupnenia výsledkov. Keď ho nastaví, profil sa tu automaticky zobrazí po danom termíne.";
+
     return (
       <div className="min-h-[calc(100vh-180px)] flex flex-col items-center justify-center text-center px-4">
         <div className="w-full max-w-4xl bg-white border border-black/5 rounded-[2rem] shadow-2xl px-7 py-10 md:px-12 md:py-14">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-brand/10 text-brand flex items-center justify-center mb-7">
-            <CheckCircle2 className="w-9 h-9" />
+            {hasFutureRelease || !test?.participantResultsAvailableAt ? (
+              <Lock className="w-9 h-9" />
+            ) : (
+              <CheckCircle2 className="w-9 h-9" />
+            )}
           </div>
           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-black/35 mb-4">
             Analýza bola odoslaná
           </p>
           <h1 className="text-[clamp(2rem,4vw,3.8rem)] font-black tracking-tight leading-tight">
-            Ďakujeme za vyplnenie.
+            {title}
           </h1>
           <p className="mt-6 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-2xl mx-auto">
-            Vaše odpovede boli uložené. Výsledok bude súčasťou rozvojového
-            programu a dozviete sa ho počas spoločnej práce s konzultantom.
+            {body}
           </p>
+          {error && (
+            <p className="mt-5 rounded-2xl border border-brand/20 bg-brand/5 px-5 py-4 text-sm font-bold text-brand">
+              {error}
+            </p>
+          )}
           <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
@@ -554,6 +666,17 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
               className="px-8 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
             >
               {backLabel}
+            </button>
+            <button
+              type="button"
+              onClick={handleRefreshSubmittedResult}
+              disabled={isRefreshingResult}
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full border border-black/10 bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-50"
+            >
+              {isRefreshingResult && (
+                <LoaderCircle className="w-4 h-4 animate-spin" />
+              )}
+              Obnoviť stav
             </button>
           </div>
         </div>
@@ -580,9 +703,15 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
             <h1 className="text-3xl md:text-4xl font-black tracking-tight">
               Analýza zatiaľ nie je dostupná
             </h1>
-            <p className="mt-5 text-black/55 font-semibold">
-              Organizátor ho sprístupní pred začiatkom programu.
-            </p>
+            {error ? (
+              <p className="mt-5 rounded-2xl border border-brand/20 bg-brand/5 px-5 py-4 text-sm font-bold text-brand">
+                {error}
+              </p>
+            ) : (
+              <p className="mt-5 text-black/55 font-semibold">
+                Organizátor ju sprístupní pred začiatkom programu.
+              </p>
+            )}
             <button
               type="button"
               onClick={handleBackFromTest}
