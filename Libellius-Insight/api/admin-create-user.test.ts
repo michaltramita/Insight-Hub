@@ -109,6 +109,7 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     data: [{ code: "TYPOLOGY_LEADERSHIP" }],
     error: null,
   });
+  const projectParticipantBuilder = upsertBuilder({ error: null });
   const authClient = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -123,24 +124,27 @@ const createClients = (options?: { isAdmin?: boolean }) => {
       error: null,
     }),
     from: vi.fn((table: string) => {
-      if (table !== "modules") throw new Error(`Unexpected user table: ${table}`);
-      return moduleBuilder;
+      if (table === "modules") return moduleBuilder;
+      throw new Error(`Unexpected user table: ${table}`);
     }),
   };
   const createUser = vi.fn().mockResolvedValue({
     data: { user: { id: "user-1" } },
     error: null,
   });
+  const deleteUser = vi.fn().mockResolvedValue({ error: null });
   const queues: Record<string, any[]> = {
     profiles: [upsertBuilder({ error: null })],
     organizations: [singleBuilder({ data: { id: "org-1" }, error: null })],
     module_assignments: [upsertBuilder({ error: null })],
+    company_project_participants: [projectParticipantBuilder],
     admin_audit_log: [insertBuilder({ error: null })],
   };
   const adminClient = {
     auth: {
       admin: {
         createUser,
+        deleteUser,
       },
     },
     from: vi.fn((table: string) => {
@@ -154,7 +158,13 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     .mockReturnValueOnce(authClient)
     .mockReturnValueOnce(userScopedClient)
     .mockReturnValueOnce(adminClient);
-  return { authClient, userScopedClient, adminClient, createUser };
+  return {
+    authClient,
+    userScopedClient,
+    adminClient,
+    createUser,
+    projectParticipantBuilder,
+  };
 };
 
 describe("api/admin-create-user handler", () => {
@@ -252,6 +262,25 @@ describe("api/admin-create-user handler", () => {
         p_organization_id: "org-1",
         p_module_codes: ["TYPOLOGY_LEADERSHIP"],
       }
+    );
+  });
+
+  it("assigns a created user to a project when projectId is provided", async () => {
+    const { projectParticipantBuilder } = createClients();
+    const req = baseReq();
+    req.body = { ...(req.body as object), projectId: "project-1" };
+    const res = createMockRes();
+
+    await handler(req as any, res as any);
+
+    expect(res.statusCode).toBe(201);
+    expect(projectParticipantBuilder.upsert).toHaveBeenCalledWith(
+      {
+        project_id: "project-1",
+        user_id: "user-1",
+        added_by: "admin-1",
+      },
+      { onConflict: "project_id,user_id" }
     );
   });
 });

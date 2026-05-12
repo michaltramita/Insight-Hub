@@ -1,18 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Archive,
+  Building2,
   CalendarClock,
   ChevronDown,
   ChevronLeft,
+  FolderKanban,
   KeyRound,
   LoaderCircle,
+  Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Search,
   ShieldCheck,
+  Trash2,
   UserPlus,
+  UsersRound,
   X,
 } from "lucide-react";
 import type { AppModuleCode, AppUserRole } from "../../services/accessControl";
@@ -21,10 +27,19 @@ import {
   AdminCreateUserInput,
   AdminManagedUser,
   AdminTypologyTest,
+  CompanyProject,
+  CompanyProjectFormInput,
+  CompanyProjectStatus,
+  addCompanyProjectParticipant,
+  archiveCompanyProject,
+  createCompanyProject,
   createAdminUser,
   loadAdminAccessOverview,
+  removeCompanyProjectParticipant,
   resetAdminUserPassword,
   resetAdminTypologySession,
+  updateCompanyProject,
+  updateCompanyProjectResultAccessDate,
   updateAdminTypologyResultRelease,
   updateAdminUserAccess,
 } from "../../services/adminAccess";
@@ -44,11 +59,27 @@ type UserDraft = {
 
 type CreateUserForm = AdminCreateUserInput;
 
+type ProjectForm = CompanyProjectFormInput;
+
+type ParticipantModalState = {
+  projectId: string;
+  selectedUserId: string;
+};
+
 const ROLE_OPTIONS: Array<{ value: AppUserRole; label: string }> = [
   { value: "participant", label: "Účastník" },
   { value: "manager", label: "Manažér" },
   { value: "consultant", label: "Konzultant" },
   { value: "admin", label: "Admin" },
+];
+
+const PROJECT_STATUS_OPTIONS: Array<{
+  value: CompanyProjectStatus;
+  label: string;
+}> = [
+  { value: "active", label: "Aktívny" },
+  { value: "completed", label: "Dokončený" },
+  { value: "archived", label: "Archivovaný" },
 ];
 
 const createDraftFromUser = (user: AdminManagedUser): UserDraft => ({
@@ -78,6 +109,18 @@ const formatReleaseDate = (value: string | null) => {
   return `Výsledky sa účastníkom zobrazia od ${formatDate(value)}.`;
 };
 
+const formatShortDate = (value: string | null) => {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+};
+
+const getProjectStatusLabel = (status: CompanyProjectStatus) =>
+  PROJECT_STATUS_OPTIONS.find((option) => option.value === status)?.label || status;
+
 const toDateTimeLocalValue = (value: string | null) => {
   if (!value) return "";
 
@@ -90,6 +133,33 @@ const toDateTimeLocalValue = (value: string | null) => {
 
 const fromDateTimeLocalValue = (value: string) =>
   value ? new Date(value).toISOString() : null;
+
+const createEmptyProjectForm = (
+  organizationId: string | null,
+  moduleCodes: AppModuleCode[] = []
+): ProjectForm => ({
+  name: "",
+  companyName: "",
+  description: "",
+  contactPersonName: "",
+  contactPersonEmail: "",
+  status: "active",
+  organizationId,
+  moduleCodes,
+  resultAccessDate: null,
+});
+
+const createProjectFormFromProject = (project: CompanyProject): ProjectForm => ({
+  name: project.name,
+  companyName: project.companyName,
+  description: project.description || "",
+  contactPersonName: project.contactPersonName || "",
+  contactPersonEmail: project.contactPersonEmail || "",
+  status: project.status,
+  organizationId: project.organizationId,
+  moduleCodes: project.moduleCodes,
+  resultAccessDate: project.resultAccessDate,
+});
 
 const hasModule = (modules: AppModuleCode[], code: AppModuleCode) =>
   modules.includes(code);
@@ -111,6 +181,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     organizations: [],
     modules: [],
     typologyTests: [],
+    projects: [],
   });
   const [drafts, setDrafts] = useState<Record<string, UserDraft>>({});
   const [search, setSearch] = useState("");
@@ -123,13 +194,27 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     companyName: "",
     organizationId: null,
     moduleCodes: [],
+    projectId: null,
   });
+  const [projectForm, setProjectForm] = useState<ProjectForm>(
+    createEmptyProjectForm(null)
+  );
+  const [projectModalMode, setProjectModalMode] = useState<"create" | "edit" | null>(
+    null
+  );
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [participantModal, setParticipantModal] =
+    useState<ParticipantModalState | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [passwordResets, setPasswordResets] = useState<Record<string, string>>({});
   const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
+  const [unassignedProjectDrafts, setUnassignedProjectDrafts] = useState<
+    Record<string, string>
+  >({});
 
   const defaultOrganizationId = useMemo(
     () =>
@@ -176,7 +261,12 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isCreateOpen || typeof document === "undefined") return;
+    if (
+      (!isCreateOpen && projectModalMode === null && participantModal === null) ||
+      typeof document === "undefined"
+    ) {
+      return;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -184,7 +274,20 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isCreateOpen]);
+  }, [isCreateOpen, participantModal, projectModalMode]);
+
+  const usersById = useMemo(
+    () => new Map(overview.users.map((user) => [user.id, user])),
+    [overview.users]
+  );
+
+  const assignedUserIds = useMemo(
+    () =>
+      new Set(
+        overview.projects.flatMap((project) => project.participantIds)
+      ),
+    [overview.projects]
+  );
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -203,18 +306,88 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     );
   }, [overview.users, search]);
 
-  const openCreateModal = () => {
+  const filteredProjects = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return overview.projects;
+
+    return overview.projects.filter((project) => {
+      const participantText = project.participantIds
+        .map((participantId) => {
+          const participant = usersById.get(participantId);
+          return participant
+            ? `${participant.fullName || ""} ${participant.email}`
+            : "";
+        })
+        .join(" ");
+
+      return [
+        project.name,
+        project.companyName,
+        project.description || "",
+        project.contactPersonName || "",
+        project.contactPersonEmail || "",
+        participantText,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [overview.projects, search, usersById]);
+
+  const unassignedUsers = useMemo(
+    () =>
+      filteredUsers.filter(
+        (user) => !assignedUserIds.has(user.id) && user.role !== "admin"
+      ),
+    [assignedUserIds, filteredUsers]
+  );
+
+  const participantModalProject = useMemo(
+    () =>
+      participantModal
+        ? overview.projects.find((project) => project.id === participantModal.projectId) ||
+          null
+        : null,
+    [overview.projects, participantModal]
+  );
+
+  const participantAssignableUsers = useMemo(() => {
+    if (!participantModalProject) return [];
+    return overview.users.filter(
+      (user) =>
+        user.role !== "admin" && !participantModalProject.participantIds.includes(user.id)
+    );
+  }, [overview.users, participantModalProject]);
+
+  const openCreateModal = (project?: CompanyProject) => {
     setCreateForm({
       email: "",
       password: "",
       fullName: "",
-      companyName: "",
-      organizationId: defaultOrganizationId,
-      moduleCodes: [],
+      companyName: project?.companyName || "",
+      organizationId: project?.organizationId || defaultOrganizationId,
+      moduleCodes: project?.moduleCodes || [],
+      projectId: project?.id || null,
     });
     setError(null);
     setSuccess(null);
     setIsCreateOpen(true);
+  };
+
+  const openCreateProjectModal = () => {
+    setProjectForm(createEmptyProjectForm(defaultOrganizationId));
+    setEditingProjectId(null);
+    setError(null);
+    setSuccess(null);
+    setProjectModalMode("create");
+  };
+
+  const openEditProjectModal = (project: CompanyProject) => {
+    setProjectForm(createProjectFormFromProject(project));
+    setEditingProjectId(project.id);
+    setError(null);
+    setSuccess(null);
+    setProjectModalMode("edit");
   };
 
   const updateDraft = (userId: string, patch: Partial<UserDraft>) => {
@@ -238,6 +411,20 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     setReleaseDrafts((current) => ({
       ...current,
       [testId]: value,
+    }));
+  };
+
+  const updateUnassignedProjectDraft = (userId: string, projectId: string) => {
+    setUnassignedProjectDrafts((current) => ({
+      ...current,
+      [userId]: projectId,
+    }));
+  };
+
+  const updateProjectForm = (patch: Partial<ProjectForm>) => {
+    setProjectForm((current) => ({
+      ...current,
+      ...patch,
     }));
   };
 
@@ -397,6 +584,162 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const handleSaveProject = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const isEditing = projectModalMode === "edit" && editingProjectId;
+
+    setBusyKey(isEditing ? `project:${editingProjectId}` : "project:create");
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (isEditing && editingProjectId) {
+        await updateCompanyProject(editingProjectId, projectForm);
+        setSuccess("Projekt bol upravený.");
+      } else {
+        const created = await createCompanyProject(projectForm);
+        setExpandedProjectId(created.projectId);
+        setSuccess("Projekt bol vytvorený.");
+      }
+      setProjectModalMode(null);
+      setEditingProjectId(null);
+      loadOverview();
+    } catch (projectError: unknown) {
+      setError(
+        projectError instanceof Error
+          ? projectError.message
+          : "Projekt sa nepodarilo uložiť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleArchiveProject = async (project: CompanyProject) => {
+    setBusyKey(`archive:${project.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await archiveCompanyProject(project.id);
+      setSuccess("Projekt bol archivovaný.");
+      loadOverview();
+    } catch (archiveError: unknown) {
+      setError(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Projekt sa nepodarilo archivovať."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleAddExistingParticipant = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (!participantModal?.selectedUserId) {
+      setError("Vyberte používateľa, ktorého chcete pridať do projektu.");
+      setSuccess(null);
+      return;
+    }
+
+    setBusyKey(`participant:${participantModal.projectId}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await addCompanyProjectParticipant(
+        participantModal.projectId,
+        participantModal.selectedUserId
+      );
+      setParticipantModal(null);
+      setSuccess("Účastník bol pridaný do projektu.");
+      loadOverview();
+    } catch (participantError: unknown) {
+      setError(
+        participantError instanceof Error
+          ? participantError.message
+          : "Účastníka sa nepodarilo pridať do projektu."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleRemoveParticipant = async (
+    project: CompanyProject,
+    user: AdminManagedUser
+  ) => {
+    setBusyKey(`participant-remove:${project.id}:${user.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await removeCompanyProjectParticipant(project.id, user.id);
+      setSuccess("Účastník bol odstránený z projektu.");
+      loadOverview();
+    } catch (participantError: unknown) {
+      setError(
+        participantError instanceof Error
+          ? participantError.message
+          : "Účastníka sa nepodarilo odstrániť z projektu."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleProjectReleaseNow = async (project: CompanyProject) => {
+    const nowValue = new Date().toISOString();
+    setBusyKey(`project-release:${project.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateCompanyProjectResultAccessDate(project.id, nowValue);
+      setSuccess("Projektový dátum sprístupnenia výsledkov bol nastavený.");
+      loadOverview();
+    } catch (releaseError: unknown) {
+      setError(
+        releaseError instanceof Error
+          ? releaseError.message
+          : "Projektový dátum sprístupnenia výsledkov sa nepodarilo nastaviť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleAssignUnassignedUser = async (user: AdminManagedUser) => {
+    const projectId = (unassignedProjectDrafts[user.id] || "").trim();
+    if (!projectId) {
+      setError("Vyberte projekt, do ktorého chcete používateľa pridať.");
+      setSuccess(null);
+      return;
+    }
+
+    setBusyKey(`assign-unassigned:${user.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await addCompanyProjectParticipant(projectId, user.id);
+      updateUnassignedProjectDraft(user.id, "");
+      setSuccess(`Používateľ ${getUserDisplayName(user)} bol pridaný do projektu.`);
+      loadOverview();
+    } catch (assignError: unknown) {
+      setError(
+        assignError instanceof Error
+          ? assignError.message
+          : "Používateľa sa nepodarilo pridať do projektu."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
@@ -413,15 +756,31 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             Admin rozhranie
           </p>
           <h1 className="text-[clamp(2.2rem,5vw,4.5rem)] font-black tracking-tight leading-tight">
-            Používatelia a prístupy
+            Projekty a účastníci
           </h1>
           <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-            Vytvárajte účastníkov, priraďujte im moduly, resetujte heslá a
-            spravujte rozpracované alebo dokončené typologické analýzy.
+            Vytvárajte firemné projekty, pridávajte účastníkov, spravujte
+            moduly, prístupy a výsledky typologických analýz.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={openCreateProjectModal}
+            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
+          >
+            <FolderKanban className="w-4 h-4" />
+            Vytvoriť projekt
+          </button>
+          <button
+            type="button"
+            onClick={() => openCreateModal()}
+            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-brand text-white font-black text-xs uppercase tracking-widest hover:bg-black transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            Vytvoriť používateľa
+          </button>
           <button
             type="button"
             onClick={loadOverview}
@@ -429,14 +788,6 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           >
             <RefreshCw className="w-4 h-4" />
             Obnoviť
-          </button>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-brand text-white font-black text-xs uppercase tracking-widest hover:bg-black transition-all"
-          >
-            <UserPlus className="w-4 h-4" />
-            Vytvoriť používateľa
           </button>
         </div>
       </div>
@@ -459,7 +810,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Hľadať podľa mena, emailu alebo firmy"
+          placeholder="Hľadať podľa názvu projektu, firmy, mena účastníka alebo emailu"
           className="w-full bg-transparent outline-none text-base font-bold placeholder:text-black/25"
         />
       </div>
@@ -467,11 +818,12 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       {isLoading ? (
         <div className="py-24 flex items-center justify-center gap-3 text-black/40 font-black uppercase tracking-widest text-sm">
           <LoaderCircle className="w-5 h-5 animate-spin" />
-          Načítavam používateľov
+          Načítavam projekty a používateľov
         </div>
       ) : (
         <div className="space-y-5">
-          {overview.typologyTests.length > 0 && (
+          {/* Global test-level release is intentionally disabled. Release is project-scoped. */}
+          {false && overview.typologyTests.length > 0 && (
             <section className="rounded-[2rem] border border-black/5 bg-white px-5 py-5 md:px-6 md:py-6 shadow-xl shadow-black/5">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
@@ -545,6 +897,412 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               </div>
             </section>
           )}
+
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                  Firemné projekty
+                </p>
+                <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
+                  Zoznam projektov
+                </h2>
+              </div>
+              <p className="text-sm font-bold text-black/40">
+                {filteredProjects.length} z {overview.projects.length} projektov
+              </p>
+            </div>
+
+            {filteredProjects.length > 0 ? (
+              filteredProjects.map((project) => {
+                const isExpanded = expandedProjectId === project.id;
+                const participantUsers = project.participantIds
+                  .map((participantId) => usersById.get(participantId))
+                  .filter(
+                    (participant): participant is AdminManagedUser =>
+                      Boolean(participant)
+                  );
+
+                return (
+                  <article
+                    key={project.id}
+                    className="rounded-[2rem] border border-black/5 bg-white shadow-xl shadow-black/5 overflow-hidden"
+                  >
+                    <div className="px-5 py-5 md:px-6 md:py-6">
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedProjectId((current) =>
+                              current === project.id ? null : project.id
+                            )
+                          }
+                          className="min-w-0 flex-1 text-left group"
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
+                              <Building2 className="w-3 h-3" />
+                              {project.companyName}
+                            </span>
+                            <span className="rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand">
+                              {getProjectStatusLabel(project.status)}
+                            </span>
+                          </div>
+                          <h3 className="mt-4 text-2xl md:text-3xl font-black tracking-tight group-hover:text-brand transition-colors">
+                            {project.name}
+                          </h3>
+                          {project.description && (
+                            <p className="mt-2 text-sm md:text-base font-semibold text-black/50 leading-relaxed">
+                              {project.description}
+                            </p>
+                          )}
+                        </button>
+
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParticipantModal({
+                                projectId: project.id,
+                                selectedUserId: "",
+                              })
+                            }
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            Pridať účastníka
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditProjectModal(project)}
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Upraviť
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleArchiveProject(project)}
+                            disabled={busyKey !== null || project.status === "archived"}
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
+                          >
+                            {busyKey === `archive:${project.id}` ? (
+                              <LoaderCircle className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Archive className="w-4 h-4" />
+                            )}
+                            Archivovať
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedProjectId((current) =>
+                                current === project.id ? null : project.id
+                              )
+                            }
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-black transition-all hover:bg-black hover:text-white"
+                            aria-label={
+                              isExpanded ? "Zavrieť detail projektu" : "Otvoriť detail projektu"
+                            }
+                          >
+                            <ChevronDown
+                              className={`w-5 h-5 transition-transform ${
+                                isExpanded ? "rotate-180" : ""
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Účastníci
+                          </p>
+                          <p className="mt-1 text-xl font-black text-black">
+                            {participantUsers.length}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Vytvorené
+                          </p>
+                          <p className="mt-1 text-sm font-black text-black">
+                            {formatShortDate(project.createdAt)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Výsledky
+                          </p>
+                          <p className="mt-1 text-sm font-black text-black">
+                            {project.resultAccessDate
+                              ? formatShortDate(project.resultAccessDate)
+                              : "Bez dátumu"}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Moduly
+                          </p>
+                          <p className="mt-1 text-sm font-black text-black">
+                            {project.moduleCodes.length || "Bez modulov"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-black/5 bg-[#fbfaf7] px-5 py-5 md:px-6 md:py-6 animate-fade-in">
+                        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+                          <div className="space-y-4">
+                            <div className="rounded-2xl bg-white border border-black/5 px-4 py-4">
+                              <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                                Kontakt
+                              </p>
+                              <p className="mt-2 text-sm font-black text-black">
+                                {project.contactPersonName || "Bez kontaktnej osoby"}
+                              </p>
+                              {project.contactPersonEmail && (
+                                <p className="mt-1 text-sm font-bold text-black/45">
+                                  {project.contactPersonEmail}
+                                </p>
+                              )}
+                            </div>
+                            <div className="rounded-2xl bg-white border border-black/5 px-4 py-4">
+                              <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                                Predvolené moduly
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {project.moduleCodes.length > 0 ? (
+                                  project.moduleCodes.map((moduleCode) => (
+                                    <span
+                                      key={moduleCode}
+                                      className="rounded-full bg-brand/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand"
+                                    >
+                                      {overview.modules.find(
+                                        (module) => module.code === moduleCode
+                                      )?.title || moduleCode}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-sm font-bold text-black/40">
+                                    Projekt nemá nastavené predvolené moduly.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleProjectReleaseNow(project)}
+                              disabled={busyKey !== null}
+                              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
+                            >
+                              {busyKey === `project-release:${project.id}` ? (
+                                <LoaderCircle className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CalendarClock className="w-4 h-4" />
+                              )}
+                              Nastaviť projektový dátum na teraz
+                            </button>
+                          </div>
+
+                          <div className="rounded-2xl bg-white border border-black/5 overflow-hidden">
+                            <div className="px-4 py-4 border-b border-black/5 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                                  Účastníci projektu
+                                </p>
+                                <h4 className="mt-1 text-xl font-black tracking-tight">
+                                  {participantUsers.length} účastníkov
+                                </h4>
+                              </div>
+                              <UsersRound className="w-5 h-5 text-black/25" />
+                            </div>
+
+                            {participantUsers.length > 0 ? (
+                              <div className="divide-y divide-black/5">
+                                {participantUsers.map((participant) => (
+                                  <div
+                                    key={participant.id}
+                                    className="px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-black text-black truncate">
+                                        {getUserDisplayName(participant)}
+                                      </p>
+                                      <p className="mt-1 text-xs font-bold text-black/45 truncate">
+                                        {participant.email}
+                                      </p>
+                                      <p className="mt-2 text-[10px] uppercase tracking-widest font-black text-black/35">
+                                        {participant.typologyStatus === "completed"
+                                          ? "Analýza dokončená"
+                                          : participant.typologyStatus === "in_progress"
+                                            ? "Analýza rozpracovaná"
+                                            : "Bez analýzy"}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setExpandedUserId(participant.id);
+                                          setSuccess(
+                                            "Detail používateľa je otvorený v zozname všetkých používateľov nižšie."
+                                          );
+                                        }}
+                                        className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
+                                      >
+                                        Otvoriť používateľa
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveParticipant(project, participant)
+                                        }
+                                        disabled={busyKey !== null}
+                                        className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
+                                      >
+                                        {busyKey ===
+                                        `participant-remove:${project.id}:${participant.id}` ? (
+                                          <LoaderCircle className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="w-4 h-4" />
+                                        )}
+                                        Odstrániť
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="px-4 py-10 text-center">
+                                <p className="font-black uppercase tracking-widest text-black/30">
+                                  Projekt zatiaľ nemá účastníkov
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setParticipantModal({
+                                      projectId: project.id,
+                                      selectedUserId: "",
+                                    })
+                                  }
+                                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand"
+                                >
+                                  <UserPlus className="w-4 h-4" />
+                                  Pridať účastníka
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })
+            ) : (
+              <div className="rounded-[2rem] border border-black/5 bg-[#f9f9f9] px-6 py-12 text-center shadow-xl shadow-black/5">
+                <p className="font-black uppercase tracking-widest text-black/35">
+                  {overview.projects.length === 0
+                    ? "Zatiaľ neexistuje žiadny projekt"
+                    : "Nenašli sa žiadne projekty"}
+                </p>
+                <p className="mt-3 text-sm font-semibold text-black/45">
+                  Vytvorte firemný projekt a následne do neho pridajte
+                  existujúcich alebo nových účastníkov.
+                </p>
+                <button
+                  type="button"
+                  onClick={openCreateProjectModal}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand"
+                >
+                  <FolderKanban className="w-4 h-4" />
+                  Vytvoriť prvý projekt
+                </button>
+              </div>
+            )}
+          </section>
+
+          {unassignedUsers.length > 0 && (
+            <section className="rounded-[2rem] border border-black/5 bg-white px-5 py-5 md:px-6 md:py-6 shadow-xl shadow-black/5">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                    Nezaradení používatelia
+                  </p>
+                  <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
+                    Používatelia bez projektu
+                  </h2>
+                </div>
+                <p className="text-sm font-bold text-black/40">
+                  {unassignedUsers.length} používateľov
+                </p>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {unassignedUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-4"
+                  >
+                    <p className="font-black text-black">{getUserDisplayName(user)}</p>
+                    <p className="mt-1 text-xs font-bold text-black/45">
+                      {user.email}
+                    </p>
+                    <p className="mt-2 text-xs font-bold text-black/40">
+                      {user.companyName || "Bez firmy"}
+                    </p>
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <select
+                        value={unassignedProjectDrafts[user.id] || ""}
+                        onChange={(event) =>
+                          updateUnassignedProjectDraft(user.id, event.target.value)
+                        }
+                        className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-xs font-black outline-none focus:ring-2 focus:ring-brand/20"
+                      >
+                        <option value="">Vyberte projekt</option>
+                        {overview.projects.map((project) => (
+                          <option key={project.id} value={project.id}>
+                            {project.name} · {project.companyName}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleAssignUnassignedUser(user)}
+                        disabled={busyKey !== null || overview.projects.length === 0}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
+                      >
+                        {busyKey === `assign-unassigned:${user.id}` ? (
+                          <LoaderCircle className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                        Pridať
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                  Pôvodná správa prístupov
+                </p>
+                <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
+                  Všetci používatelia
+                </h2>
+              </div>
+              <p className="text-sm font-bold text-black/40">
+                {filteredUsers.length} z {overview.users.length} používateľov
+              </p>
+            </div>
 
           {filteredUsers.map((user) => {
             const draft = drafts[user.id] || createDraftFromUser(user);
@@ -776,6 +1534,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               </p>
             </div>
           )}
+          </section>
         </div>
       )}
 
@@ -813,6 +1572,9 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               <p className="mt-3 text-black/55 font-semibold leading-relaxed">
                 Účet bude vytvorený s rolou účastníka a dočasným heslom, ktoré
                 môžete neskôr resetovať v detaile používateľa.
+                {createForm.projectId
+                  ? " Účastník bude zároveň pridaný do vybraného projektu."
+                  : ""}
               </p>
             </div>
 
@@ -885,6 +1647,34 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   </option>
                 ))}
               </select>
+              <select
+                value={createForm.projectId || ""}
+                onChange={(event) => {
+                  const projectId = event.target.value || null;
+                  const project = overview.projects.find(
+                    (candidate) => candidate.id === projectId
+                  );
+                  setCreateForm((current) => ({
+                    ...current,
+                    projectId,
+                    companyName: project?.companyName || current.companyName,
+                    organizationId:
+                      project?.organizationId || current.organizationId,
+                    moduleCodes:
+                      project && project.moduleCodes.length > 0
+                        ? project.moduleCodes
+                        : current.moduleCodes,
+                  }));
+                }}
+                className="md:col-span-2 w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="">Bez projektu</option>
+                {overview.projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} · {project.companyName}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-5">
@@ -933,6 +1723,285 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               Vytvoriť používateľa
             </button>
             </form>
+          </div>,
+          document.body
+        )}
+
+      {projectModalMode &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+            <form
+              onSubmit={handleSaveProject}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-project-modal-title"
+              className="w-full max-w-3xl max-h-[min(760px,92vh)] overflow-y-auto bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-9 relative"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectModalMode(null);
+                  setEditingProjectId(null);
+                }}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
+                aria-label="Zavrieť"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="pr-12">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
+                  <FolderKanban className="w-3 h-3" />
+                  {projectModalMode === "edit" ? "Úprava projektu" : "Nový projekt"}
+                </div>
+                <h2
+                  id="admin-project-modal-title"
+                  className="mt-5 text-2xl md:text-4xl font-black tracking-tight"
+                >
+                  {projectModalMode === "edit"
+                    ? "Upraviť projekt"
+                    : "Vytvoriť projekt"}
+                </h2>
+                <p className="mt-3 text-black/55 font-semibold leading-relaxed">
+                  Projekt slúži ako firemná vrstva nad účastníkmi. Existujúce
+                  používateľské prístupy ostávajú zachované.
+                </p>
+              </div>
+
+              <div className="mt-7 grid md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  value={projectForm.name}
+                  onChange={(event) => updateProjectForm({ name: event.target.value })}
+                  placeholder="Názov projektu"
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                  required
+                />
+                <input
+                  type="text"
+                  value={projectForm.companyName}
+                  onChange={(event) =>
+                    updateProjectForm({ companyName: event.target.value })
+                  }
+                  placeholder="Názov firmy"
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                  required
+                />
+                <input
+                  type="text"
+                  value={projectForm.contactPersonName}
+                  onChange={(event) =>
+                    updateProjectForm({ contactPersonName: event.target.value })
+                  }
+                  placeholder="Kontaktná osoba"
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                />
+                <input
+                  type="email"
+                  value={projectForm.contactPersonEmail}
+                  onChange={(event) =>
+                    updateProjectForm({ contactPersonEmail: event.target.value })
+                  }
+                  placeholder="kontakt@firma.sk"
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                />
+                <select
+                  value={projectForm.status}
+                  onChange={(event) =>
+                    updateProjectForm({
+                      status: event.target.value as CompanyProjectStatus,
+                    })
+                  }
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
+                >
+                  {PROJECT_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={projectForm.organizationId || ""}
+                  onChange={(event) =>
+                    updateProjectForm({
+                      organizationId: event.target.value || null,
+                    })
+                  }
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">Bez organizácie</option>
+                  {overview.organizations.map((organization) => (
+                    <option key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="datetime-local"
+                  value={toDateTimeLocalValue(projectForm.resultAccessDate)}
+                  onChange={(event) =>
+                    updateProjectForm({
+                      resultAccessDate: fromDateTimeLocalValue(event.target.value),
+                    })
+                  }
+                  className="md:col-span-2 w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                  aria-label="Projektový dátum sprístupnenia výsledkov"
+                />
+                <textarea
+                  value={projectForm.description}
+                  onChange={(event) =>
+                    updateProjectForm({ description: event.target.value })
+                  }
+                  placeholder="Popis projektu"
+                  className="md:col-span-2 min-h-28 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[10px] uppercase tracking-widest font-black text-black/35 mb-3">
+                  Predvolené moduly projektu
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {overview.modules.map((module) => {
+                    const isActive = hasModule(projectForm.moduleCodes, module.code);
+                    return (
+                      <button
+                        key={module.code}
+                        type="button"
+                        onClick={() =>
+                          updateProjectForm({
+                            moduleCodes: toggleModule(
+                              projectForm.moduleCodes,
+                              module.code
+                            ),
+                          })
+                        }
+                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          isActive
+                            ? "bg-brand text-white border-brand"
+                            : "bg-black/5 text-black/45 border-black/10 hover:text-black"
+                        }`}
+                      >
+                        {module.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={busyKey?.startsWith("project:")}
+                className="mt-8 w-full inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
+              >
+                {busyKey?.startsWith("project:") ? (
+                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {projectModalMode === "edit" ? "Uložiť projekt" : "Vytvoriť projekt"}
+              </button>
+            </form>
+          </div>,
+          document.body
+        )}
+
+      {participantModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-add-participant-title"
+              className="w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-9 relative"
+            >
+              <button
+                type="button"
+                onClick={() => setParticipantModal(null)}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
+                aria-label="Zavrieť"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="pr-12">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
+                  <UserPlus className="w-3 h-3" />
+                  Účastník projektu
+                </div>
+                <h2
+                  id="admin-add-participant-title"
+                  className="mt-5 text-2xl md:text-4xl font-black tracking-tight"
+                >
+                  Pridať účastníka
+                </h2>
+                <p className="mt-3 text-black/55 font-semibold leading-relaxed">
+                  {participantModalProject
+                    ? `${participantModalProject.name} · ${participantModalProject.companyName}`
+                    : "Vybraný projekt sa nepodarilo načítať."}
+                </p>
+              </div>
+
+              <form onSubmit={handleAddExistingParticipant} className="mt-7">
+                <label className="block text-[10px] uppercase tracking-widest font-black text-black/35 mb-3">
+                  Priradiť existujúceho používateľa
+                </label>
+                <select
+                  value={participantModal.selectedUserId}
+                  onChange={(event) =>
+                    setParticipantModal((current) =>
+                      current
+                        ? { ...current, selectedUserId: event.target.value }
+                        : current
+                    )
+                  }
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">Vyberte používateľa</option>
+                  {participantAssignableUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {getUserDisplayName(user)} · {user.email}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="submit"
+                  disabled={busyKey !== null || !participantModalProject}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
+                >
+                  {busyKey === `participant:${participantModal.projectId}` ? (
+                    <LoaderCircle className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Pridať do projektu
+                </button>
+              </form>
+
+              <div className="mt-6 rounded-2xl border border-black/5 bg-[#f9f9f9] p-4">
+                <p className="text-sm font-bold text-black/50 leading-relaxed">
+                  Alebo vytvorte nového používateľa priamo v projekte. Firma a
+                  predvolené moduly sa predvyplnia podľa projektu.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (participantModalProject) {
+                      setParticipantModal(null);
+                      openCreateModal(participantModalProject);
+                    }
+                  }}
+                  disabled={!participantModalProject}
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-black disabled:opacity-50"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Vytvoriť nového účastníka
+                </button>
+              </div>
+            </div>
           </div>,
           document.body
         )}

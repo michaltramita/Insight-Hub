@@ -624,6 +624,7 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       test?.participantResultsAvailableAt || null
     );
     const hasFutureRelease = isFutureDate(test?.participantResultsAvailableAt || null);
+    const usesProjectRelease = test?.resultAccessScope === "project";
     const title = hasFutureRelease
       ? "Výsledky sú zatiaľ zamknuté"
       : test?.participantResultsAvailableAt
@@ -633,7 +634,9 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       ? `Svoj profil osobnostnej typológie si budete môcť pozrieť od ${releaseDateLabel}.`
       : test?.participantResultsAvailableAt
         ? "Dátum sprístupnenia už nastal, ale výsledok ešte nie je dostupný. Skúste obnoviť stav o chvíľu."
-        : "Organizátor zatiaľ nenastavil dátum sprístupnenia výsledkov. Keď ho nastaví, profil sa tu automaticky zobrazí po danom termíne.";
+        : usesProjectRelease
+          ? "V projekte zatiaľ nie je nastavený dátum sprístupnenia výsledkov. Po jeho nastavení sa profil zobrazí automaticky po danom termíne."
+          : "Dátum sprístupnenia výsledkov zatiaľ nie je nastavený.";
 
     return (
       <div className="min-h-[calc(100vh-180px)] flex flex-col items-center justify-center text-center px-4">

@@ -21,6 +21,24 @@ export type AdminTypologyTest = {
   participantResultsAvailableAt: string | null;
 };
 
+export type CompanyProjectStatus = "active" | "completed" | "archived";
+
+export type CompanyProject = {
+  id: string;
+  name: string;
+  companyName: string;
+  description: string | null;
+  contactPersonName: string | null;
+  contactPersonEmail: string | null;
+  status: CompanyProjectStatus;
+  organizationId: string | null;
+  moduleCodes: AppModuleCode[];
+  resultAccessDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participantIds: string[];
+};
+
 export type AdminManagedUser = {
   id: string;
   email: string;
@@ -42,6 +60,7 @@ export type AdminAccessOverview = {
   organizations: AdminOrganization[];
   modules: AdminModule[];
   typologyTests: AdminTypologyTest[];
+  projects: CompanyProject[];
 };
 
 export type AdminUserAccessUpdate = {
@@ -60,11 +79,24 @@ export type AdminCreateUserInput = {
   companyName: string;
   organizationId: string | null;
   moduleCodes: AppModuleCode[];
+  projectId?: string | null;
 };
 
 export type AdminResetUserPasswordInput = {
   userId: string;
   password: string;
+};
+
+export type CompanyProjectFormInput = {
+  name: string;
+  companyName: string;
+  description: string;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  status: CompanyProjectStatus;
+  organizationId: string | null;
+  moduleCodes: AppModuleCode[];
+  resultAccessDate: string | null;
 };
 
 type AdminManagedUserRow = {
@@ -103,6 +135,26 @@ type AdminTypologyTestRow = {
   participant_results_available_at: string | null;
 };
 
+type CompanyProjectRow = {
+  id: string;
+  name: string;
+  company_name: string;
+  description: string | null;
+  contact_person_name: string | null;
+  contact_person_email: string | null;
+  status: CompanyProjectStatus;
+  organization_id: string | null;
+  module_codes: AppModuleCode[] | null;
+  result_access_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CompanyProjectParticipantRow = {
+  project_id: string;
+  user_id: string;
+};
+
 const readApiError = async (response: Response, fallbackMessage: string) => {
   try {
     const parsed = await response.json();
@@ -115,11 +167,97 @@ const readApiError = async (response: Response, fallbackMessage: string) => {
   return fallbackMessage;
 };
 
+const isMissingProjectsTableError = (error: unknown) => {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message || "").toLowerCase()
+      : "";
+
+  return (
+    message.includes("company_projects") ||
+    message.includes("company_project_participants") ||
+    message.includes("does not exist") ||
+    message.includes("schema cache")
+  );
+};
+
+const normalizeNullableText = (value: string) => value.trim() || null;
+
+const assertProjectInput = (input: CompanyProjectFormInput) => {
+  if (!input.name.trim()) {
+    throw new Error("Zadajte názov projektu.");
+  }
+  if (!input.companyName.trim()) {
+    throw new Error("Zadajte názov firmy.");
+  }
+  if (
+    input.contactPersonEmail.trim() &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.contactPersonEmail.trim())
+  ) {
+    throw new Error("Zadajte platný kontaktný email.");
+  }
+};
+
+const loadCompanyProjects = async (): Promise<CompanyProject[]> => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+
+  const [projectsResult, participantsResult] = await Promise.all([
+    db
+      .from("company_projects")
+      .select(
+        "id, name, company_name, description, contact_person_name, contact_person_email, status, organization_id, module_codes, result_access_date, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false }),
+    db
+      .from("company_project_participants")
+      .select("project_id, user_id")
+      .order("added_at", { ascending: true }),
+  ]);
+
+  if (projectsResult.error || participantsResult.error) {
+    const error = projectsResult.error || participantsResult.error;
+    if (isMissingProjectsTableError(error)) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+
+  const participantIdsByProject = new Map<string, string[]>();
+  for (const row of (participantsResult.data || []) as CompanyProjectParticipantRow[]) {
+    const current = participantIdsByProject.get(row.project_id) || [];
+    current.push(row.user_id);
+    participantIdsByProject.set(row.project_id, current);
+  }
+
+  return ((projectsResult.data || []) as CompanyProjectRow[]).map((row) => ({
+    id: row.id,
+    name: row.name,
+    companyName: row.company_name,
+    description: row.description,
+    contactPersonName: row.contact_person_name,
+    contactPersonEmail: row.contact_person_email,
+    status: row.status,
+    organizationId: row.organization_id,
+    moduleCodes: row.module_codes || [],
+    resultAccessDate: row.result_access_date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    participantIds: participantIdsByProject.get(row.id) || [],
+  }));
+};
+
 export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> => {
   const supabase = getSupabaseBrowserClient();
   const db = supabase as any;
 
-  const [usersResult, organizationsResult, modulesResult, typologyTestsResult] =
+  const [
+    usersResult,
+    organizationsResult,
+    modulesResult,
+    typologyTestsResult,
+    projects,
+  ] =
     await Promise.all([
       db.rpc("admin_list_users"),
       supabase.from("organizations").select("id, name, slug").order("name"),
@@ -132,6 +270,7 @@ export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> =>
         .from("typology_tests")
         .select("id, title, status, participant_results_available_at")
         .order("created_at", { ascending: true }),
+      loadCompanyProjects(),
     ]);
 
   if (usersResult.error) throw new Error(usersResult.error.message);
@@ -176,7 +315,141 @@ export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> =>
         participantResultsAvailableAt: row.participant_results_available_at,
       })
     ),
+    projects,
   };
+};
+
+export const createCompanyProject = async (input: CompanyProjectFormInput) => {
+  assertProjectInput(input);
+
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { data: sessionData } = await supabase.auth.getSession();
+
+  const { data, error } = await db
+    .from("company_projects")
+    .insert({
+      name: input.name.trim(),
+      company_name: input.companyName.trim(),
+      description: normalizeNullableText(input.description),
+      contact_person_name: normalizeNullableText(input.contactPersonName),
+      contact_person_email: normalizeNullableText(input.contactPersonEmail),
+      status: input.status,
+      organization_id: input.organizationId,
+      module_codes: input.moduleCodes,
+      result_access_date: input.resultAccessDate,
+      created_by: sessionData.session?.user.id || null,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return { projectId: data?.id as string };
+};
+
+export const updateCompanyProject = async (
+  projectId: string,
+  input: CompanyProjectFormInput
+) => {
+  assertProjectInput(input);
+
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("company_projects")
+    .update({
+      name: input.name.trim(),
+      company_name: input.companyName.trim(),
+      description: normalizeNullableText(input.description),
+      contact_person_name: normalizeNullableText(input.contactPersonName),
+      contact_person_email: normalizeNullableText(input.contactPersonEmail),
+      status: input.status,
+      organization_id: input.organizationId,
+      module_codes: input.moduleCodes,
+      result_access_date: input.resultAccessDate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", projectId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const archiveCompanyProject = async (projectId: string) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("company_projects")
+    .update({
+      status: "archived",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", projectId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const addCompanyProjectParticipant = async (
+  projectId: string,
+  userId: string
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const { error } = await db.from("company_project_participants").upsert(
+    {
+      project_id: projectId,
+      user_id: userId,
+      added_by: sessionData.session?.user.id || null,
+    },
+    { onConflict: "project_id,user_id" }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const removeCompanyProjectParticipant = async (
+  projectId: string,
+  userId: string
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("company_project_participants")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const updateCompanyProjectResultAccessDate = async (
+  projectId: string,
+  resultAccessDate: string | null
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("company_projects")
+    .update({
+      result_access_date: resultAccessDate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", projectId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 };
 
 export const updateAdminUserAccess = async (input: AdminUserAccessUpdate) => {

@@ -22,6 +22,7 @@ export type TypologyTest = {
   title: string;
   description: string | null;
   participantResultsAvailableAt: string | null;
+  resultAccessScope: "project";
   participantResult: TypologyParticipantResult | null;
   groups: TypologyQuestionGroup[];
   completedAt: string | null;
@@ -81,6 +82,17 @@ type TypologyResultRow = {
   scores: Record<TypologyStyleCode, number> | null;
   dominant_style: TypologyStyleCode | null;
   calculated_at: string | null;
+};
+
+type ProjectReleaseRow = {
+  company_projects:
+    | {
+        result_access_date: string | null;
+      }
+    | Array<{
+        result_access_date: string | null;
+      }>
+    | null;
 };
 
 export type TypologyAdminResult = {
@@ -152,6 +164,60 @@ const hasReleasedAt = (releasedAt: string | null, now: Date) => {
 
   const releaseTime = Date.parse(releasedAt);
   return Number.isFinite(releaseTime) && releaseTime <= now.getTime();
+};
+
+const isMissingProjectReleaseSourceError = (error: SupabaseSelectError) => {
+  const combined = `${error.code || ""} ${error.message || ""} ${
+    error.details || ""
+  } ${error.hint || ""}`.toLowerCase();
+
+  return (
+    combined.includes("company_project_participants") ||
+    combined.includes("company_projects") ||
+    combined.includes("result_access_date") ||
+    combined.includes("does not exist") ||
+    combined.includes("schema cache")
+  );
+};
+
+const pickProjectReleaseDate = (
+  rows: ProjectReleaseRow[],
+  now: Date
+): { releaseAt: string | null } => {
+  if (!rows.length) {
+    return { releaseAt: null };
+  }
+
+  const releaseDates = rows
+    .map((row) => {
+      const relation = row.company_projects;
+      if (!relation) return null;
+      if (Array.isArray(relation)) {
+        return relation[0]?.result_access_date || null;
+      }
+      return relation.result_access_date || null;
+    })
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (!releaseDates.length) {
+    return { releaseAt: null };
+  }
+
+  const releasedDates = releaseDates
+    .filter((value) => hasReleasedAt(value, now))
+    .sort();
+
+  if (releasedDates.length > 0) {
+    return { releaseAt: releasedDates[0] };
+  }
+
+  const futureDates = releaseDates
+    .filter((value) => !hasReleasedAt(value, now))
+    .sort();
+
+  return { releaseAt: futureDates[0] || null };
 };
 
 export const canParticipantViewTypologyResult = (
@@ -270,6 +336,7 @@ export const loadTypologyTest = async (
   user: User
 ): Promise<TypologyTest | null> => {
   const supabase = getSupabaseBrowserClient();
+  const now = new Date();
 
   const tests = await loadActiveTypologyTests();
   const test = (tests?.[0] as TypologyTestRow | undefined) || null;
@@ -320,12 +387,30 @@ export const loadTypologyTest = async (
   }
 
   const completedAt = session?.status === "completed" ? session.completed_at : null;
-  const participantResultsAvailableAt = test.participant_results_available_at || null;
+  let participantResultsAvailableAt: string | null = null;
+  const resultAccessScope: "project" = "project";
+
+  const { data: projectReleaseRows, error: projectReleaseError } = await supabase
+    .from("company_project_participants")
+    .select("company_projects(result_access_date)")
+    .eq("user_id", user.id);
+
+  if (projectReleaseError) {
+    if (!isMissingProjectReleaseSourceError(projectReleaseError)) {
+      throw new Error(projectReleaseError.message);
+    }
+  } else {
+    const projectReleaseState = pickProjectReleaseDate(
+      (projectReleaseRows || []) as ProjectReleaseRow[],
+      now
+    );
+    participantResultsAvailableAt = projectReleaseState.releaseAt;
+  }
 
   const canViewParticipantResult = canParticipantViewTypologyResult({
     completedAt,
     participantResultsAvailableAt,
-  });
+  }, now);
 
   if (session?.status === "completed") {
     const { data: resultRow, error: resultError } = await supabase
@@ -352,6 +437,7 @@ export const loadTypologyTest = async (
     title: normalizeTypologyTitle(test.title),
     description: test.description,
     participantResultsAvailableAt,
+    resultAccessScope,
     participantResult,
     groups: groupQuestions((questions || []) as TypologyQuestionRow[]),
     completedAt,

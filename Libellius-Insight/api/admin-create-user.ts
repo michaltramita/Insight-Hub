@@ -83,6 +83,36 @@ const mapAdminFinalizeError = (error: unknown) => {
   return { status: 500, error: message };
 };
 
+const mapProjectAssignmentError = (error: unknown) => {
+  const message = readApiError(
+    error,
+    'Používateľa sa nepodarilo priradiť do projektu.'
+  );
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('admin_access_denied') || normalized.includes('permission')) {
+    return {
+      status: 403,
+      error: 'Na priradenie používateľa do projektu nemáte oprávnenie.',
+    };
+  }
+  if (
+    normalized.includes('foreign key') ||
+    normalized.includes('not present') ||
+    normalized.includes('invalid')
+  ) {
+    return { status: 400, error: 'Vybraný projekt neexistuje.' };
+  }
+  if (normalized.includes('does not exist') || normalized.includes('schema cache')) {
+    return {
+      status: 500,
+      error: 'Projektová databázová migrácia nie je nasadená.',
+    };
+  }
+
+  return { status: 500, error: message };
+};
+
 const sendError = (res: VercelResponse, status: number, error: string) =>
   res.status(status).json({ error });
 
@@ -113,6 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const fullName = normalizeText(req.body.fullName);
   const companyName = normalizeText(req.body.companyName);
   const organizationId = normalizeText(req.body.organizationId) || null;
+  const projectId = normalizeText(req.body.projectId) || null;
   const moduleCodes = normalizeModuleCodes(req.body.moduleCodes);
 
   if (!email || !isValidEmail(email)) {
@@ -194,6 +225,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await adminClient.auth.admin.deleteUser(userId).catch(() => undefined);
       const mappedError = mapAdminFinalizeError(finalizeError);
       return sendError(res, mappedError.status, mappedError.error);
+    }
+
+    if (projectId) {
+      const { error: projectAssignmentError } = await adminClient
+        .from('company_project_participants')
+        .upsert(
+          {
+            project_id: projectId,
+            user_id: userId,
+            added_by: authData.user.id,
+          },
+          { onConflict: 'project_id,user_id' }
+        );
+
+      if (projectAssignmentError) {
+        await adminClient.auth.admin.deleteUser(userId).catch(() => undefined);
+        const mappedError = mapProjectAssignmentError(projectAssignmentError);
+        return sendError(res, mappedError.status, mappedError.error);
+      }
     }
 
     return res.status(201).json({ userId });
