@@ -87,6 +87,22 @@ export type AdminResetUserPasswordInput = {
   password: string;
 };
 
+export type AdminCreateOrganizationInput = {
+  name: string;
+};
+
+export type AdminDeleteUserInput = {
+  userId: string;
+};
+
+export type AdminDeleteProjectInput = {
+  projectId: string;
+};
+
+export type AdminDeleteOrganizationInput = {
+  organizationId: string;
+};
+
 export type CompanyProjectFormInput = {
   name: string;
   companyName: string;
@@ -524,6 +540,98 @@ export const createAdminUser = async (input: AdminCreateUserInput) => {
     throw new Error("Server nevrátil ID vytvoreného používateľa.");
   }
   return parsed;
+};
+
+export const createAdminOrganization = async (
+  input: AdminCreateOrganizationInput
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Pre vytvorenie organizácie sa prihláste ako admin.");
+  }
+
+  const response = await fetch("/api/admin-create-organization", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readApiError(response, "Organizáciu sa nepodarilo vytvoriť.")
+    );
+  }
+};
+
+export const deleteAdminUser = async (input: AdminDeleteUserInput) => {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Pre odstránenie používateľa sa prihláste ako admin.");
+  }
+
+  const response = await fetch("/api/admin-delete-user", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readApiError(response, "Používateľa sa nepodarilo odstrániť.")
+    );
+  }
+};
+
+export const deleteCompanyProject = async (input: AdminDeleteProjectInput) => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { error } = await db
+    .from("company_projects")
+    .delete()
+    .eq("id", input.projectId);
+
+  if (error) {
+    throw new Error(error.message || "Projekt sa nepodarilo odstrániť.");
+  }
+};
+
+export const deleteAdminOrganization = async (
+  input: AdminDeleteOrganizationInput
+) => {
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Pre odstránenie organizácie sa prihláste ako admin.");
+  }
+
+  const response = await fetch("/api/admin-delete-organization", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readApiError(response, "Organizáciu sa nepodarilo odstrániť.")
+    );
+  }
 };
 
 export const resetAdminUserPassword = async (

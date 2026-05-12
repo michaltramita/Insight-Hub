@@ -32,8 +32,12 @@ import {
   CompanyProjectStatus,
   addCompanyProjectParticipant,
   archiveCompanyProject,
+  createAdminOrganization,
   createCompanyProject,
   createAdminUser,
+  deleteAdminOrganization,
+  deleteAdminUser,
+  deleteCompanyProject,
   loadAdminAccessOverview,
   removeCompanyProjectParticipant,
   resetAdminUserPassword,
@@ -47,6 +51,7 @@ import {
 type AdminUsersViewProps = {
   currentUserId: string;
   onBack: () => void;
+  variant?: "full" | "projects";
 };
 
 type UserDraft = {
@@ -64,6 +69,10 @@ type ProjectForm = CompanyProjectFormInput;
 type ParticipantModalState = {
   projectId: string;
   selectedUserId: string;
+};
+
+type CreateOrganizationForm = {
+  name: string;
 };
 
 const ROLE_OPTIONS: Array<{ value: AppUserRole; label: string }> = [
@@ -175,6 +184,7 @@ const toggleModule = (
 const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   currentUserId,
   onBack,
+  variant = "full",
 }) => {
   const [overview, setOverview] = useState<AdminAccessOverview>({
     users: [],
@@ -206,6 +216,9 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [participantModal, setParticipantModal] =
     useState<ParticipantModalState | null>(null);
+  const [isCreateOrganizationOpen, setIsCreateOrganizationOpen] = useState(false);
+  const [createOrganizationForm, setCreateOrganizationForm] =
+    useState<CreateOrganizationForm>({ name: "" });
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -215,6 +228,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [unassignedProjectDrafts, setUnassignedProjectDrafts] = useState<
     Record<string, string>
   >({});
+  const isProjectsOnly = variant === "projects";
 
   const defaultOrganizationId = useMemo(
     () =>
@@ -262,7 +276,10 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
 
   useEffect(() => {
     if (
-      (!isCreateOpen && projectModalMode === null && participantModal === null) ||
+      (!isCreateOpen &&
+        projectModalMode === null &&
+        participantModal === null &&
+        !isCreateOrganizationOpen) ||
       typeof document === "undefined"
     ) {
       return;
@@ -274,7 +291,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isCreateOpen, participantModal, projectModalMode]);
+  }, [isCreateOpen, isCreateOrganizationOpen, participantModal, projectModalMode]);
 
   const usersById = useMemo(
     () => new Map(overview.users.map((user) => [user.id, user])),
@@ -288,6 +305,40 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       ),
     [overview.projects]
   );
+
+  const organizationUsageById = useMemo(() => {
+    const usage = new Map<string, { usersCount: number; projectsCount: number }>();
+
+    for (const organization of overview.organizations) {
+      usage.set(organization.id, { usersCount: 0, projectsCount: 0 });
+    }
+
+    for (const user of overview.users) {
+      if (!user.organizationId) continue;
+      const current = usage.get(user.organizationId) || {
+        usersCount: 0,
+        projectsCount: 0,
+      };
+      usage.set(user.organizationId, {
+        usersCount: current.usersCount + 1,
+        projectsCount: current.projectsCount,
+      });
+    }
+
+    for (const project of overview.projects) {
+      if (!project.organizationId) continue;
+      const current = usage.get(project.organizationId) || {
+        usersCount: 0,
+        projectsCount: 0,
+      };
+      usage.set(project.organizationId, {
+        usersCount: current.usersCount,
+        projectsCount: current.projectsCount + 1,
+      });
+    }
+
+    return usage;
+  }, [overview.organizations, overview.projects, overview.users]);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -635,6 +686,36 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const handleDeleteProject = async (project: CompanyProject) => {
+    const participantCount = project.participantIds.length;
+    const confirmed = window.confirm(
+      participantCount > 0
+        ? `Naozaj chcete odstrániť projekt "${project.name}"? Vymaže sa aj ${participantCount} priradení účastníkov v projekte.`
+        : `Naozaj chcete odstrániť projekt "${project.name}"?`
+    );
+
+    if (!confirmed) return;
+
+    setBusyKey(`delete-project:${project.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await deleteCompanyProject({ projectId: project.id });
+      setExpandedProjectId((current) => (current === project.id ? null : current));
+      setSuccess(`Projekt ${project.name} bol odstránený.`);
+      loadOverview();
+    } catch (deleteError: unknown) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Projekt sa nepodarilo odstrániť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const handleAddExistingParticipant = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -712,6 +793,38 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const handleDeleteUser = async (user: AdminManagedUser) => {
+    if (user.id === currentUserId) {
+      setError("Vlastné konto nie je možné odstrániť.");
+      setSuccess(null);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Naozaj chcete odstrániť používateľa ${getUserDisplayName(user)} (${user.email})?`
+    );
+    if (!confirmed) return;
+
+    setBusyKey(`delete-user:${user.id}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await deleteAdminUser({ userId: user.id });
+      setExpandedUserId((current) => (current === user.id ? null : current));
+      setSuccess(`Používateľ ${getUserDisplayName(user)} bol odstránený.`);
+      loadOverview();
+    } catch (deleteError: unknown) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Používateľa sa nepodarilo odstrániť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const handleAssignUnassignedUser = async (user: AdminManagedUser) => {
     const projectId = (unassignedProjectDrafts[user.id] || "").trim();
     if (!projectId) {
@@ -740,9 +853,81 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const handleCreateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedName = createOrganizationForm.name.trim();
+
+    if (!trimmedName) {
+      setError("Zadajte názov organizácie.");
+      setSuccess(null);
+      return;
+    }
+
+    setBusyKey("create-organization");
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await createAdminOrganization({ name: trimmedName });
+      setCreateOrganizationForm({ name: "" });
+      setIsCreateOrganizationOpen(false);
+      setSuccess(`Organizácia ${trimmedName} bola vytvorená.`);
+      loadOverview();
+    } catch (createError: unknown) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Organizáciu sa nepodarilo vytvoriť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleDeleteOrganization = async (
+    organizationId: string,
+    organizationName: string
+  ) => {
+    const usage = organizationUsageById.get(organizationId) || {
+      usersCount: 0,
+      projectsCount: 0,
+    };
+
+    if (usage.usersCount > 0 || usage.projectsCount > 0) {
+      setError(
+        `Organizáciu ${organizationName} najprv odpojte od používateľov a projektov (používatelia: ${usage.usersCount}, projekty: ${usage.projectsCount}).`
+      );
+      setSuccess(null);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Naozaj chcete odstrániť organizáciu "${organizationName}"?`
+    );
+    if (!confirmed) return;
+
+    setBusyKey(`delete-organization:${organizationId}`);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await deleteAdminOrganization({ organizationId });
+      setSuccess(`Organizácia ${organizationName} bola odstránená.`);
+      loadOverview();
+    } catch (deleteError: unknown) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Organizáciu sa nepodarilo odstrániť."
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
+      <div className="mb-8">
         <div>
           <button
             type="button"
@@ -756,39 +941,63 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             Admin rozhranie
           </p>
           <h1 className="text-[clamp(2.2rem,5vw,4.5rem)] font-black tracking-tight leading-tight">
-            Projekty a účastníci
+            {isProjectsOnly ? "Projekty" : "Projekty a účastníci"}
           </h1>
           <p className="mt-5 text-black/55 font-semibold text-base md:text-xl leading-relaxed max-w-3xl">
-            Vytvárajte firemné projekty, pridávajte účastníkov, spravujte
-            moduly, prístupy a výsledky typologických analýz.
+            {isProjectsOnly
+              ? "Zobrazenie a správa firemných projektov, účastníkov a projektových nastavení."
+              : "Vytvárajte firemné projekty, pridávajte účastníkov, spravujte moduly, prístupy a výsledky typologických analýz."}
           </p>
-        </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            type="button"
-            onClick={openCreateProjectModal}
-            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-black text-white font-black text-xs uppercase tracking-widest hover:bg-brand transition-all"
-          >
-            <FolderKanban className="w-4 h-4" />
-            Vytvoriť projekt
-          </button>
-          <button
-            type="button"
-            onClick={() => openCreateModal()}
-            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-brand text-white font-black text-xs uppercase tracking-widest hover:bg-black transition-all"
-          >
-            <UserPlus className="w-4 h-4" />
-            Vytvoriť používateľa
-          </button>
-          <button
-            type="button"
-            onClick={loadOverview}
-            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full border border-black/10 bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-black hover:text-white transition-all"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Obnoviť
-          </button>
+          <div className="mt-7 rounded-[2rem] border border-brand/25 bg-black px-4 py-4 sm:px-5 sm:py-5 shadow-xl shadow-black/15">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={openCreateProjectModal}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full border border-white/15 bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white hover:border-brand transition-all"
+              >
+                <FolderKanban className="w-4 h-4" />
+                Vytvoriť projekt
+              </button>
+              <button
+                type="button"
+                onClick={() => openCreateModal()}
+                hidden={isProjectsOnly}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-brand text-white font-black text-xs uppercase tracking-widest hover:bg-[#9f103c] transition-all"
+              >
+                <UserPlus className="w-4 h-4" />
+                Vytvoriť používateľa
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCreateOrganizationOpen(true)}
+                hidden={isProjectsOnly}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full border border-white/20 bg-transparent text-white font-black text-xs uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+              >
+                <Building2 className="w-4 h-4" />
+                Vytvoriť organizáciu
+              </button>
+              <button
+                type="button"
+                onClick={loadOverview}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full border border-white/20 bg-transparent text-white font-black text-xs uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Obnoviť
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-[1.25rem] border border-white/15 bg-white px-5 py-4 shadow-sm flex items-center gap-3">
+              <Search className="w-5 h-5 text-black/30" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Hľadať podľa názvu projektu, firmy, mena účastníka alebo emailu"
+                className="w-full bg-transparent outline-none text-base font-bold placeholder:text-black/25"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -803,17 +1012,6 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           {error || success}
         </div>
       )}
-
-      <div className="mb-6 rounded-[1.5rem] border border-black/5 bg-white px-5 py-4 shadow-sm flex items-center gap-3">
-        <Search className="w-5 h-5 text-black/30" />
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Hľadať podľa názvu projektu, firmy, mena účastníka alebo emailu"
-          className="w-full bg-transparent outline-none text-base font-bold placeholder:text-black/25"
-        />
-      </div>
 
       {isLoading ? (
         <div className="py-24 flex items-center justify-center gap-3 text-black/40 font-black uppercase tracking-widest text-sm">
@@ -993,6 +1191,19 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                               <Archive className="w-4 h-4" />
                             )}
                             Archivovať
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProject(project)}
+                            disabled={busyKey !== null}
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
+                          >
+                            {busyKey === `delete-project:${project.id}` ? (
+                              <LoaderCircle className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                            Odstrániť
                           </button>
                           <button
                             type="button"
@@ -1226,6 +1437,85 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             )}
           </section>
 
+          {!isProjectsOnly && (
+            <>
+          <section className="rounded-[2rem] border border-black/5 bg-white px-5 py-5 md:px-6 md:py-6 shadow-xl shadow-black/5">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                  Organizácie
+                </p>
+                <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
+                  Správa organizácií
+                </h2>
+              </div>
+              <p className="text-sm font-bold text-black/40">
+                {overview.organizations.length} organizácií
+              </p>
+            </div>
+
+            {overview.organizations.length > 0 ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {overview.organizations.map((organization) => {
+                  const usage = organizationUsageById.get(organization.id) || {
+                    usersCount: 0,
+                    projectsCount: 0,
+                  };
+                  const isBlocked =
+                    usage.usersCount > 0 || usage.projectsCount > 0;
+
+                  return (
+                    <article
+                      key={organization.id}
+                      className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-black text-black truncate">
+                            {organization.name}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-black/40 truncate">
+                            {organization.slug}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteOrganization(organization.id, organization.name)
+                          }
+                          disabled={busyKey !== null || isBlocked}
+                          className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
+                        >
+                          {busyKey === `delete-organization:${organization.id}` ? (
+                            <LoaderCircle className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          Odstrániť
+                        </button>
+                      </div>
+                      <p className="mt-3 text-xs font-bold text-black/50">
+                        Používatelia: {usage.usersCount} · Projekty: {usage.projectsCount}
+                      </p>
+                      {isBlocked && (
+                        <p className="mt-2 text-[11px] font-bold text-black/40">
+                          Pre odstránenie najprv presuňte používateľov a projekty mimo
+                          tejto organizácie.
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-black/5 bg-[#f9f9f9] px-5 py-8 text-center">
+                <p className="font-black uppercase tracking-widest text-black/35">
+                  Zatiaľ neexistuje žiadna organizácia
+                </p>
+              </div>
+            )}
+          </section>
+
           {unassignedUsers.length > 0 && (
             <section className="rounded-[2rem] border border-black/5 bg-white px-5 py-5 md:px-6 md:py-6 shadow-xl shadow-black/5">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -1289,11 +1579,11 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             </section>
           )}
 
-          <section className="space-y-4">
+          <section className="!mt-12 md:!mt-16 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-black text-brand">
-                  Pôvodná správa prístupov
+                  Používatelia
                 </p>
                 <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
                   Všetci používatelia
@@ -1322,10 +1612,10 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       current === user.id ? null : user.id
                     )
                   }
-                  className="w-full px-5 py-5 md:px-6 md:py-6 flex items-center justify-between gap-4 text-left hover:bg-white transition-colors"
+                  className="w-full px-5 py-3.5 md:px-6 md:py-4 flex items-center justify-between gap-4 text-left hover:bg-white transition-colors"
                   aria-expanded={isExpanded}
                 >
-                  <span className="min-w-0 text-xl md:text-2xl font-black tracking-tight truncate">
+                  <span className="min-w-0 text-lg md:text-xl font-black tracking-tight truncate">
                     {getUserDisplayName(user)}
                   </span>
                   <ChevronDown
@@ -1519,6 +1809,21 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         )}
                         Uložiť
                       </button>
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(user)}
+                          disabled={busyKey !== null}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
+                        >
+                          {busyKey === `delete-user:${user.id}` ? (
+                            <LoaderCircle className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          Odstrániť používateľa
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1535,6 +1840,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             </div>
           )}
           </section>
+            </>
+          )}
         </div>
       )}
 
@@ -1901,6 +2208,73 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   <Save className="w-4 h-4" />
                 )}
                 {projectModalMode === "edit" ? "Uložiť projekt" : "Vytvoriť projekt"}
+              </button>
+            </form>
+          </div>,
+          document.body
+        )}
+
+      {isCreateOrganizationOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+            <form
+              onSubmit={handleCreateOrganization}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-create-organization-title"
+              className="w-full max-w-xl bg-white rounded-[2rem] shadow-2xl border border-black/10 p-6 md:p-9 relative"
+            >
+              <button
+                type="button"
+                onClick={() => setIsCreateOrganizationOpen(false)}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/5 hover:bg-black hover:text-white transition-all flex items-center justify-center"
+                aria-label="Zavrieť"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="pr-12">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest">
+                  <Building2 className="w-3 h-3" />
+                  Nová organizácia
+                </div>
+                <h2
+                  id="admin-create-organization-title"
+                  className="mt-5 text-2xl md:text-4xl font-black tracking-tight"
+                >
+                  Vytvoriť organizáciu
+                </h2>
+                <p className="mt-3 text-black/55 font-semibold leading-relaxed">
+                  Organizácia bude hneď dostupná pri tvorbe a úprave používateľov aj
+                  projektov.
+                </p>
+              </div>
+
+              <div className="mt-7">
+                <input
+                  type="text"
+                  value={createOrganizationForm.name}
+                  onChange={(event) =>
+                    setCreateOrganizationForm({ name: event.target.value })
+                  }
+                  placeholder="Názov organizácie"
+                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={busyKey === "create-organization"}
+                className="mt-6 w-full inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-black text-white font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
+              >
+                {busyKey === "create-organization" ? (
+                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Building2 className="w-4 h-4" />
+                )}
+                Vytvoriť organizáciu
               </button>
             </form>
           </div>,

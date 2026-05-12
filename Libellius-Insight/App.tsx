@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import AuthAccessPanel from './components/AuthAccessPanel';
 import FileUpload from './components/FileUpload';
 import { AppStatus } from './types';
-import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock, ShieldCheck, UserCircle } from 'lucide-react';
+import { AlertCircle, Key, BarChart3, Users, ChevronLeft, Sparkles, BrainCircuit, LogOut, KeyRound, X, Lock, ShieldCheck, UserCircle, FolderKanban, LayoutGrid } from 'lucide-react';
 import { useAppWorkflow } from './hooks/useAppWorkflow';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import { useModuleAssignments } from './hooks/useModuleAssignments';
@@ -41,6 +41,8 @@ const App: React.FC = () => {
   const [showTypologyTest, setShowTypologyTest] = useState(false);
   const [showTypologyResults, setShowTypologyResults] = useState(false);
   const [showAdminUsers, setShowAdminUsers] = useState(false);
+  const [showAdminProjects, setShowAdminProjects] = useState(false);
+  const [showAdminModules, setShowAdminModules] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const previousUserIdRef = useRef<string | null>(null);
@@ -111,6 +113,8 @@ const App: React.FC = () => {
 
     setShowAccountMenu(false);
     setShowAdminUsers(false);
+    setShowAdminProjects(false);
+    setShowAdminModules(false);
     setShowTypologyTest(false);
     setShowTypologyResults(false);
     handleBackToMode();
@@ -227,6 +231,8 @@ const App: React.FC = () => {
                           setShowAccountMenu(false);
                           setShowTypologyTest(false);
                           setShowTypologyResults(false);
+                          setShowAdminProjects(false);
+                          setShowAdminModules(false);
                           setShowAdminUsers(true);
                         }}
                         className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-black/70 hover:bg-black hover:text-white transition-all"
@@ -438,7 +444,25 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
-        {(showTypologyTest || showTypologyResults) && user && !showAdminUsers && !showSharedGoodbye && (
+        {showAdminProjects && user && isGlobalAdmin && !showSharedGoodbye && (
+          <Suspense
+            fallback={
+              <div className="w-full py-20 text-center">
+                <p className="text-sm font-bold uppercase tracking-widest text-black/40">
+                  Načítavam projekty...
+                </p>
+              </div>
+            }
+          >
+            <AdminUsersView
+              currentUserId={user.id}
+              variant="projects"
+              onBack={() => setShowAdminProjects(false)}
+            />
+          </Suspense>
+        )}
+
+        {(showTypologyTest || showTypologyResults) && user && !showAdminUsers && !showAdminProjects && !showSharedGoodbye && (
           <Suspense
             fallback={
               <div className="w-full py-20 text-center">
@@ -463,7 +487,7 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
-        {!showAdminUsers && !showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
+        {!showAdminUsers && !showAdminProjects && !showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
@@ -480,6 +504,95 @@ const App: React.FC = () => {
             <p className="text-base sm:text-lg md:text-2xl text-black/50 mb-10 md:mb-16 mt-6 md:mt-8 max-w-2xl font-medium px-4 leading-relaxed">
               PREHĽADNÁ VIZUALIZÁCIA VAŠICH VÝSLEDKOV.
             </p>
+
+            {isGlobalAdmin && !showAdminModules && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-0 sm:px-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminModules(true)}
+                  className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all hover:border-black hover:bg-black/5"
+                >
+                  <LayoutGrid className="absolute top-0 right-0 m-6 md:m-8 w-24 h-24 md:w-32 md:h-32 text-black opacity-5 transition-opacity group-hover:opacity-10" />
+                  <div className="p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg">
+                    <LayoutGrid className="w-8 h-8 md:w-10 md:h-10" />
+                  </div>
+                  <div className="z-10">
+                    <h2 className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
+                      Moduly
+                    </h2>
+                    <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
+                      Otvoriť analytické moduly a výsledkové dashboardy.
+                    </p>
+                  </div>
+                  <span className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center shadow-lg transition-all flex items-center justify-center bg-black text-white group-hover:bg-brand">
+                    Otvoriť moduly
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminUsers(false);
+                    setShowAdminProjects(true);
+                  }}
+                  className="group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all hover:border-brand hover:bg-brand/5"
+                >
+                  <FolderKanban className="absolute top-0 right-0 m-6 md:m-8 w-24 h-24 md:w-32 md:h-32 text-brand opacity-10 transition-opacity group-hover:opacity-15" />
+                  <div className="p-4 md:p-5 bg-brand text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg shadow-brand/20">
+                    <FolderKanban className="w-8 h-8 md:w-10 md:h-10" />
+                  </div>
+                  <div className="z-10">
+                    <h2 className="text-[28px] sm:text-[30px] md:text-[32px] font-black block mb-3 md:mb-4 tracking-tight uppercase leading-tight">
+                      Projekty
+                    </h2>
+                    <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-md">
+                      Zobraziť firemné projekty a účastníkov v projektoch.
+                    </p>
+                  </div>
+                  <span className="z-10 mt-2 md:mt-4 w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center shadow-lg transition-all flex items-center justify-center bg-brand text-white group-hover:bg-black">
+                    Otvoriť projekty
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminProjects(false);
+                    setShowAdminUsers(true);
+                  }}
+                  className="group md:col-span-2 p-5 sm:p-6 md:p-7 border-2 border-black/5 rounded-[2rem] md:rounded-[2.25rem] text-left flex flex-col items-start md:flex-row md:items-center gap-5 md:gap-7 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all hover:border-black hover:bg-black/5"
+                >
+                  <ShieldCheck className="absolute top-1/2 right-0 -translate-y-1/2 m-6 md:m-8 w-24 h-24 md:w-36 md:h-36 text-black opacity-5 transition-opacity group-hover:opacity-10" />
+                  <div className="inline-flex items-center justify-center p-4 md:p-5 bg-black text-white rounded-[1.5rem] md:rounded-[2rem] shadow-lg z-10 shrink-0">
+                    <ShieldCheck className="w-8 h-8 md:w-10 md:h-10" />
+                  </div>
+                  <div className="z-10 flex-1">
+                    <h2 className="text-[26px] sm:text-[28px] md:text-[32px] font-black block mb-2 md:mb-3 tracking-tight uppercase leading-tight">
+                      Správa prístupov
+                    </h2>
+                    <p className="text-black/50 font-bold text-base md:text-lg leading-relaxed max-w-3xl">
+                      Spravovať používateľov, organizácie, moduly a heslá.
+                    </p>
+                  </div>
+                  <span className="z-10 w-full md:w-auto px-6 sm:px-8 md:px-10 py-3.5 md:py-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest text-center whitespace-nowrap flex items-center justify-center bg-black text-white transition-all group-hover:bg-brand">
+                    Otvoriť správu
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {(!isGlobalAdmin || showAdminModules) && (
+              <>
+            {isGlobalAdmin && showAdminModules && (
+              <button
+                type="button"
+                onClick={() => setShowAdminModules(false)}
+                className="mb-8 inline-flex items-center gap-2 text-black/40 font-black uppercase tracking-widest text-xs hover:text-black transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Späť na admin prehľad
+              </button>
+            )}
             {isBootstrappingAccess && (
               <div className="w-full max-w-5xl border border-black/5 rounded-[2rem] bg-[#f9f9f9] px-6 py-10 md:py-12 shadow-xl shadow-black/5">
                 <p className="text-sm md:text-base font-black uppercase tracking-widest text-black/40">
@@ -602,6 +715,8 @@ const App: React.FC = () => {
                 </div>
               </button>
             </div>
+            )}
+              </>
             )}
           </div>
         )}
