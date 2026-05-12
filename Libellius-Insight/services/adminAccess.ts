@@ -401,15 +401,10 @@ export const addCompanyProjectParticipant = async (
 ) => {
   const supabase = getSupabaseBrowserClient();
   const db = supabase as any;
-  const { data: sessionData } = await supabase.auth.getSession();
-  const { error } = await db.from("company_project_participants").upsert(
-    {
-      project_id: projectId,
-      user_id: userId,
-      added_by: sessionData.session?.user.id || null,
-    },
-    { onConflict: "project_id,user_id" }
-  );
+  const { error } = await db.rpc("admin_assign_project_participant", {
+    p_project_id: projectId,
+    p_user_id: userId,
+  });
 
   if (error) {
     throw new Error(error.message);
@@ -422,11 +417,10 @@ export const removeCompanyProjectParticipant = async (
 ) => {
   const supabase = getSupabaseBrowserClient();
   const db = supabase as any;
-  const { error } = await db
-    .from("company_project_participants")
-    .delete()
-    .eq("project_id", projectId)
-    .eq("user_id", userId);
+  const { error } = await db.rpc("admin_remove_project_participant", {
+    p_project_id: projectId,
+    p_user_id: userId,
+  });
 
   if (error) {
     throw new Error(error.message);

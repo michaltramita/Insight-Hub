@@ -109,7 +109,6 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     data: [{ code: "TYPOLOGY_LEADERSHIP" }],
     error: null,
   });
-  const projectParticipantBuilder = upsertBuilder({ error: null });
   const authClient = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -119,9 +118,25 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     },
   };
   const userScopedClient = {
-    rpc: vi.fn().mockResolvedValue({
-      data: options?.isAdmin ?? true,
-      error: null,
+    rpc: vi.fn((fn: string) => {
+      if (fn === "is_global_admin") {
+        return Promise.resolve({
+          data: options?.isAdmin ?? true,
+          error: null,
+        });
+      }
+
+      if (
+        fn === "admin_finalize_created_user" ||
+        fn === "admin_assign_project_participant"
+      ) {
+        return Promise.resolve({
+          data: null,
+          error: null,
+        });
+      }
+
+      return Promise.resolve({ data: null, error: null });
     }),
     from: vi.fn((table: string) => {
       if (table === "modules") return moduleBuilder;
@@ -137,7 +152,6 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     profiles: [upsertBuilder({ error: null })],
     organizations: [singleBuilder({ data: { id: "org-1" }, error: null })],
     module_assignments: [upsertBuilder({ error: null })],
-    company_project_participants: [projectParticipantBuilder],
     admin_audit_log: [insertBuilder({ error: null })],
   };
   const adminClient = {
@@ -163,7 +177,6 @@ const createClients = (options?: { isAdmin?: boolean }) => {
     userScopedClient,
     adminClient,
     createUser,
-    projectParticipantBuilder,
   };
 };
 
@@ -266,7 +279,7 @@ describe("api/admin-create-user handler", () => {
   });
 
   it("assigns a created user to a project when projectId is provided", async () => {
-    const { projectParticipantBuilder } = createClients();
+    const { userScopedClient } = createClients();
     const req = baseReq();
     req.body = { ...(req.body as object), projectId: "project-1" };
     const res = createMockRes();
@@ -274,13 +287,12 @@ describe("api/admin-create-user handler", () => {
     await handler(req as any, res as any);
 
     expect(res.statusCode).toBe(201);
-    expect(projectParticipantBuilder.upsert).toHaveBeenCalledWith(
+    expect(userScopedClient.rpc).toHaveBeenCalledWith(
+      "admin_assign_project_participant",
       {
-        project_id: "project-1",
-        user_id: "user-1",
-        added_by: "admin-1",
+        p_project_id: "project-1",
+        p_user_id: "user-1",
       },
-      { onConflict: "project_id,user_id" }
     );
   });
 });

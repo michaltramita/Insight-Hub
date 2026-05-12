@@ -228,16 +228,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (projectId) {
-      const { error: projectAssignmentError } = await adminClient
-        .from('company_project_participants')
-        .upsert(
-          {
-            project_id: projectId,
-            user_id: userId,
-            added_by: authData.user.id,
-          },
-          { onConflict: 'project_id,user_id' }
-        );
+      const { error: projectAssignmentError } = await userScopedClient.rpc(
+        'admin_assign_project_participant',
+        {
+          p_project_id: projectId,
+          p_user_id: userId,
+        }
+      );
 
       if (projectAssignmentError) {
         await adminClient.auth.admin.deleteUser(userId).catch(() => undefined);
