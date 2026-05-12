@@ -47,6 +47,7 @@ import {
   updateAdminTypologyResultRelease,
   updateAdminUserAccess,
 } from "../../services/adminAccess";
+import StyledSelect from "../ui/StyledSelect";
 
 type AdminUsersViewProps = {
   currentUserId: string;
@@ -90,6 +91,16 @@ const PROJECT_STATUS_OPTIONS: Array<{
   { value: "completed", label: "Dokončený" },
   { value: "archived", label: "Archivovaný" },
 ];
+
+const ADMIN_FIELD_CLASS =
+  "h-14 w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20";
+
+const ADMIN_SELECT_BUTTON_CLASS =
+  "h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black text-black";
+
+const ADMIN_SELECT_PANEL_CLASS = "rounded-2xl border-black/10";
+
+const ADMIN_SELECT_SELECTED_CLASS = "bg-brand text-white";
 
 const createDraftFromUser = (user: AdminManagedUser): UserDraft => ({
   fullName: user.fullName || "",
@@ -1226,7 +1237,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
                           <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
                             Účastníci
@@ -1261,65 +1272,64 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                             {project.moduleCodes.length || "Bez modulov"}
                           </p>
                         </div>
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3 lg:col-span-2">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Kontakt
+                          </p>
+                          <p className="mt-1 text-sm font-black text-black truncate">
+                            {project.contactPersonName || "Bez kontaktnej osoby"}
+                          </p>
+                          {project.contactPersonEmail && (
+                            <p className="mt-1 text-xs font-bold text-black/45 truncate">
+                              {project.contactPersonEmail}
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3 lg:col-span-2">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
+                            Predvolené moduly
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {project.moduleCodes.length > 0 ? (
+                              project.moduleCodes.map((moduleCode) => (
+                                <span
+                                  key={moduleCode}
+                                  className="rounded-full bg-brand/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand"
+                                >
+                                  {overview.modules.find(
+                                    (module) => module.code === moduleCode
+                                  )?.title || moduleCode}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm font-bold text-black/40">
+                                Bez predvolených modulov
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end sm:col-start-2 lg:col-start-5 lg:col-span-2 xl:col-start-5 xl:col-span-2">
+                          <button
+                            type="button"
+                            onClick={() => handleProjectReleaseNow(project)}
+                            disabled={busyKey !== null}
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
+                          >
+                            {busyKey === `project-release:${project.id}` ? (
+                              <LoaderCircle className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CalendarClock className="w-4 h-4" />
+                            )}
+                            Nastaviť projektový dátum na teraz
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {isExpanded && (
                       <div className="border-t border-black/5 bg-[#fbfaf7] px-5 py-5 md:px-6 md:py-6 animate-fade-in">
-                        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-                          <div className="space-y-4">
-                            <div className="rounded-2xl bg-white border border-black/5 px-4 py-4">
-                              <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                                Kontakt
-                              </p>
-                              <p className="mt-2 text-sm font-black text-black">
-                                {project.contactPersonName || "Bez kontaktnej osoby"}
-                              </p>
-                              {project.contactPersonEmail && (
-                                <p className="mt-1 text-sm font-bold text-black/45">
-                                  {project.contactPersonEmail}
-                                </p>
-                              )}
-                            </div>
-                            <div className="rounded-2xl bg-white border border-black/5 px-4 py-4">
-                              <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                                Predvolené moduly
-                              </p>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {project.moduleCodes.length > 0 ? (
-                                  project.moduleCodes.map((moduleCode) => (
-                                    <span
-                                      key={moduleCode}
-                                      className="rounded-full bg-brand/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand"
-                                    >
-                                      {overview.modules.find(
-                                        (module) => module.code === moduleCode
-                                      )?.title || moduleCode}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-sm font-bold text-black/40">
-                                    Projekt nemá nastavené predvolené moduly.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleProjectReleaseNow(project)}
-                              disabled={busyKey !== null}
-                              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
-                            >
-                              {busyKey === `project-release:${project.id}` ? (
-                                <LoaderCircle className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <CalendarClock className="w-4 h-4" />
-                              )}
-                              Nastaviť projektový dátum na teraz
-                            </button>
-                          </div>
-
-                          <div className="rounded-2xl bg-white border border-black/5 overflow-hidden">
+                        <div className="space-y-5">
+                          <div className="rounded-2xl bg-white border border-black/5 overflow-hidden w-full">
                             <div className="px-4 py-4 border-b border-black/5 flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest font-black text-brand">
@@ -1545,20 +1555,23 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       {user.companyName || "Bez firmy"}
                     </p>
                     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                      <select
+                      <StyledSelect
                         value={unassignedProjectDrafts[user.id] || ""}
-                        onChange={(event) =>
-                          updateUnassignedProjectDraft(user.id, event.target.value)
+                        onChange={(value) =>
+                          updateUnassignedProjectDraft(user.id, value)
                         }
-                        className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-xs font-black outline-none focus:ring-2 focus:ring-brand/20"
-                      >
-                        <option value="">Vyberte projekt</option>
-                        {overview.projects.map((project) => (
-                          <option key={project.id} value={project.id}>
-                            {project.name} · {project.companyName}
-                          </option>
-                        ))}
-                      </select>
+                        options={[
+                          { value: "", label: "Vyberte projekt" },
+                          ...overview.projects.map((project) => ({
+                            value: project.id,
+                            label: `${project.name} · ${project.companyName}`,
+                          })),
+                        ]}
+                        wrapperClassName="w-full"
+                        buttonClassName="h-11 rounded-2xl border border-black/10 bg-white px-4 text-xs font-black text-black"
+                        panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                        selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                      />
                       <button
                         type="button"
                         onClick={() => handleAssignUnassignedUser(user)}
@@ -1626,207 +1639,242 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t border-black/5 p-5 md:p-6 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] animate-fade-in">
-                  <div className="min-w-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="text-xl md:text-2xl font-black tracking-tight truncate">
-                          {getUserDisplayName(user)}
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-black/45 truncate">
-                          {user.email}
-                        </p>
-                      </div>
-                      <div className="shrink-0 rounded-full bg-black text-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                        <ShieldCheck className="w-3 h-3" />
-                        {user.role}
-                      </div>
-                    </div>
-                    <div className="mt-5 grid grid-cols-2 gap-3 text-sm font-bold text-black/50">
-                      <div className="rounded-2xl bg-white border border-black/5 px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest font-black text-black/30 mb-1">
-                          Firma
-                        </p>
-                        {user.companyName || "-"}
-                      </div>
-                      <div className="rounded-2xl bg-white border border-black/5 px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-widest font-black text-black/30 mb-1">
-                          Typológia
-                        </p>
-                        {user.typologyStatus === "completed"
-                          ? `Dokončené ${formatDate(user.typologyCompletedAt)}`
-                          : user.typologyStatus === "in_progress"
-                            ? "Rozpracované"
-                            : "Bez analýzy"}
+                  <div className="border-t border-black/5 p-5 md:p-6 animate-fade-in">
+                    <div className="space-y-5">
+                      <aside className="rounded-[1.75rem] border border-black/5 bg-white p-5 md:p-6">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                              Profil používateľa
+                            </p>
+                            <h3 className="mt-3 text-2xl md:text-4xl font-black tracking-tight leading-tight break-words">
+                              {getUserDisplayName(user)}
+                            </h3>
+                            <p className="mt-2 text-sm md:text-base font-bold text-black/45 break-all">
+                              {user.email}
+                            </p>
+                          </div>
+                          <div className="shrink-0 rounded-full bg-black text-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <ShieldCheck className="w-3 h-3" />
+                            {user.role}
+                          </div>
+                        </div>
+
+                        <div className="mt-6 grid gap-3 md:grid-cols-2">
+                          <div className="rounded-2xl bg-[#f9f9f9] border border-black/5 px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-widest font-black text-black/30 mb-1">
+                              Firma
+                            </p>
+                            <p className="text-sm font-black text-black/60 truncate">
+                              {user.companyName || "-"}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#f9f9f9] border border-black/5 px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-widest font-black text-black/30 mb-1">
+                              Typológia
+                            </p>
+                            <p className="text-sm font-black text-black/60">
+                              {user.typologyStatus === "completed"
+                                ? `Dokončené ${formatDate(user.typologyCompletedAt)}`
+                                : user.typologyStatus === "in_progress"
+                                  ? "Rozpracované"
+                                  : "Bez analýzy"}
+                            </p>
+                          </div>
+                        </div>
+                      </aside>
+
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        <section className="rounded-[1.75rem] border border-black/5 bg-white p-5">
+                          <div className="flex flex-col gap-1">
+                            <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                              Profil a zaradenie
+                            </p>
+                            <p className="text-xs font-bold text-black/40">
+                              Základné údaje, rola a organizácia používateľa.
+                            </p>
+                          </div>
+
+                          <div className="mt-4 grid md:grid-cols-2 gap-3">
+                            <input
+                              type="text"
+                              value={draft.fullName}
+                              onChange={(event) =>
+                                updateDraft(user.id, { fullName: event.target.value })
+                              }
+                              placeholder="Meno a priezvisko"
+                              className={ADMIN_FIELD_CLASS}
+                            />
+                            <input
+                              type="text"
+                              value={draft.companyName}
+                              onChange={(event) =>
+                                updateDraft(user.id, { companyName: event.target.value })
+                              }
+                              placeholder="Spoločnosť"
+                              className={ADMIN_FIELD_CLASS}
+                            />
+                            <StyledSelect
+                              value={draft.role}
+                              disabled={isSelf}
+                              onChange={(value) =>
+                                updateDraft(user.id, {
+                                  role: value as AppUserRole,
+                                })
+                              }
+                              options={ROLE_OPTIONS}
+                              wrapperClassName="w-full"
+                              buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                              panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                              selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                            />
+                            <StyledSelect
+                              value={draft.organizationId || ""}
+                              onChange={(value) =>
+                                updateDraft(user.id, {
+                                  organizationId: value || null,
+                                })
+                              }
+                              options={[
+                                { value: "", label: "Bez organizácie" },
+                                ...overview.organizations.map((organization) => ({
+                                  value: organization.id,
+                                  label: organization.name,
+                                })),
+                              ]}
+                              wrapperClassName="w-full"
+                              buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                              panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                              selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                            />
+                          </div>
+                        </section>
+
+                        <section className="rounded-[1.75rem] border border-black/5 bg-white p-5">
+                          <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                            Priradené moduly
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {overview.modules.map((module) => {
+                              const isActive = hasModule(draft.moduleCodes, module.code);
+                              return (
+                                <button
+                                  key={module.code}
+                                  type="button"
+                                  onClick={() =>
+                                    updateDraft(user.id, {
+                                      moduleCodes: toggleModule(
+                                        draft.moduleCodes,
+                                        module.code
+                                      ),
+                                    })
+                                  }
+                                  className={`px-4 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                    isActive
+                                      ? "bg-brand text-white border-brand"
+                                      : "bg-[#fbfaf7] text-black/45 border-black/10 hover:text-black hover:bg-white"
+                                  }`}
+                                >
+                                  {module.title}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </section>
+
+                        {!isSelf && (
+                          <section className="rounded-[1.75rem] border border-black/5 bg-white p-5 xl:col-span-2">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                                Bezpečnosť
+                              </p>
+                              <h4 className="mt-2 text-lg font-black tracking-tight">
+                                Reset hesla
+                              </h4>
+                              <p className="mt-1 text-xs font-bold text-black/45 leading-relaxed">
+                                Nastavte používateľovi nové dočasné heslo. Po resetovaní
+                                ho odovzdajte bezpečným kanálom.
+                              </p>
+                            </div>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                              <input
+                                type="password"
+                                value={resetPasswordValue}
+                                onChange={(event) =>
+                                  updateResetPassword(user.id, event.target.value)
+                                }
+                                placeholder="Nové dočasné heslo"
+                                aria-label={`Nové dočasné heslo pre ${getUserDisplayName(user)}`}
+                                className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleResetPassword(user)}
+                                disabled={busyKey !== null}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
+                              >
+                                {busyKey === `password:${user.id}` ? (
+                                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <KeyRound className="w-4 h-4" />
+                                )}
+                                Resetovať heslo
+                              </button>
+                            </div>
+                          </section>
+                        )}
+
+                        <section className="rounded-[1.75rem] border border-black/5 bg-white p-4 xl:col-span-2">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <button
+                              type="button"
+                              onClick={() => handleResetTypology(user)}
+                              disabled={busyKey !== null}
+                              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-black/10 bg-white text-black font-black text-[10px] uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-50"
+                            >
+                              {busyKey === `reset:${user.id}` ? (
+                                <LoaderCircle className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4" />
+                              )}
+                              Resetovať analýzu
+                            </button>
+
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveUser(user)}
+                                disabled={busyKey !== null}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-black text-white font-black text-[10px] uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
+                              >
+                                {busyKey === `save:${user.id}` ? (
+                                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Save className="w-4 h-4" />
+                                )}
+                                Uložiť
+                              </button>
+                              {!isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={busyKey !== null}
+                                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
+                                >
+                                  {busyKey === `delete-user:${user.id}` ? (
+                                    <LoaderCircle className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                  Odstrániť používateľa
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </section>
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={draft.fullName}
-                        onChange={(event) =>
-                          updateDraft(user.id, { fullName: event.target.value })
-                        }
-                        placeholder="Meno a priezvisko"
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
-                      />
-                      <input
-                        type="text"
-                        value={draft.companyName}
-                        onChange={(event) =>
-                          updateDraft(user.id, { companyName: event.target.value })
-                        }
-                        placeholder="Spoločnosť"
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
-                      />
-                      <select
-                        value={draft.role}
-                        disabled={isSelf}
-                        onChange={(event) =>
-                          updateDraft(user.id, {
-                            role: event.target.value as AppUserRole,
-                          })
-                        }
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
-                      >
-                        {ROLE_OPTIONS.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={draft.organizationId || ""}
-                        onChange={(event) =>
-                          updateDraft(user.id, {
-                            organizationId: event.target.value || null,
-                          })
-                        }
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-                      >
-                        <option value="">Bez organizácie</option>
-                        {overview.organizations.map((organization) => (
-                          <option key={organization.id} value={organization.id}>
-                            {organization.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {overview.modules.map((module) => {
-                        const isActive = hasModule(draft.moduleCodes, module.code);
-                        return (
-                          <button
-                            key={module.code}
-                            type="button"
-                            onClick={() =>
-                              updateDraft(user.id, {
-                                moduleCodes: toggleModule(
-                                  draft.moduleCodes,
-                                  module.code
-                                ),
-                              })
-                            }
-                            className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                              isActive
-                                ? "bg-brand text-white border-brand"
-                                : "bg-white text-black/45 border-black/10 hover:text-black"
-                            }`}
-                          >
-                            {module.title}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {!isSelf && (
-                      <div className="border-t border-black/5 pt-4 space-y-3">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                            Reset hesla
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-black/45 leading-relaxed">
-                            Nastavte používateľovi nové dočasné heslo. Po resetovaní
-                            ho odovzdajte bezpečným kanálom.
-                          </p>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                          <input
-                            type="password"
-                            value={resetPasswordValue}
-                            onChange={(event) =>
-                              updateResetPassword(user.id, event.target.value)
-                            }
-                            placeholder="Nové dočasné heslo"
-                            aria-label={`Nové dočasné heslo pre ${getUserDisplayName(user)}`}
-                            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleResetPassword(user)}
-                            disabled={busyKey !== null}
-                            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
-                          >
-                            {busyKey === `password:${user.id}` ? (
-                              <LoaderCircle className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <KeyRound className="w-4 h-4" />
-                            )}
-                            Resetovať heslo
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleResetTypology(user)}
-                        disabled={busyKey !== null}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-black/10 bg-white text-black font-black text-[10px] uppercase tracking-widest hover:bg-black hover:text-white transition-all disabled:opacity-50"
-                      >
-                        {busyKey === `reset:${user.id}` ? (
-                          <LoaderCircle className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RotateCcw className="w-4 h-4" />
-                        )}
-                        Resetovať analýzu
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveUser(user)}
-                        disabled={busyKey !== null}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-black text-white font-black text-[10px] uppercase tracking-widest hover:bg-brand transition-all disabled:opacity-50"
-                      >
-                        {busyKey === `save:${user.id}` ? (
-                          <LoaderCircle className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Save className="w-4 h-4" />
-                        )}
-                        Uložiť
-                      </button>
-                      {!isSelf && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(user)}
-                          disabled={busyKey !== null}
-                          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-brand/20 bg-white text-brand font-black text-[10px] uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
-                        >
-                          {busyKey === `delete-user:${user.id}` ? (
-                            <LoaderCircle className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                          Odstrániť používateľa
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
                 )}
               </section>
             );
@@ -1937,27 +1985,30 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 placeholder="Spoločnosť"
                 className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
               />
-              <select
+              <StyledSelect
                 value={createForm.organizationId || ""}
-                onChange={(event) =>
+                onChange={(value) =>
                   setCreateForm((current) => ({
                     ...current,
-                    organizationId: event.target.value || null,
+                    organizationId: value || null,
                   }))
                 }
-                className="md:col-span-2 w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="">Bez organizácie</option>
-                {overview.organizations.map((organization) => (
-                  <option key={organization.id} value={organization.id}>
-                    {organization.name}
-                  </option>
-                ))}
-              </select>
-              <select
+                options={[
+                  { value: "", label: "Bez organizácie" },
+                  ...overview.organizations.map((organization) => ({
+                    value: organization.id,
+                    label: organization.name,
+                  })),
+                ]}
+                wrapperClassName="md:col-span-2 w-full"
+                buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+              />
+              <StyledSelect
                 value={createForm.projectId || ""}
-                onChange={(event) => {
-                  const projectId = event.target.value || null;
+                onChange={(value) => {
+                  const projectId = value || null;
                   const project = overview.projects.find(
                     (candidate) => candidate.id === projectId
                   );
@@ -1973,15 +2024,18 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         : current.moduleCodes,
                   }));
                 }}
-                className="md:col-span-2 w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="">Bez projektu</option>
-                {overview.projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name} · {project.companyName}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "Bez projektu" },
+                  ...overview.projects.map((project) => ({
+                    value: project.id,
+                    label: `${project.name} · ${project.companyName}`,
+                  })),
+                ]}
+                wrapperClassName="md:col-span-2 w-full"
+                buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+              />
             </div>
 
             <div className="mt-5">
@@ -2113,37 +2167,38 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   placeholder="kontakt@firma.sk"
                   className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-brand/20"
                 />
-                <select
+                <StyledSelect
                   value={projectForm.status}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     updateProjectForm({
-                      status: event.target.value as CompanyProjectStatus,
+                      status: value as CompanyProjectStatus,
                     })
                   }
-                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-                >
-                  {PROJECT_STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
+                  options={PROJECT_STATUS_OPTIONS}
+                  wrapperClassName="w-full"
+                  buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                  panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                  selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                />
+                <StyledSelect
                   value={projectForm.organizationId || ""}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     updateProjectForm({
-                      organizationId: event.target.value || null,
+                      organizationId: value || null,
                     })
                   }
-                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-                >
-                  <option value="">Bez organizácie</option>
-                  {overview.organizations.map((organization) => (
-                    <option key={organization.id} value={organization.id}>
-                      {organization.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: "Bez organizácie" },
+                    ...overview.organizations.map((organization) => ({
+                      value: organization.id,
+                      label: organization.name,
+                    })),
+                  ]}
+                  wrapperClassName="w-full"
+                  buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                  panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                  selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                />
                 <input
                   type="datetime-local"
                   value={toDateTimeLocalValue(projectForm.resultAccessDate)}
@@ -2322,24 +2377,27 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 <label className="block text-[10px] uppercase tracking-widest font-black text-black/35 mb-3">
                   Priradiť existujúceho používateľa
                 </label>
-                <select
+                <StyledSelect
                   value={participantModal.selectedUserId}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setParticipantModal((current) =>
                       current
-                        ? { ...current, selectedUserId: event.target.value }
+                        ? { ...current, selectedUserId: value }
                         : current
                     )
                   }
-                  className="w-full h-14 rounded-2xl border border-black/10 bg-[#fbfaf7] px-4 text-sm font-black outline-none focus:ring-2 focus:ring-brand/20"
-                >
-                  <option value="">Vyberte používateľa</option>
-                  {participantAssignableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {getUserDisplayName(user)} · {user.email}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: "Vyberte používateľa" },
+                    ...participantAssignableUsers.map((user) => ({
+                      value: user.id,
+                      label: `${getUserDisplayName(user)} · ${user.email}`,
+                    })),
+                  ]}
+                  wrapperClassName="w-full"
+                  buttonClassName={ADMIN_SELECT_BUTTON_CLASS}
+                  panelClassName={ADMIN_SELECT_PANEL_CLASS}
+                  selectedOptionClassName={ADMIN_SELECT_SELECTED_CLASS}
+                />
 
                 <button
                   type="submit"

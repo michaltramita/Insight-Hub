@@ -64,8 +64,8 @@ const AuthAccessPanel: React.FC<AuthAccessPanelProps> = ({
                 Vstúpte do svojho InsightHubu
               </h2>
               <p className="mt-3 text-black/56 font-semibold text-sm md:text-base leading-relaxed">
-                Prihláste sa a pozrite si výstupy, ktoré boli pripravené pre vás
-                alebo vašu organizáciu.
+                Prihláste sa a pokračujte v analýzach alebo výstupoch, ktoré
+                boli pripravené pre vás alebo vašu organizáciu.
               </p>
             </div>
 
