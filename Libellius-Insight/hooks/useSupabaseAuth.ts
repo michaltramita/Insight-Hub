@@ -79,7 +79,7 @@ export const useSupabaseAuth = (): UseSupabaseAuthResult => {
       return { error: "Supabase nie je nakonfigurovaný." };
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
       return { error: "Zadajte email pre prihlásenie." };
     }
@@ -104,7 +104,7 @@ export const useSupabaseAuth = (): UseSupabaseAuthResult => {
       return { error: "Supabase nie je nakonfigurovaný." };
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
       return { error: "Zadajte email aj heslo." };
     }

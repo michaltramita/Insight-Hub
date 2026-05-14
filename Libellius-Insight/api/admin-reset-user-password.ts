@@ -129,7 +129,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { data: updatedUser, error: updateError } =
-      await adminClient.auth.admin.updateUserById(userId, { password });
+      await adminClient.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+      });
 
     if (updateError || !updatedUser.user) {
       const message = readApiError(
@@ -158,7 +161,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('admin-reset-user-password audit log failed:', auditError);
     }
 
-    return res.status(200).json({ userId: updatedUser.user.id });
+    return res.status(200).json({
+      userId: updatedUser.user.id,
+      email:
+        typeof updatedUser.user.email === 'string'
+          ? updatedUser.user.email
+          : null,
+    });
   } catch (error: unknown) {
     console.error('admin-reset-user-password error:', error);
     return sendError(res, 500, 'Heslo používateľa sa nepodarilo resetovať.');

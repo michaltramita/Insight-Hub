@@ -659,7 +659,7 @@ export const resetAdminUserPassword = async (
     );
   }
 
-  const parsed = (await response.json()) as { userId?: string };
+  const parsed = (await response.json()) as { userId?: string; email?: string | null };
   if (!parsed.userId) {
     throw new Error("Server nevrátil ID používateľa s resetovaným heslom.");
   }

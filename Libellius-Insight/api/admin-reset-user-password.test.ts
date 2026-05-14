@@ -103,7 +103,7 @@ const createClients = (options?: {
     }),
   };
   const updateUserById = vi.fn().mockResolvedValue({
-    data: { user: { id: TARGET_ID } },
+    data: { user: { id: TARGET_ID, email: "participant@example.com" } },
     error: null,
   });
   const getUserById = vi.fn().mockResolvedValue({
@@ -231,11 +231,15 @@ describe("api/admin-reset-user-password handler", () => {
     await handler(req as any, res as any);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ userId: TARGET_ID });
+    expect(res.body).toEqual({
+      userId: TARGET_ID,
+      email: "participant@example.com",
+    });
     expect(userScopedClient.rpc).toHaveBeenCalledWith("is_global_admin");
     expect(adminClient.auth.admin.getUserById).toHaveBeenCalledWith(TARGET_ID);
     expect(updateUserById).toHaveBeenCalledWith(TARGET_ID, {
       password: "newsecure123",
+      email_confirm: true,
     });
     expect(adminClient.from).toHaveBeenCalledWith("admin_audit_log");
   });

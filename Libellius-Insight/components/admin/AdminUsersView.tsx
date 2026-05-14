@@ -659,12 +659,17 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     setSuccess(null);
 
     try {
-      await resetAdminUserPassword({
+      const resetResult = await resetAdminUserPassword({
         userId: user.id,
         password: nextPassword,
       });
+      const authEmail = resetResult.email || user.email;
       updateResetPassword(user.id, "");
-      setSuccess(`Heslo pre používateľa ${getUserDisplayName(user)} bolo resetované.`);
+      setSuccess(
+        `Heslo pre používateľa ${getUserDisplayName(
+          user
+        )} bolo resetované. Prihlásenie použite s emailom ${authEmail}.`
+      );
     } catch (resetError: unknown) {
       setError(
         resetError instanceof Error
