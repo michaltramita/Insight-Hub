@@ -53,7 +53,7 @@ create table if not exists public.modules (
 create table if not exists public.module_assignments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  organization_id uuid references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   module_code text not null references public.modules(code) on delete cascade,
   status public.assignment_status not null default 'active',
   assigned_by uuid references public.profiles(id) on delete set null,
@@ -290,10 +290,7 @@ begin
         and ma.status = 'active'
         and (ma.starts_at is null or ma.starts_at <= now())
         and (ma.ends_at is null or ma.ends_at >= now())
-        and (
-          ma.organization_id is null
-          or ma.organization_id = v_test_organization_id
-        )
+        and ma.organization_id = v_test_organization_id
     )
   ) then
     raise exception 'typology_access_denied' using errcode = '42501';
@@ -510,10 +507,7 @@ begin
         and ma.status = 'active'
         and (ma.starts_at is null or ma.starts_at <= now())
         and (ma.ends_at is null or ma.ends_at >= now())
-        and (
-          ma.organization_id is null
-          or ma.organization_id = v_test_organization_id
-        )
+        and ma.organization_id = v_test_organization_id
     )
   ) then
     raise exception 'typology_access_denied' using errcode = '42501';
@@ -741,6 +735,12 @@ begin
 
   if v_invalid_module_count > 0 then
     raise exception 'admin_invalid_module' using errcode = '22023';
+  end if;
+
+  if coalesce(array_length(v_module_codes, 1), 0) > 0
+    and p_organization_id is null
+  then
+    raise exception 'admin_organization_required_for_modules' using errcode = '22023';
   end if;
 
   update public.profiles
@@ -1126,7 +1126,7 @@ create policy typology_tests_select_assigned_or_org_admin
         and ma.status = 'active'
         and (ma.starts_at is null or ma.starts_at <= now())
         and (ma.ends_at is null or ma.ends_at >= now())
-        and (ma.organization_id is null or ma.organization_id = typology_tests.organization_id)
+        and ma.organization_id = typology_tests.organization_id
     )
     or (select public.is_global_admin())
     or (
@@ -1172,7 +1172,7 @@ create policy typology_questions_select_assigned_or_org_admin
               and ma.status = 'active'
               and (ma.starts_at is null or ma.starts_at <= now())
               and (ma.ends_at is null or ma.ends_at >= now())
-              and (ma.organization_id is null or ma.organization_id = tt.organization_id)
+              and ma.organization_id = tt.organization_id
           )
           or (
             (select public.current_profile_role()) = 'consultant'

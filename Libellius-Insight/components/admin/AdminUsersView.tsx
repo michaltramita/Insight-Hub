@@ -594,6 +594,12 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     const draft = drafts[user.id];
     if (!draft) return;
 
+    if (draft.moduleCodes.length > 0 && !draft.organizationId) {
+      setError("Pre priradenie modulov vyberte organizáciu používateľa.");
+      setSuccess(null);
+      return;
+    }
+
     setBusyKey(`save:${user.id}`);
     setError(null);
     setSuccess(null);

@@ -69,10 +69,7 @@ begin
         and ma.status = 'active'
         and (ma.starts_at is null or ma.starts_at <= now())
         and (ma.ends_at is null or ma.ends_at >= now())
-        and (
-          ma.organization_id is null
-          or ma.organization_id = v_test_organization_id
-        )
+        and ma.organization_id = v_test_organization_id
     )
   ) then
     raise exception 'typology_access_denied' using errcode = '42501';

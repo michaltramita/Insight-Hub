@@ -138,6 +138,12 @@ begin
     raise exception 'admin_invalid_module' using errcode = '22023';
   end if;
 
+  if coalesce(array_length(v_module_codes, 1), 0) > 0
+    and p_organization_id is null
+  then
+    raise exception 'admin_organization_required_for_modules' using errcode = '22023';
+  end if;
+
   update public.profiles
   set
     full_name = nullif(trim(coalesce(p_full_name, '')), ''),

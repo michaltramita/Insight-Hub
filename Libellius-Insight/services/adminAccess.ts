@@ -476,7 +476,17 @@ export const updateAdminUserAccess = async (input: AdminUserAccessUpdate) => {
   });
 
   if (error) {
-    throw new Error(error.message);
+    const message = String(error.message || "");
+    if (message.includes("admin_organization_required_for_modules")) {
+      throw new Error("Pre priradenie modulov vyberte organizáciu používateľa.");
+    }
+    if (message.includes("admin_invalid_organization")) {
+      throw new Error("Vybraná organizácia neexistuje.");
+    }
+    if (message.includes("admin_invalid_module")) {
+      throw new Error("Vybraný modul nie je aktívny alebo chýba v databáze.");
+    }
+    throw new Error(message || "Prístupy používateľa sa nepodarilo uložiť.");
   }
 };
 
