@@ -77,6 +77,8 @@ type CreateOrganizationForm = {
   name: string;
 };
 
+type TypologyAnalysisStatus = "completed" | "in_progress" | "not_started";
+
 const ROLE_OPTIONS: Array<{ value: AppUserRole; label: string }> = [
   { value: "participant", label: "Účastník" },
   { value: "manager", label: "Manažér" },
@@ -141,6 +143,47 @@ const formatShortDate = (value: string | null) => {
 
 const getProjectStatusLabel = (status: CompanyProjectStatus) =>
   PROJECT_STATUS_OPTIONS.find((option) => option.value === status)?.label || status;
+
+const getTypologyAnalysisStatus = (
+  user: Pick<AdminManagedUser, "typologyStatus">
+): TypologyAnalysisStatus => {
+  if (user.typologyStatus === "completed") return "completed";
+  if (user.typologyStatus === "in_progress") return "in_progress";
+  return "not_started";
+};
+
+const getTypologyAnalysisMeta = (
+  status: TypologyAnalysisStatus,
+  completedAt: string | null = null
+) => {
+  if (status === "completed") {
+    return {
+      label: "Ukončená analýza",
+      shortLabel: "Ukončená",
+      detail: `Dokončené ${formatDate(completedAt)}`,
+      badgeClass: "border-brand/20 bg-brand/5 text-brand",
+      dotClass: "bg-brand",
+    };
+  }
+
+  if (status === "in_progress") {
+    return {
+      label: "V priebehu",
+      shortLabel: "V priebehu",
+      detail: "Účastník už začal vypĺňať analýzu.",
+      badgeClass: "border-black/15 bg-black/[0.04] text-black/65",
+      dotClass: "bg-black/55",
+    };
+  }
+
+  return {
+    label: "Ešte nezačal",
+    shortLabel: "Nezačal",
+    detail: "Účastník ešte nezačal vypĺňať analýzu.",
+    badgeClass: "border-black/10 bg-black/[0.03] text-black/50",
+    dotClass: "bg-black/25",
+  };
+};
 
 const toDateTimeLocalValue = (value: string | null) => {
   if (!value) return "";
@@ -378,9 +421,16 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       const participantText = project.participantIds
         .map((participantId) => {
           const participant = usersById.get(participantId);
-          return participant
-            ? `${participant.fullName || ""} ${participant.email}`
-            : "";
+          if (!participant) return "";
+
+          const typologyMeta = getTypologyAnalysisMeta(
+            getTypologyAnalysisStatus(participant),
+            participant.typologyCompletedAt
+          );
+
+          return `${participant.fullName || ""} ${participant.email} ${
+            typologyMeta.label
+          } ${typologyMeta.shortLabel}`;
         })
         .join(" ");
 
@@ -1133,6 +1183,20 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                     (participant): participant is AdminManagedUser =>
                       Boolean(participant)
                   );
+                const analysisCounts = participantUsers.reduce(
+                  (counts, participant) => {
+                    const status = getTypologyAnalysisStatus(participant);
+                    return {
+                      ...counts,
+                      [status]: counts[status] + 1,
+                    };
+                  },
+                  {
+                    completed: 0,
+                    in_progress: 0,
+                    not_started: 0,
+                  } satisfies Record<TypologyAnalysisStatus, number>
+                );
 
                 return (
                   <article
@@ -1288,7 +1352,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                      <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(150px,0.7fr)_minmax(180px,0.9fr)_minmax(0,2fr)]">
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
                           <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
                             Účastníci
@@ -1299,15 +1363,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         </div>
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
                           <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                            Vytvorené
-                          </p>
-                          <p className="mt-1 text-sm font-black text-black">
-                            {formatShortDate(project.createdAt)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                            Výsledky
+                            Zobrazenie výsledkov
                           </p>
                           <p className="mt-1 text-sm font-black text-black">
                             {project.resultAccessDate
@@ -1316,27 +1372,6 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                           </p>
                         </div>
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                            Moduly
-                          </p>
-                          <p className="mt-1 text-sm font-black text-black">
-                            {project.moduleCodes.length || "Bez modulov"}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3 lg:col-span-2">
-                          <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                            Kontakt
-                          </p>
-                          <p className="mt-1 text-sm font-black text-black truncate">
-                            {project.contactPersonName || "Bez kontaktnej osoby"}
-                          </p>
-                          {project.contactPersonEmail && (
-                            <p className="mt-1 text-xs font-bold text-black/45 truncate">
-                              {project.contactPersonEmail}
-                            </p>
-                          )}
-                        </div>
-                        <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3 lg:col-span-2">
                           <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
                             Predvolené moduly
                           </p>
@@ -1359,20 +1394,50 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center justify-end sm:col-start-2 lg:col-start-5 lg:col-span-2 xl:col-start-5 xl:col-span-2">
-                          <button
-                            type="button"
-                            onClick={() => handleProjectReleaseNow(project)}
-                            disabled={busyKey !== null}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-brand disabled:opacity-50"
-                          >
-                            {busyKey === `project-release:${project.id}` ? (
-                              <LoaderCircle className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <CalendarClock className="w-4 h-4" />
-                            )}
-                            Nastaviť projektový dátum na teraz
-                          </button>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-brand bg-brand px-4 py-4 text-white">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                              Ukončené
+                            </p>
+                          </div>
+                          <p className="mt-3 text-3xl font-black text-white">
+                            {analysisCounts.completed}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-white/65">
+                            z {participantUsers.length} účastníkov
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-black/10 bg-black/[0.04] px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full bg-black/55" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-black/65">
+                              V priebehu
+                            </p>
+                          </div>
+                          <p className="mt-3 text-3xl font-black text-black/70">
+                            {analysisCounts.in_progress}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-black/45">
+                            rozpracované analýzy
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-black bg-black px-4 py-4 text-white">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full bg-white/65" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/75">
+                              Nezačali
+                            </p>
+                          </div>
+                          <p className="mt-3 text-3xl font-black text-white">
+                            {analysisCounts.not_started}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-white/55">
+                            čakajú na vyplnenie
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1381,72 +1446,77 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       <div className="border-t border-black/5 bg-[#fbfaf7] px-5 py-5 md:px-6 md:py-6 animate-fade-in">
                         <div className="space-y-5">
                           <div className="rounded-2xl bg-white border border-black/5 overflow-hidden w-full">
-                            <div className="px-4 py-4 border-b border-black/5 flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
-                                  Účastníci projektu
-                                </p>
-                                <h4 className="mt-1 text-xl font-black tracking-tight">
-                                  {participantUsers.length} účastníkov
-                                </h4>
+                            <div className="px-4 py-4 border-b border-black/5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">
+                                    Účastníci projektu
+                                  </p>
+                                  <h4 className="mt-1 text-xl font-black tracking-tight">
+                                    {participantUsers.length} účastníkov
+                                  </h4>
+                                </div>
+                                <UsersRound className="w-5 h-5 shrink-0 text-black/25" />
                               </div>
-                              <UsersRound className="w-5 h-5 text-black/25" />
                             </div>
 
                             {participantUsers.length > 0 ? (
                               <div className="divide-y divide-black/5">
-                                {participantUsers.map((participant) => (
-                                  <div
-                                    key={participant.id}
-                                    className="px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                                  >
-                                    <div className="min-w-0">
-                                      <p className="font-black text-black truncate">
-                                        {getUserDisplayName(participant)}
-                                      </p>
-                                      <p className="mt-1 text-xs font-bold text-black/45 truncate">
-                                        {participant.email}
-                                      </p>
-                                      <p className="mt-2 text-[10px] uppercase tracking-widest font-black text-black/35">
-                                        {participant.typologyStatus === "completed"
-                                          ? "Analýza dokončená"
-                                          : participant.typologyStatus === "in_progress"
-                                            ? "Analýza rozpracovaná"
-                                            : "Bez analýzy"}
-                                      </p>
+                                {participantUsers.map((participant) => {
+                                  const analysisStatus =
+                                    getTypologyAnalysisStatus(participant);
+                                  const analysisMeta = getTypologyAnalysisMeta(
+                                    analysisStatus,
+                                    participant.typologyCompletedAt
+                                  );
+
+                                  return (
+                                    <div
+                                      key={participant.id}
+                                      className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_240px_auto] lg:items-center"
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="font-black text-black truncate">
+                                          {getUserDisplayName(participant)}
+                                        </p>
+                                        <p className="mt-1 text-xs font-bold text-black/45 truncate">
+                                          {participant.email}
+                                        </p>
+                                        <p className="mt-2 text-xs font-bold text-black/45">
+                                          {analysisMeta.detail}
+                                        </p>
+                                      </div>
+                                      <div className="lg:justify-self-start">
+                                        <span
+                                          className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest sm:w-auto lg:w-[240px] ${analysisMeta.badgeClass}`}
+                                        >
+                                          <span
+                                            className={`h-2 w-2 rounded-full ${analysisMeta.dotClass}`}
+                                          />
+                                          {analysisMeta.label}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleRemoveParticipant(project, participant)
+                                          }
+                                          disabled={busyKey !== null}
+                                          className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
+                                        >
+                                          {busyKey ===
+                                          `participant-remove:${project.id}:${participant.id}` ? (
+                                            <LoaderCircle className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="w-4 h-4" />
+                                          )}
+                                          Odstrániť
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setExpandedUserId(participant.id);
-                                          setSuccess(
-                                            "Detail používateľa je otvorený v zozname všetkých používateľov nižšie."
-                                          );
-                                        }}
-                                        className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
-                                      >
-                                        Otvoriť používateľa
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleRemoveParticipant(project, participant)
-                                        }
-                                        disabled={busyKey !== null}
-                                        className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
-                                      >
-                                        {busyKey ===
-                                        `participant-remove:${project.id}:${participant.id}` ? (
-                                          <LoaderCircle className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="w-4 h-4" />
-                                        )}
-                                        Odstrániť
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             ) : (
                               <div className="px-4 py-10 text-center">
@@ -1663,6 +1733,11 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             const isSelf = user.id === currentUserId;
             const isExpanded = expandedUserId === user.id;
             const resetPasswordValue = passwordResets[user.id] || "";
+            const analysisStatus = getTypologyAnalysisStatus(user);
+            const analysisMeta = getTypologyAnalysisMeta(
+              analysisStatus,
+              user.typologyCompletedAt
+            );
 
             return (
               <section
@@ -1724,12 +1799,16 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                             <p className="text-[10px] uppercase tracking-widest font-black text-black/30 mb-1">
                               Typológia
                             </p>
-                            <p className="text-sm font-black text-black/60">
-                              {user.typologyStatus === "completed"
-                                ? `Dokončené ${formatDate(user.typologyCompletedAt)}`
-                                : user.typologyStatus === "in_progress"
-                                  ? "Rozpracované"
-                                  : "Bez analýzy"}
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${analysisMeta.badgeClass}`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${analysisMeta.dotClass}`}
+                              />
+                              {analysisMeta.label}
+                            </span>
+                            <p className="mt-2 text-xs font-bold text-black/45">
+                              {analysisMeta.detail}
                             </p>
                           </div>
                         </div>
