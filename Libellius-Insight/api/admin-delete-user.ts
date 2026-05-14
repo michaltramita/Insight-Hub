@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import {
+  enforceAdminIpRateLimit,
+  enforceAdminUserRateLimit,
+} from './admin-rate-limit.js';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ADMIN_RATE_LIMIT = {
+  endpoint: 'delete-user',
+  limit: 10,
+  windowMs: 60_000,
+};
 
 const readSupabaseApiConfig = () => ({
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
@@ -49,6 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return sendError(res, 405, 'Method not allowed');
   }
+  if (!(await enforceAdminIpRateLimit(req, res, ADMIN_RATE_LIMIT))) return;
 
   const token = readBearerToken(req);
   if (!token) {
@@ -101,6 +111,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await userScopedClient.rpc('is_global_admin');
     if (adminCheckError || isAdmin !== true) {
       return sendError(res, 403, 'Na odstránenie používateľa nemáte oprávnenie.');
+    }
+    if (
+      !(await enforceAdminUserRateLimit(res, {
+        ...ADMIN_RATE_LIMIT,
+        userId: authData.user.id,
+      }))
+    ) {
+      return;
     }
 
     const { data: targetUserData, error: targetUserError } =

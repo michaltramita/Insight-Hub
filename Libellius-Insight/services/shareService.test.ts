@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSharedReport, resolveSharedReport } from "./shareService";
+import {
+  createSharedReport,
+  resolveSharedReport,
+  revokeSharedReport,
+} from "./shareService";
 
 const supabaseMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -232,6 +236,62 @@ describe("resolveSharedReport", () => {
 
     await expect(resolveSharedReport("abc")).rejects.toThrow(
       "V zdieľanom reporte chýba šifrovaný payload."
+    );
+  });
+});
+
+describe("revokeSharedReport", () => {
+  it("calls delete endpoint with authenticated session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      asResponse({
+        ok: true,
+        status: 200,
+        json: async () => ({ shareId: "abc123XYZ_" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await revokeSharedReport("abc123XYZ_");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/share-report-delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-access-token",
+      },
+      body: JSON.stringify({ shareId: "abc123XYZ_" }),
+    });
+  });
+
+  it("throws status-enriched error when revoke fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        asResponse({
+          ok: false,
+          status: 403,
+          json: async () => ({
+            error: "Na zrušenie tohto zdieľaného odkazu nemáte oprávnenie.",
+          }),
+        })
+      )
+    );
+
+    await expect(revokeSharedReport("abc123XYZ_")).rejects.toMatchObject({
+      message: "Na zrušenie tohto zdieľaného odkazu nemáte oprávnenie.",
+      status: 403,
+    });
+  });
+
+  it("requires an authenticated session before revoking a share link", async () => {
+    supabaseMocks.getSession.mockResolvedValueOnce({
+      data: {
+        session: null,
+      },
+    });
+
+    await expect(revokeSharedReport("abc123XYZ_")).rejects.toThrow(
+      "Pre zrušenie zdieľaného odkazu sa prihláste."
     );
   });
 });

@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import {
+  enforceAdminIpRateLimit,
+  enforceAdminUserRateLimit,
+} from './admin-rate-limit.js';
 
 const MODULE_CODES = [
   '360_FEEDBACK',
@@ -9,6 +13,11 @@ const MODULE_CODES = [
 type ModuleCode = (typeof MODULE_CODES)[number];
 
 const MIN_PASSWORD_LENGTH = 8;
+const ADMIN_RATE_LIMIT = {
+  endpoint: 'create-user',
+  limit: 10,
+  windowMs: 60_000,
+};
 
 const readSupabaseApiConfig = () => ({
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
@@ -120,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return sendError(res, 405, 'Method not allowed');
   }
+  if (!(await enforceAdminIpRateLimit(req, res, ADMIN_RATE_LIMIT))) return;
 
   const token = readBearerToken(req);
   if (!token) {
@@ -191,6 +201,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (adminCheckError || isAdmin !== true) {
       return sendError(res, 403, 'Na vytvorenie používateľa nemáte oprávnenie.');
+    }
+    if (
+      !(await enforceAdminUserRateLimit(res, {
+        ...ADMIN_RATE_LIMIT,
+        userId: authData.user.id,
+      }))
+    ) {
+      return;
     }
 
     const { data: createdUser, error: createError } =

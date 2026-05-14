@@ -1,5 +1,4 @@
 import { put } from '@vercel/blob';
-import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from './vercel-types.js';
 import {
   buildShareBlobPath,
@@ -9,6 +8,7 @@ import {
   type StoredSharedReport,
 } from './share-report-storage.js';
 import { consumeRateLimit, getClientIp } from './rate-limit.js';
+import { requireAuthenticatedUser } from './_authHelpers.js';
 
 const MAX_REQUEST_BODY_BYTES = 350000;
 const MAX_ENCRYPTED_PAYLOAD_LENGTH = 300000;
@@ -16,11 +16,6 @@ const CREATE_RATE_LIMIT = {
   limit: 20,
   windowMs: 60_000,
 };
-
-const readSupabaseApiConfig = () => ({
-  url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
-});
 
 const readContentLength = (req: VercelRequest) => {
   const rawHeader = Array.isArray(req.headers['content-length'])
@@ -59,37 +54,9 @@ const isValidEncryptedPayload = (value: unknown) => {
     payload.length <= MAX_ENCRYPTED_PAYLOAD_LENGTH &&
     (payload.startsWith('v1.') ||
       payload.startsWith('v2.') ||
-      payload.startsWith('v3.'))
+      payload.startsWith('v3.') ||
+      payload.startsWith('v4.'))
   );
-};
-
-const readBearerToken = (req: VercelRequest) => {
-  const rawHeader = Array.isArray(req.headers.authorization)
-    ? req.headers.authorization[0]
-    : req.headers.authorization;
-  const match = String(rawHeader || '').match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
-};
-
-const requireAuthenticatedUser = async (req: VercelRequest) => {
-  const token = readBearerToken(req);
-  if (!token) return null;
-
-  const { url, anonKey } = readSupabaseApiConfig();
-  if (!url || !anonKey) {
-    throw new Error('Supabase Auth nie je nakonfigurovaný pre API endpoint.');
-  }
-
-  const supabase = createClient(url, anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user) return null;
-  return data.user;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -158,6 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body: StoredSharedReport = {
       encryptedPayload: String(encryptedPayload).trim(),
+      ownerUserId: authUser.id,
       publicMeta: sanitizePublicMeta(publicMeta),
       createdAt: timestamps.createdAt,
       expiresAt: timestamps.expiresAt,

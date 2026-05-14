@@ -6,7 +6,7 @@ import AreaAnalysisBlock from './satisfaction/AreaAnalysisBlock';
 import TopStatementsBlock from './satisfaction/TopStatementsBlock';
 import RecommendationsBlock from './satisfaction/RecommendationsBlock';
 import { encryptReportToUrlPayload } from '../utils/reportCrypto';
-import { createSharedReport } from '../services/shareService';
+import { createSharedReport, revokeSharedReport } from '../services/shareService';
 import {
   Users,
   BarChart4,
@@ -22,6 +22,7 @@ import {
   KeyRound,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -459,6 +460,11 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
   const [sharePasswordInput, setSharePasswordInput] = useState('');
   const [shareDialogError, setShareDialogError] = useState<string | null>(null);
   const [isCreatingShareLink, setIsCreatingShareLink] = useState(false);
+  const [isRevokingShareLink, setIsRevokingShareLink] = useState(false);
+  const [lastSharedLink, setLastSharedLink] = useState<{
+    shareId: string;
+    url: string;
+  } | null>(null);
   const [rememberSharePassword, setRememberSharePassword] = useState(false);
   const [hasStoredSharePassword, setHasStoredSharePassword] = useState(false);
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -572,6 +578,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
         shareUrl = `${window.location.origin}${basePath}/r/${encodeURIComponent(
           shareId
         )}`;
+        setLastSharedLink({ shareId, url: shareUrl });
       } catch (apiError: unknown) {
         if (isLocalRuntime && getErrorStatusCode(apiError) === 404) {
           const hashParams = new URLSearchParams();
@@ -582,6 +589,7 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
 
           shareUrl = `${window.location.origin}${basePath}#${hashParams.toString()}`;
           usedLocalFallback = true;
+          setLastSharedLink(null);
         } else {
           throw apiError;
         }
@@ -626,6 +634,23 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
       );
     } finally {
       setIsCreatingShareLink(false);
+    }
+  };
+
+  const revokeLastShareLink = async () => {
+    if (!lastSharedLink) return;
+    const confirmed = window.confirm('Naozaj chcete zrušiť posledný zdieľaný odkaz?');
+    if (!confirmed) return;
+
+    setIsRevokingShareLink(true);
+    try {
+      await revokeSharedReport(lastSharedLink.shareId);
+      setLastSharedLink(null);
+      alert('Zdieľaný odkaz bol zrušený.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Zdieľaný odkaz sa nepodarilo zrušiť.'));
+    } finally {
+      setIsRevokingShareLink(false);
     }
   };
 
@@ -1158,6 +1183,21 @@ const SatisfactionDashboard: React.FC<Props> = ({ result, onReset }) => {
                     )}
                     {copyStatus ? 'Skopírované!' : 'Zdieľať'}
                   </button>
+
+                  {lastSharedLink && (
+                    <button
+                      onClick={revokeLastShareLink}
+                      disabled={isRevokingShareLink}
+                      className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-black/10 bg-white text-black/55 hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-50 font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest shadow-xl"
+                    >
+                      {isRevokingShareLink ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-brand" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Zrušiť odkaz
+                    </button>
+                  )}
 
                   <button
                     onClick={exportToJson}

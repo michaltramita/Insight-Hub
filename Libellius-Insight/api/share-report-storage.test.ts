@@ -23,14 +23,14 @@ afterEach(() => {
 });
 
 describe("createShareTimestamps", () => {
-  it("uses default TTL (30 days) when env value is missing", () => {
+  it("uses default TTL (14 days) when env value is missing", () => {
     setTtlEnv(undefined);
 
     const result = createShareTimestamps(FIXED_NOW);
 
     expect(result).toEqual({
       createdAt: new Date(FIXED_NOW).toISOString(),
-      expiresAt: new Date(FIXED_NOW + 30 * DAY_MS).toISOString(),
+      expiresAt: new Date(FIXED_NOW + 14 * DAY_MS).toISOString(),
     });
   });
 
@@ -42,12 +42,12 @@ describe("createShareTimestamps", () => {
     expect(result.expiresAt).toBe(new Date(FIXED_NOW + DAY_MS).toISOString());
   });
 
-  it("clamps TTL to maximum 365 days", () => {
+  it("clamps TTL to maximum 90 days", () => {
     setTtlEnv("999");
 
     const result = createShareTimestamps(FIXED_NOW);
 
-    expect(result.expiresAt).toBe(new Date(FIXED_NOW + 365 * DAY_MS).toISOString());
+    expect(result.expiresAt).toBe(new Date(FIXED_NOW + 90 * DAY_MS).toISOString());
   });
 });
 

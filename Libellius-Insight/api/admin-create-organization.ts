@@ -1,5 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "./vercel-types.js";
+import {
+  enforceAdminIpRateLimit,
+  enforceAdminUserRateLimit,
+} from "./admin-rate-limit.js";
+
+const ADMIN_RATE_LIMIT = {
+  endpoint: "create-organization",
+  limit: 10,
+  windowMs: 60_000,
+};
 
 const readSupabaseApiConfig = () => ({
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
@@ -37,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return sendError(res, 405, "Method not allowed");
   }
+  if (!(await enforceAdminIpRateLimit(req, res, ADMIN_RATE_LIMIT))) return;
 
   const token = readBearerToken(req);
   if (!token) {
@@ -68,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return sendError(res, 400, "Zadajte názov organizácie.");
   }
 
+  const authClient = createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
   const userScopedClient = createClient(url, anonKey, {
     global: {
       headers: {
@@ -87,11 +104,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
+    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+    if (authError || !authData.user) {
+      return sendError(
+        res,
+        401,
+        "Pre vytvorenie organizácie sa prihláste ako admin."
+      );
+    }
+
     const { data: isAdmin, error: adminCheckError } =
       await userScopedClient.rpc("is_global_admin");
 
     if (adminCheckError || isAdmin !== true) {
       return sendError(res, 403, "Na vytvorenie organizácie nemáte oprávnenie.");
+    }
+    if (
+      !(await enforceAdminUserRateLimit(res, {
+        ...ADMIN_RATE_LIMIT,
+        userId: authData.user.id,
+      }))
+    ) {
+      return;
     }
 
     const baseSlug = toSlug(name) || "org";

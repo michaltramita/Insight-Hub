@@ -82,7 +82,7 @@ describe("api/share-report-get handler", () => {
       statusCode: 200,
       stream: new Blob([
         JSON.stringify({
-          encryptedPayload: "  v2.aaa.bbb.ccc  ",
+          encryptedPayload: "  v4.aaa.bbb.ccc  ",
           publicMeta: {
             client: "  Acme  ",
             survey: "",
@@ -101,7 +101,7 @@ describe("api/share-report-get handler", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({
-      encryptedPayload: "v2.aaa.bbb.ccc",
+      encryptedPayload: "v4.aaa.bbb.ccc",
       publicMeta: {
         client: "Acme",
         survey: undefined,

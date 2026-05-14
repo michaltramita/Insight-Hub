@@ -24,7 +24,8 @@ const isValidEncryptedPayload = (value: unknown) => {
     payload.length <= MAX_ENCRYPTED_PAYLOAD_LENGTH &&
     (payload.startsWith('v1.') ||
       payload.startsWith('v2.') ||
-      payload.startsWith('v3.'))
+      payload.startsWith('v3.') ||
+      payload.startsWith('v4.'))
   );
 };
 

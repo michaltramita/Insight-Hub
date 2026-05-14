@@ -1,7 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import {
+  enforceAdminIpRateLimit,
+  enforceAdminUserRateLimit,
+} from './admin-rate-limit.js';
 
 const MIN_PASSWORD_LENGTH = 8;
+const ADMIN_RATE_LIMIT = {
+  endpoint: 'reset-user-password',
+  limit: 5,
+  windowMs: 60_000,
+};
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -40,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return sendError(res, 405, 'Method not allowed');
   }
+  if (!(await enforceAdminIpRateLimit(req, res, ADMIN_RATE_LIMIT))) return;
 
   const token = readBearerToken(req);
   if (!token) {
@@ -111,6 +121,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (adminCheckError || isAdmin !== true) {
       return sendError(res, 403, 'Na reset hesla nemáte oprávnenie.');
+    }
+    if (
+      !(await enforceAdminUserRateLimit(res, {
+        ...ADMIN_RATE_LIMIT,
+        userId: authData.user.id,
+      }))
+    ) {
+      return;
     }
 
     const { data: targetUserData, error: targetUserError } =

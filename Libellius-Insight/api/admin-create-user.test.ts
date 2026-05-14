@@ -6,6 +6,11 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock("./admin-rate-limit.js", () => ({
+  enforceAdminIpRateLimit: vi.fn().mockResolvedValue(true),
+  enforceAdminUserRateLimit: vi.fn().mockResolvedValue(true),
+}));
+
 type MockReq = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;

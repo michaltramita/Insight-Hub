@@ -63,7 +63,7 @@ const baseReq = (): MockReq => ({
     authorization: "Bearer test-access-token",
   },
   body: {
-    encryptedPayload: "v2.aaa.bbb.ccc",
+    encryptedPayload: "v4.aaa.bbb.ccc",
     publicMeta: {
       client: "  Acme  ",
       survey: "  Q1  ",
@@ -166,7 +166,8 @@ describe("api/share-report-create handler", () => {
 
     const parsedBody = JSON.parse(String(rawBody));
     expect(parsedBody).toMatchObject({
-      encryptedPayload: "v2.aaa.bbb.ccc",
+      encryptedPayload: "v4.aaa.bbb.ccc",
+      ownerUserId: "user-1",
       publicMeta: {
         client: "Acme",
         survey: "Q1",

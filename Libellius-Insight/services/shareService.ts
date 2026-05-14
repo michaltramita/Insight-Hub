@@ -114,3 +114,37 @@ export const resolveSharedReport = async (shareId: string) => {
 
   return parsed;
 };
+
+export const revokeSharedReport = async (shareId: string) => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (hasSupabaseEnv()) {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Pre zrušenie zdieľaného odkazu sa prihláste.');
+    }
+
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch('/api/share-report-delete', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ shareId }),
+  });
+
+  if (!response.ok) {
+    const error = await readApiError(
+      response,
+      'Zdieľaný odkaz sa nepodarilo zrušiť.'
+    );
+    const enrichedError = new Error(error) as ShareServiceError;
+    enrichedError.status = response.status;
+    throw enrichedError;
+  }
+};

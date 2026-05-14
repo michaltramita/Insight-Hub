@@ -1,11 +1,12 @@
 import { randomBytes } from 'crypto';
 
-const DEFAULT_SHARE_LINK_TTL_DAYS = 30;
+const DEFAULT_SHARE_LINK_TTL_DAYS = 14;
 const MIN_SHARE_LINK_TTL_DAYS = 1;
-const MAX_SHARE_LINK_TTL_DAYS = 365;
+const MAX_SHARE_LINK_TTL_DAYS = 90;
 
 export interface StoredSharedReport {
   encryptedPayload: string;
+  ownerUserId: string;
   publicMeta: {
     client?: string;
     survey?: string;

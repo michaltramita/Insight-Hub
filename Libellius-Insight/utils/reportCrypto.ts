@@ -4,6 +4,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const hasCompressionStream =
   typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+export const PBKDF2_ITERATIONS_LEGACY = 250_000;
+export const PBKDF2_ITERATIONS_V4 = 600_000;
 
 // --- Pomocné funkcie pre Base64 URL-safe ---
 const toBase64Url = (bytes: Uint8Array): string => {
@@ -59,7 +61,11 @@ const gzipDecompress = async (bytes: Uint8Array): Promise<Uint8Array> => {
 };
 
 // --- Derivácia kľúča z hesla pomocou PBKDF2 ---
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(
+  password: string,
+  salt: Uint8Array,
+  iterations: number
+): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
@@ -72,7 +78,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     {
       name: 'PBKDF2',
       salt,
-      iterations: 250000,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -81,6 +87,9 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     ['encrypt', 'decrypt']
   );
 }
+
+export const getPayloadPbkdf2Iterations = (version: string) =>
+  version === 'v4' ? PBKDF2_ITERATIONS_V4 : PBKDF2_ITERATIONS_LEGACY;
 
 /**
  * Zašifruje report objekt do stringu vhodného do URL hash (#report=...)
@@ -92,13 +101,16 @@ export async function encryptReportToUrlPayload(report: unknown, password: strin
 
   const json = JSON.stringify(report);
 
-  // Generujeme v2 (LZString) pre maximálnu kompatibilitu medzi prehliadačmi.
-  const compressedBytes = LZString.compressToUint8Array(json);
-  const version = 'v2';
+  if (!hasCompressionStream) {
+    throw new Error('CompressionStream nie je k dispozícii.');
+  }
+
+  const compressedBytes = await gzipCompress(encoder.encode(json));
+  const version = 'v4';
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
+  const key = await deriveKey(password, salt, PBKDF2_ITERATIONS_V4);
 
   // Šifrujeme skomprimované bajty namiesto celého textu
   const encrypted = await crypto.subtle.encrypt(
@@ -109,7 +121,6 @@ export async function encryptReportToUrlPayload(report: unknown, password: strin
 
   const cipherBytes = new Uint8Array(encrypted);
 
-  // Formát v2 pre komprimované dáta
   return [
     version,
     toBase64Url(salt),
@@ -129,7 +140,7 @@ export async function decryptReportFromUrlPayload(payload: string, password: str
 
   const normalizedPayload = String(payload || '').trim().replace(/^["']|["']$/g, '');
   const parts = normalizedPayload.split('.');
-  if (parts.length !== 4 || !['v1', 'v2', 'v3'].includes(parts[0])) {
+  if (parts.length !== 4 || !['v1', 'v2', 'v3', 'v4'].includes(parts[0])) {
     throw new Error('Neplatný formát odkazu.');
   }
 
@@ -149,7 +160,7 @@ export async function decryptReportFromUrlPayload(payload: string, password: str
     throw new Error('Poškodený alebo nekompletný odkaz. Vygenerujte prosím nový link reportu.');
   }
 
-  const key = await deriveKey(password, salt);
+  const key = await deriveKey(password, salt, getPayloadPbkdf2Iterations(version));
 
   try {
     const decrypted = await crypto.subtle.decrypt(
@@ -159,7 +170,7 @@ export async function decryptReportFromUrlPayload(payload: string, password: str
     );
 
     // Ak ide o nový odkaz, najprv ho po dešifrovaní dekomprimujeme
-    if (version === 'v3') {
+    if (version === 'v3' || version === 'v4') {
       if (!hasCompressionStream) {
         throw new Error('Tento report bol vygenerovaný v novšom formáte. Vygenerujte prosím nový zdieľaný link.');
       }
