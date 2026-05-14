@@ -113,20 +113,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return sendError(res, 403, 'Na reset hesla nemáte oprávnenie.');
     }
 
-    const { data: targetProfile, error: targetProfileError } = await adminClient
-      .from('profiles')
-      .select('id, email')
-      .eq('id', userId)
-      .maybeSingle();
+    const { data: targetUserData, error: targetUserError } =
+      await adminClient.auth.admin.getUserById(userId);
 
-    if (targetProfileError) {
+    if (targetUserError) {
       const message = readApiError(
-        targetProfileError,
+        targetUserError,
         'Používateľa sa nepodarilo overiť.'
       );
-      return sendError(res, 500, message);
+      const status = message.toLowerCase().includes('not found') ? 404 : 500;
+      return sendError(res, status, message);
     }
-    if (!targetProfile) {
+    if (!targetUserData.user) {
       return sendError(res, 404, 'Používateľ nebol nájdený.');
     }
 
@@ -150,7 +148,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         target_user_id: userId,
         details: {
           email:
-            typeof targetProfile.email === 'string' ? targetProfile.email : null,
+            typeof targetUserData.user.email === 'string'
+              ? targetUserData.user.email
+              : null,
         },
       });
 

@@ -56,14 +56,6 @@ const baseReq = (): MockReq => ({
   },
 });
 
-const maybeSingleBuilder = (result: unknown) => {
-  const builder: any = {};
-  builder.select = vi.fn(() => builder);
-  builder.eq = vi.fn(() => builder);
-  builder.maybeSingle = vi.fn().mockResolvedValue(result);
-  return builder;
-};
-
 const insertBuilder = (result: unknown) => ({
   insert: vi.fn().mockResolvedValue(result),
 });
@@ -93,7 +85,8 @@ afterEach(() => {
 
 const createClients = (options?: {
   isAdmin?: boolean;
-  targetProfile?: unknown;
+  targetUser?: unknown;
+  targetUserError?: unknown;
 }) => {
   const authClient = {
     auth: {
@@ -113,21 +106,22 @@ const createClients = (options?: {
     data: { user: { id: TARGET_ID } },
     error: null,
   });
+  const getUserById = vi.fn().mockResolvedValue({
+    data: {
+      user:
+        options && "targetUser" in options
+          ? options.targetUser
+          : { id: TARGET_ID, email: "participant@example.com" },
+    },
+    error: options?.targetUserError || null,
+  });
   const queues: Record<string, any[]> = {
-    profiles: [
-      maybeSingleBuilder({
-        data:
-          options && "targetProfile" in options
-            ? options.targetProfile
-            : { id: TARGET_ID, email: "participant@example.com" },
-        error: null,
-      }),
-    ],
     admin_audit_log: [insertBuilder({ error: null })],
   };
   const adminClient = {
     auth: {
       admin: {
+        getUserById,
         updateUserById,
       },
     },
@@ -216,7 +210,7 @@ describe("api/admin-reset-user-password handler", () => {
   });
 
   it("returns 404 when target user profile does not exist", async () => {
-    const { updateUserById } = createClients({ targetProfile: null });
+    const { updateUserById } = createClients({ targetUser: null });
     const req = baseReq();
     const res = createMockRes();
 
@@ -239,6 +233,7 @@ describe("api/admin-reset-user-password handler", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ userId: TARGET_ID });
     expect(userScopedClient.rpc).toHaveBeenCalledWith("is_global_admin");
+    expect(adminClient.auth.admin.getUserById).toHaveBeenCalledWith(TARGET_ID);
     expect(updateUserById).toHaveBeenCalledWith(TARGET_ID, {
       password: "newsecure123",
     });
