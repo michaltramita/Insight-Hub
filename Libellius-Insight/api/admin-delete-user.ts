@@ -24,6 +24,24 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const normalizeText = (value: unknown) =>
   typeof value === 'string' ? value.trim() : '';
 
+const readApiError = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || '').trim();
+    return message || fallback;
+  }
+  return fallback;
+};
+
+const readUserMetadataText = (
+  metadata: unknown,
+  key: string
+) => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return '';
+  }
+  return normalizeText((metadata as Record<string, unknown>)[key]);
+};
+
 const sendError = (res: VercelResponse, status: number, error: string) =>
   res.status(status).json({ error });
 
@@ -85,35 +103,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return sendError(res, 403, 'Na odstránenie používateľa nemáte oprávnenie.');
     }
 
-    const { data: targetProfile, error: profileError } = await adminClient
-      .from('profiles')
-      .select('id, email, full_name')
-      .eq('id', userId)
-      .maybeSingle();
+    const { data: targetUserData, error: targetUserError } =
+      await adminClient.auth.admin.getUserById(userId);
 
-    if (profileError) {
-      return sendError(res, 500, 'Používateľa sa nepodarilo overiť.');
+    if (targetUserError) {
+      const message = readApiError(
+        targetUserError,
+        'Používateľa sa nepodarilo overiť.'
+      );
+      const status = message.toLowerCase().includes('not found') ? 404 : 500;
+      return sendError(res, status, message);
     }
-    if (!targetProfile) {
+    if (!targetUserData.user) {
       return sendError(res, 404, 'Používateľ nebol nájdený.');
     }
 
+    const targetEmail =
+      typeof targetUserData.user.email === 'string'
+        ? targetUserData.user.email
+        : null;
+    const targetFullName =
+      readUserMetadataText(targetUserData.user.user_metadata, 'full_name') || null;
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
     if (deleteError) {
+      const message = readApiError(
+        deleteError,
+        'Používateľa sa nepodarilo odstrániť.'
+      );
       return sendError(
         res,
-        500,
-        'Používateľa sa nepodarilo odstrániť.'
+        message.toLowerCase().includes('not found') ? 404 : 500,
+        message
       );
     }
 
     const { error: auditError } = await adminClient.from('admin_audit_log').insert({
       actor_id: authData.user.id,
       action: 'admin_delete_user',
-      target_user_id: userId,
+      target_user_id: null,
       details: {
-        email: targetProfile.email,
-        full_name: targetProfile.full_name,
+        user_id: userId,
+        email: targetEmail,
+        full_name: targetFullName,
       },
     });
 
