@@ -9,6 +9,7 @@ import {
   FolderKanban,
   KeyRound,
   LoaderCircle,
+  MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
@@ -225,6 +226,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   );
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
   const [participantModal, setParticipantModal] =
     useState<ParticipantModalState | null>(null);
   const [isCreateOrganizationOpen, setIsCreateOrganizationOpen] = useState(false);
@@ -1168,54 +1170,103 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                           )}
                         </button>
 
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setParticipantModal({
-                                projectId: project.id,
-                                selectedUserId: "",
-                              })
-                            }
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            Pridať účastníka
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEditProjectModal(project)}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            Upraviť
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleArchiveProject(project)}
-                            disabled={busyKey !== null || project.status === "archived"}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
-                          >
-                            {busyKey === `archive:${project.id}` ? (
-                              <LoaderCircle className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Archive className="w-4 h-4" />
+                        <div className="flex items-center gap-2 lg:justify-end">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenActionsMenuId((current) =>
+                                  current === project.id ? null : project.id
+                                )
+                              }
+                              className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-black hover:text-white"
+                              aria-haspopup="menu"
+                              aria-expanded={openActionsMenuId === project.id}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                              Akcie
+                              <ChevronDown
+                                className={`w-3 h-3 transition-transform ${
+                                  openActionsMenuId === project.id ? "rotate-180" : ""
+                                }`}
+                              />
+                            </button>
+                            {openActionsMenuId === project.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setOpenActionsMenuId(null)}
+                                  aria-hidden="true"
+                                />
+                                <div
+                                  className="absolute right-0 top-full mt-2 z-20 min-w-[240px] rounded-2xl border border-black/10 bg-white shadow-xl overflow-hidden"
+                                  role="menu"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenActionsMenuId(null);
+                                      setParticipantModal({
+                                        projectId: project.id,
+                                        selectedUserId: "",
+                                      });
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-black transition-colors hover:bg-black hover:text-white"
+                                  >
+                                    <UserPlus className="w-4 h-4" />
+                                    Pridať účastníka
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenActionsMenuId(null);
+                                      openEditProjectModal(project);
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-black transition-colors hover:bg-black hover:text-white border-t border-black/5"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                    Upraviť
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenActionsMenuId(null);
+                                      handleArchiveProject(project);
+                                    }}
+                                    disabled={busyKey !== null || project.status === "archived"}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-brand transition-colors hover:bg-brand hover:text-white border-t border-black/5 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-brand"
+                                  >
+                                    {busyKey === `archive:${project.id}` ? (
+                                      <LoaderCircle className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Archive className="w-4 h-4" />
+                                    )}
+                                    Archivovať
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenActionsMenuId(null);
+                                      handleDeleteProject(project);
+                                    }}
+                                    disabled={busyKey !== null}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest text-brand transition-colors hover:bg-brand hover:text-white border-t border-black/5 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-brand"
+                                  >
+                                    {busyKey === `delete-project:${project.id}` ? (
+                                      <LoaderCircle className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                    Odstrániť
+                                  </button>
+                                </div>
+                              </>
                             )}
-                            Archivovať
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProject(project)}
-                            disabled={busyKey !== null}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand transition-all hover:bg-brand hover:text-white disabled:opacity-50"
-                          >
-                            {busyKey === `delete-project:${project.id}` ? (
-                              <LoaderCircle className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                            Odstrániť
-                          </button>
+                          </div>
                           <button
                             type="button"
                             onClick={() =>

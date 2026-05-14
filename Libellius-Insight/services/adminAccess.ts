@@ -546,26 +546,21 @@ export const createAdminOrganization = async (
   input: AdminCreateOrganizationInput
 ) => {
   const supabase = getSupabaseBrowserClient();
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
+  const db = supabase as any;
 
-  if (!accessToken) {
-    throw new Error("Pre vytvorenie organizácie sa prihláste ako admin.");
-  }
-
-  const response = await fetch("/api/admin-create-organization", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(input),
+  const { error } = await db.rpc("admin_create_organization", {
+    p_name: input.name,
   });
 
-  if (!response.ok) {
-    throw new Error(
-      await readApiError(response, "Organizáciu sa nepodarilo vytvoriť.")
-    );
+  if (error) {
+    const message = String(error.message || "");
+    if (message.includes("admin_access_denied")) {
+      throw new Error("Na vytvorenie organizácie nemáte oprávnenie.");
+    }
+    if (message.includes("admin_organization_name_required")) {
+      throw new Error("Zadajte názov organizácie.");
+    }
+    throw new Error("Organizáciu sa nepodarilo vytvoriť.");
   }
 };
 
@@ -611,26 +606,30 @@ export const deleteAdminOrganization = async (
   input: AdminDeleteOrganizationInput
 ) => {
   const supabase = getSupabaseBrowserClient();
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
+  const db = supabase as any;
 
-  if (!accessToken) {
-    throw new Error("Pre odstránenie organizácie sa prihláste ako admin.");
-  }
-
-  const response = await fetch("/api/admin-delete-organization", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(input),
+  const { error } = await db.rpc("admin_delete_organization", {
+    p_organization_id: input.organizationId,
   });
 
-  if (!response.ok) {
-    throw new Error(
-      await readApiError(response, "Organizáciu sa nepodarilo odstrániť.")
+  if (error) {
+    const message = String(error.message || "");
+    if (message.includes("admin_access_denied")) {
+      throw new Error("Na odstránenie organizácie nemáte oprávnenie.");
+    }
+    if (message.includes("admin_organization_not_found")) {
+      throw new Error("Organizácia nebola nájdená.");
+    }
+    const dependencyMatch = message.match(
+      /admin_organization_has_dependencies:(\d+):(\d+):(\d+)/
     );
+    if (dependencyMatch) {
+      const [, profiles, projects, tests] = dependencyMatch;
+      throw new Error(
+        `Organizáciu nie je možné odstrániť. Najprv presuňte alebo vyčistite naviazané dáta (používatelia: ${profiles}, projekty: ${projects}, testy: ${tests}).`
+      );
+    }
+    throw new Error("Organizáciu sa nepodarilo odstrániť.");
   }
 };
 
