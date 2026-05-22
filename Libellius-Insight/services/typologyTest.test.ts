@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   canParticipantViewTypologyResult,
+  loadTypologyAdminResults,
   loadTypologyTest,
 } from "./typologyTest";
 
@@ -24,6 +25,7 @@ const createSelectBuilder = (
     return builder;
   });
   builder.eq = vi.fn(() => builder);
+  builder.in = vi.fn(() => builder);
   builder.order = vi.fn(() => builder);
   builder.limit = vi.fn().mockResolvedValue(result);
   builder.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -251,5 +253,122 @@ describe("loadTypologyTest", () => {
         dominantStyle: "b",
       },
     });
+  });
+});
+
+describe("loadTypologyAdminResults", () => {
+  it("adds project assignments to admin results", async () => {
+    supabaseMocks.from
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "session-1",
+              user_id: "user-1",
+              status: "completed",
+              started_at: "2026-05-06T09:00:00.000Z",
+              completed_at: "2026-05-06T10:00:00.000Z",
+              profiles: {
+                email: "participant@example.com",
+                full_name: "Participant User",
+                company_name: "PREFA",
+              },
+              typology_results: [
+                {
+                  scores: { a: 60, b: 65, c: 55, d: 52 },
+                  dominant_style: "b",
+                  calculated_at: "2026-05-06T10:00:01.000Z",
+                },
+              ],
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              user_id: "user-1",
+              company_projects: {
+                id: "project-1",
+                name: "Leadership 2026",
+                company_name: "PREFA",
+                status: "active",
+                result_access_date: "2026-05-20T10:00:00.000Z",
+              },
+            },
+          ],
+          error: null,
+        })
+      );
+
+    const results = await loadTypologyAdminResults();
+
+    expect(results).toMatchObject([
+      {
+        sessionId: "session-1",
+        userId: "user-1",
+        userEmail: "participant@example.com",
+        dominantStyle: "b",
+        projects: [
+          {
+            id: "project-1",
+            name: "Leadership 2026",
+            companyName: "PREFA",
+            status: "active",
+            resultAccessDate: "2026-05-20T10:00:00.000Z",
+          },
+        ],
+      },
+    ]);
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(1, "typology_sessions");
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(
+      2,
+      "company_project_participants"
+    );
+  });
+
+  it("keeps admin results visible when project tables are not migrated yet", async () => {
+    supabaseMocks.from
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "session-1",
+              user_id: "user-1",
+              status: "completed",
+              started_at: "2026-05-06T09:00:00.000Z",
+              completed_at: "2026-05-06T10:00:00.000Z",
+              profiles: {
+                email: "participant@example.com",
+                full_name: "Participant User",
+                company_name: "PREFA",
+              },
+              typology_results: null,
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: null,
+          error: {
+            code: "42P01",
+            message: 'relation "public.company_project_participants" does not exist',
+          },
+        })
+      );
+
+    const results = await loadTypologyAdminResults();
+
+    expect(results).toMatchObject([
+      {
+        sessionId: "session-1",
+        userId: "user-1",
+        projects: [],
+      },
+    ]);
   });
 });

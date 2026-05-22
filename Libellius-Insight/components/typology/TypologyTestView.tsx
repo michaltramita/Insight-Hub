@@ -23,6 +23,7 @@ import {
   loadCurrentUserProfile,
   updateCurrentUserProfileDetails,
 } from "../../services/accessControl";
+import TypologyReportInteractive from "./TypologyReportInteractive";
 import TypologyProfilePreview from "./TypologyProfilePreview";
 
 type TypologyTestViewProps = {
@@ -362,10 +363,12 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshingResult, setIsRefreshingResult] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isParticipantPrintOpen, setIsParticipantPrintOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const backLabel = canViewResults ? "Späť na výber" : "Späť na prehľad";
   const handleBackFromTest = () => {
+    setIsParticipantPrintOpen(false);
     if (canViewResults) {
       setHasEnteredTestFlow(false);
       return;
@@ -613,10 +616,19 @@ const TypologyTestView: React.FC<TypologyTestViewProps> = ({
       : null;
     if (participantProfileResult) {
       return (
-        <TypologyProfilePreview
-          result={participantProfileResult}
-          onClose={handleBackFromTest}
-        />
+        <>
+          <TypologyReportInteractive
+            result={participantProfileResult}
+            onClose={handleBackFromTest}
+            onOpenPrint={() => setIsParticipantPrintOpen(true)}
+          />
+          {isParticipantPrintOpen && (
+            <TypologyProfilePreview
+              result={participantProfileResult}
+              onClose={() => setIsParticipantPrintOpen(false)}
+            />
+          )}
+        </>
       );
     }
 

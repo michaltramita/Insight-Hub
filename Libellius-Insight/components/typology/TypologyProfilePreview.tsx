@@ -1,63 +1,32 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Download, CheckCircle, FileText, LoaderCircle, Target, X } from "lucide-react";
-import type {
-  TypologyAdminResult,
-  TypologyStyleCode,
-} from "../../services/typologyTest";
-import {
-  buildCombinationSummary,
-  getRankedTypologyStyles,
-  TYPOLOGY_MAX_SCORE,
-  TYPOLOGY_PROFILE_CONTENT,
-} from "../../services/typologyProfile";
+import { CheckCircle, Download, FileText, LoaderCircle, X } from "lucide-react";
+import type { TypologyAdminResult } from "../../services/typologyTest";
+import { buildTypologyReportModel } from "../../services/typologyReportModel";
 
 type TypologyProfilePreviewProps = {
   result: TypologyAdminResult;
   onClose: () => void;
 };
 
-const STYLE_ORDER: TypologyStyleCode[] = ["a", "b", "c", "d"];
+const PDF_EXPORT_BACKGROUND = "#f8f6f3";
+const PDF_PAGE_SELECTOR = "[data-pdf-page='true']";
 
-const formatDate = (value: string | null) => {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("sk-SK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
+const getSafeProfileFileBaseName = (personName: string) => {
+  const safeName = personName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `profil-stylu-vedenia-${safeName || "ucastnik"}`;
 };
 
-const SectionCard: React.FC<{
-  eyebrow?: string;
-  title: string;
-  variant?: "default" | "brand";
-  children: React.ReactNode;
-}> = ({ eyebrow, title, variant = "default", children }) => {
-  const isBrand = variant === "brand";
-
-  return (
-  <section
-    className={`rounded-[1.6rem] border p-5 md:p-7 print:break-inside-avoid ${
-      isBrand
-        ? "border-brand bg-brand text-white shadow-xl shadow-brand/10"
-        : "border-black/8 bg-white"
-    }`}
-  >
-    {eyebrow && (
-      <p
-        className={`text-[10px] uppercase tracking-widest font-black mb-2 ${
-          isBrand ? "text-white/60" : "text-brand"
-        }`}
-      >
-        {eyebrow}
-      </p>
-    )}
-    <h3 className="text-xl md:text-2xl font-black tracking-tight">{title}</h3>
-    <div className="mt-4">{children}</div>
-  </section>
-  );
-};
+const waitForNextFrame = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
 
 const BulletList: React.FC<{
   items: string[];
@@ -66,23 +35,90 @@ const BulletList: React.FC<{
   const isBrand = variant === "brand";
 
   return (
-  <ul className="space-y-2.5">
-    {items.map((item) => (
-      <li
-        key={item}
-        className={`flex gap-3 text-sm md:text-base font-semibold leading-relaxed ${
-          isBrand ? "text-white/90" : "text-black/65"
-        }`}
-      >
-        <CheckCircle2
-          className={`w-4 h-4 mt-1 shrink-0 ${
-            isBrand ? "text-white" : "text-brand"
+    <ul className="space-y-2.5">
+      {items.map((item) => (
+        <li
+          key={item}
+          className={`grid grid-cols-[14px_minmax(0,1fr)] gap-2.5 text-sm font-semibold leading-relaxed ${
+            isBrand ? "text-white/90" : "text-black/65"
           }`}
-        />
-        <span>{item}</span>
-      </li>
-    ))}
-  </ul>
+        >
+          <span className={isBrand ? "text-white" : "text-brand"}>•</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const ScoreSvgChart: React.FC<{
+  items: Array<{
+    code: string;
+    name: string;
+    score: number;
+    percentage: number;
+    isPrimary: boolean;
+  }>;
+}> = ({ items }) => {
+  const width = 640;
+  const rowHeight = 56;
+  const chartHeight = items.length * rowHeight + 28;
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${chartHeight}`}
+      className="w-full h-auto"
+      role="img"
+      aria-label="Skóre štýlov"
+    >
+      <rect x="0" y="0" width={width} height={chartHeight} rx="18" fill="#ffffff" />
+      {items.map((item, index) => {
+        const y = 18 + index * rowHeight;
+        const barWidth = 320;
+        const fillWidth = Math.round((item.percentage / 100) * barWidth);
+
+        return (
+          <g key={item.code}>
+            <text
+              x="18"
+              y={y + 14}
+              fill={item.isPrimary ? "#B81547" : "rgba(0,0,0,0.52)"}
+              fontSize="12"
+              fontWeight="800"
+              style={{ letterSpacing: "0.08em" }}
+            >
+              {item.name.toUpperCase()}
+            </text>
+            <rect
+              x="210"
+              y={y}
+              width={barWidth}
+              height="14"
+              rx="7"
+              fill="rgba(0,0,0,0.1)"
+            />
+            <rect
+              x="210"
+              y={y}
+              width={fillWidth}
+              height="14"
+              rx="7"
+              fill={item.isPrimary ? "#B81547" : "#111111"}
+            />
+            <text
+              x="560"
+              y={y + 13}
+              fill="#111111"
+              fontSize="26"
+              fontWeight="900"
+              textAnchor="end"
+            >
+              {item.score}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 };
 
@@ -93,15 +129,7 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
   const profileRef = useRef<HTMLElement | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
-  const rankedStyles = useMemo(() => {
-    if (!result.scores) return [];
-    return getRankedTypologyStyles(result.scores);
-  }, [result.scores]);
-
-  const primary = rankedStyles[0] || null;
-  const secondary = rankedStyles[1] || null;
-  const personName = result.fullName || result.userEmail;
-  const companyName = result.companyName || null;
+  const model = useMemo(() => buildTypologyReportModel(result), [result]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -121,7 +149,7 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
     };
   }, [onClose]);
 
-  if (!result.scores || !primary) {
+  if (!model) {
     return null;
   }
 
@@ -131,72 +159,47 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
     setIsExporting(true);
     setExportFeedback(null);
 
+    const pageElements = Array.from(
+      profileRef.current.querySelectorAll<HTMLElement>(PDF_PAGE_SELECTOR)
+    );
+
+    if (pageElements.length === 0) {
+      setExportFeedback("PDF sa nepodarilo vytvoriť.");
+      setIsExporting(false);
+      return;
+    }
+
     try {
+      await waitForNextFrame();
+
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
-      const profileElement = profileRef.current;
-      const canvas = await html2canvas(profileElement, {
-        backgroundColor: "#f8f6f3",
-        scale: 2,
-        useCORS: true,
-        windowWidth: profileElement.scrollWidth,
-        windowHeight: profileElement.scrollHeight,
-      });
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const pageCanvasHeight = Math.floor((canvasWidth * pageHeight) / pageWidth);
-      let renderedHeight = 0;
-      let pageIndex = 0;
 
-      while (renderedHeight < canvasHeight) {
-        const nextPageHeight = Math.min(pageCanvasHeight, canvasHeight - renderedHeight);
-        const pageCanvas = document.createElement("canvas");
-        pageCanvas.width = canvasWidth;
-        pageCanvas.height = nextPageHeight;
+      for (let index = 0; index < pageElements.length; index += 1) {
+        const pageElement = pageElements[index];
+        const canvas = await html2canvas(pageElement, {
+          backgroundColor: PDF_EXPORT_BACKGROUND,
+          scale: 2,
+          useCORS: true,
+          windowWidth: pageElement.scrollWidth,
+          windowHeight: pageElement.scrollHeight,
+        });
+        const pageImage = canvas.toDataURL("image/jpeg", 0.96);
 
-        const pageContext = pageCanvas.getContext("2d");
-        if (!pageContext) {
-          throw new Error("Export PDF sa nepodarilo pripraviť.");
-        }
-
-        pageContext.drawImage(
-          canvas,
-          0,
-          renderedHeight,
-          canvasWidth,
-          nextPageHeight,
-          0,
-          0,
-          canvasWidth,
-          nextPageHeight
-        );
-
-        const pageImage = pageCanvas.toDataURL("image/jpeg", 0.96);
-        const imageHeight = (nextPageHeight * pageWidth) / canvasWidth;
-
-        if (pageIndex > 0) {
+        if (index > 0) {
           pdf.addPage();
         }
 
-        pdf.addImage(pageImage, "JPEG", 0, 0, pageWidth, imageHeight);
-        renderedHeight += nextPageHeight;
-        pageIndex += 1;
+        pdf.addImage(pageImage, "JPEG", 0, 0, pageWidth, pageHeight);
       }
 
-      const safeName = personName
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-
-      pdf.save(`profil-stylu-vedenia-${safeName || "ucastnik"}.pdf`);
+      pdf.save(`${getSafeProfileFileBaseName(model.personName)}.pdf`);
       setExportFeedback("PDF bolo pripravené.");
     } catch (error) {
       setExportFeedback(
@@ -210,14 +213,14 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
   const preview = (
     <div className="fixed inset-0 z-[999] bg-black/45 backdrop-blur-sm print:static print:bg-white print:backdrop-blur-0">
       <div className="h-screen w-screen overflow-y-auto p-4 md:p-8 print:p-0 print:overflow-visible">
-        <div className="print-hidden w-full max-w-7xl mx-auto mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="print-hidden w-full max-w-[840px] mx-auto mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white text-black font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-all"
           >
             <X className="w-4 h-4" />
-            Zavrieť profil
+            Zavrieť tlačový report
           </button>
           <button
             type="button"
@@ -237,234 +240,172 @@ const TypologyProfilePreview: React.FC<TypologyProfilePreviewProps> = ({
         </div>
 
         {exportFeedback && (
-          <p className="print-hidden max-w-7xl mx-auto mb-4 text-center text-xs font-black uppercase tracking-widest text-white">
+          <p className="print-hidden max-w-[840px] mx-auto mb-4 text-center text-xs font-black uppercase tracking-widest text-white">
             {exportFeedback}
           </p>
         )}
 
         <article
           ref={profileRef}
-          className="print-profile w-full max-w-7xl min-h-[calc(100vh-6rem)] mx-auto bg-[#f8f6f3] text-black rounded-[2rem] overflow-hidden shadow-2xl shadow-black/20 print:shadow-none print:rounded-none print:bg-white"
+          className="print-profile w-full max-w-[794px] mx-auto bg-[#f8f6f3] text-black rounded-[2rem] overflow-hidden shadow-2xl shadow-black/20 print:shadow-none print:rounded-none print:bg-white"
         >
-          <header className="bg-black text-white p-7 md:p-10 print:p-8">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
-              <div className="min-w-0">
-                <div className="mb-8 inline-flex">
-                  <img
-                    src="/Libelius_logo_white_HQ-01.png"
-                    alt="Libellius"
-                    className="h-9 md:h-11 w-auto object-contain"
-                  />
-                </div>
-                <p className="text-[10px] uppercase tracking-[0.28em] font-black text-white/55">
-                  Individuálna správa
-                </p>
-                <h1 className="mt-4 text-[clamp(2.2rem,6vw,5rem)] font-black leading-[0.95] tracking-tight">
-                  Profil osobnostnej typológie
-                </h1>
-                <p className="mt-6 max-w-2xl text-base md:text-xl font-semibold text-white/70 leading-relaxed">
-                  Správa sumarizuje preferovaný spôsob správania v pracovnom a líderskom kontexte. Slúži ako podklad pre sebareflexiu a ďalší rozvoj.
-                </p>
-              </div>
-              <div className="w-full md:w-[320px] shrink-0 space-y-4">
-                <div className="rounded-3xl bg-white text-black p-5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                    Účastník
-                  </p>
-                  <p className="mt-2 text-base md:text-lg font-black leading-tight break-words">
-                    {personName}
-                  </p>
-                  {companyName && (
-                    <p className="mt-2 text-sm font-black text-brand break-words">
-                      {companyName}
-                    </p>
-                  )}
-                  {result.fullName && (
-                    <p className="mt-2 text-sm font-bold text-black/45 break-words">
-                      {result.userEmail}
-                    </p>
-                  )}
-                  <div className="mt-6 pt-5 border-t border-black/10">
-                    <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                      Dátum vyplnenia
-                    </p>
-                    <p className="mt-1 font-black">{formatDate(result.completedAt)}</p>
+          <section data-pdf-page="true" className="typology-pdf-page p-5 md:p-8">
+            <header className="bg-black text-white p-7 md:p-8 rounded-[1.6rem]">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+                <div className="min-w-0">
+                  <div className="mb-7 inline-flex">
+                    <img
+                      src="/Libelius_logo_white_HQ-01.png"
+                      alt="Libellius"
+                      className="h-9 md:h-11 w-auto object-contain"
+                    />
                   </div>
-                </div>
-                <div className="rounded-3xl bg-brand text-white px-6 py-5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-white/65">
-                    Dominantný štýl
+                  <p className="text-[10px] uppercase tracking-[0.28em] font-black text-white/55">
+                    {model.reportTypeLabel}
                   </p>
-                  <p className="mt-2 text-2xl md:text-3xl font-black leading-tight">
-                    {primary.content.name}
+                  <h1 className="mt-3 text-[2.35rem] md:text-[3.3rem] font-black leading-[0.95] tracking-tight">
+                    {model.reportTitle}
+                  </h1>
+                  <p className="mt-5 max-w-xl text-sm md:text-base font-semibold text-white/70 leading-relaxed">
+                    {model.reportSubtitle}
                   </p>
                 </div>
-              </div>
-            </div>
-          </header>
-
-          <main className="p-5 md:p-8 print:p-6 space-y-5 md:space-y-7">
-            <section className="rounded-[1.8rem] bg-white border border-black/8 p-5 md:p-7 print:break-inside-avoid">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-widest font-black text-brand">
-                  Rýchly prehľad
-                </p>
-                <h2 className="mt-2 text-3xl md:text-4xl font-black tracking-tight">
-                  {primary.content.name}
-                </h2>
-                <p className="mt-3 w-full text-base md:text-lg font-semibold text-black/60 leading-relaxed">
-                  {buildCombinationSummary(primary, secondary)}
-                </p>
-              </div>
-
-              <div className="mt-8 grid gap-4 w-full md:max-w-[880px]">
-                {STYLE_ORDER.map((code) => {
-                  const content = TYPOLOGY_PROFILE_CONTENT[code];
-                  const score = result.scores?.[code] || 0;
-                  const percentage = Math.min(
-                    100,
-                    Math.round((score / TYPOLOGY_MAX_SCORE) * 100)
-                  );
-                  const isPrimary = primary.code === code;
-
-                  return (
-                    <div
-                      key={code}
-                      className="grid grid-cols-1 sm:grid-cols-[190px_minmax(0,1fr)_64px] md:grid-cols-[200px_minmax(0,1fr)_72px] items-center gap-2 sm:gap-4"
-                    >
-                      <p className="text-xs md:text-sm uppercase tracking-widest font-black text-black/45">
-                        {content.name}
+                <div className="w-full md:w-[290px] shrink-0 space-y-4">
+                  <div className="rounded-3xl bg-white text-black p-5">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
+                      Účastník
+                    </p>
+                    <p className="mt-2 text-base font-black leading-tight break-words">
+                      {model.personName}
+                    </p>
+                    {model.companyName && (
+                      <p className="mt-2 text-sm font-black text-brand break-words">
+                        {model.companyName}
                       </p>
-                      <div className="h-4 md:h-5 rounded-full bg-black/8 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${isPrimary ? "bg-brand" : "bg-black"}`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                      <p className="text-left text-2xl md:text-[1.7rem] font-black tabular-nums">{score}</p>
+                    )}
+                    <p className="mt-2 text-sm font-bold text-black/45 break-words">{model.email}</p>
+                    <div className="mt-4 pt-4 border-t border-black/10">
+                      <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
+                        Dátum vyplnenia
+                      </p>
+                      <p className="mt-1 font-black">{model.completedAtLabel}</p>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <div className="grid md:grid-cols-2 gap-5 md:gap-7">
-              <SectionCard
-                eyebrow="Dominantný profil"
-                title={primary.content.title}
-              >
-                <p className="text-sm md:text-base font-semibold text-black/65 leading-relaxed">
-                  {primary.content.summary}
-                </p>
-                <div className="mt-5">
-                  <BulletList items={primary.content.manifests} />
-                </div>
-              </SectionCard>
-
-              {secondary && (
-                <SectionCard
-                  eyebrow="Druhý najsilnejší profil"
-                  title={secondary.content.name}
-                >
-                  <p className="text-sm md:text-base font-semibold text-black/65 leading-relaxed">
-                    {secondary.content.summary}
-                  </p>
-                  <div className="mt-5 rounded-2xl bg-[#f8f6f3] border border-black/5 p-4">
-                    <p className="text-[10px] uppercase tracking-widest font-black text-black/35">
-                      Ako dopĺňa dominantný štýl
+                  </div>
+                  <div className="rounded-3xl bg-brand text-white px-6 py-5">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-white/65">
+                      Dominantný štýl
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-black/65 leading-relaxed">
-                      Tento štýl môže ovplyvňovať spôsob, akým komunikujete,
-                      pracujete s tempom, rozhodujete sa a reagujete na tlak.
+                    <p className="mt-2 text-xl md:text-2xl font-black leading-tight">
+                      {model.dominantStyleName}
                     </p>
                   </div>
-                </SectionCard>
-              )}
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5 md:gap-7">
-              <SectionCard title="Čo ma poháňa" variant="brand">
-                <BulletList items={primary.content.drivers} variant="brand" />
-              </SectionCard>
-              <SectionCard title="Čo ma môže brzdiť" variant="brand">
-                <BulletList items={primary.content.blockers} variant="brand" />
-              </SectionCard>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5 md:gap-7">
-              <SectionCard
-                eyebrow="Spolupráca"
-                title="Ako so mnou efektívne komunikovať"
-              >
-                <BulletList items={primary.content.communication} />
-              </SectionCard>
-
-              <SectionCard
-                eyebrow="Líderská prax"
-                title="Na čo si potrebujem dať pozor"
-              >
-                <BulletList items={primary.content.leadershipFocus} />
-              </SectionCard>
-            </div>
-
-            <div className="grid gap-5 md:gap-7">
-              <SectionCard
-                eyebrow="Rozvoj"
-                title="Odporúčané kroky do praxe"
-              >
-                <BulletList items={primary.content.developmentActions} />
-              </SectionCard>
-            </div>
-
-            <section className="rounded-[1.8rem] border border-brand/20 bg-white p-5 md:p-7 print:break-inside-avoid">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-brand text-white flex items-center justify-center shrink-0">
-                  <Target className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">
-                    Sebareflexia
-                  </p>
-                  <h3 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">
-                    Otázky na sebareflexiu
-                  </h3>
                 </div>
               </div>
-              <div className="mt-6 grid md:grid-cols-2 gap-4">
-                {[
-                  "V čom sa v tomto profile najviac spoznávam?",
-                  "Kedy mi môj prirodzený štýl pomáha vo vedení ľudí?",
-                  "V akej situácii ma môže tento štýl brzdiť?",
-                  "Čo chcem vedome robiť inak ako líder?",
-                ].map((question) => (
-                  <div
-                    key={question}
-                    className="rounded-2xl bg-[#f8f6f3] border border-black/5 p-4 min-h-[118px]"
-                  >
-                    <p className="text-sm font-black leading-snug">{question}</p>
-                    <div className="mt-5 border-t border-black/10" />
-                    <div className="mt-5 border-t border-black/10" />
+            </header>
+
+            <main className="mt-5 space-y-5">
+              <section className="rounded-[1.8rem] bg-white border border-black/8 p-5 md:p-6">
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">Rýchly prehľad</p>
+                <h2 className="mt-2 text-3xl md:text-4xl font-black tracking-tight">{model.primary.name}</h2>
+                <p className="mt-3 text-sm md:text-base font-semibold text-black/60 leading-relaxed">{model.summary}</p>
+                <div className="mt-5 rounded-2xl border border-black/8 bg-[#f8f6f3] p-4">
+                  <ScoreSvgChart items={model.scores} />
+                </div>
+              </section>
+
+              <section className="grid md:grid-cols-2 gap-4">
+                <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">Dominantný profil</p>
+                  <h3 className="mt-2 text-xl md:text-2xl font-black tracking-tight">{model.primary.title}</h3>
+                  <p className="mt-3 text-sm font-semibold text-black/65 leading-relaxed">{model.primary.summary}</p>
+                </section>
+
+                {model.secondary ? (
+                  <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-brand">Druhý najsilnejší profil</p>
+                    <h3 className="mt-2 text-xl md:text-2xl font-black tracking-tight">{model.secondary.name}</h3>
+                    <p className="mt-3 text-sm font-semibold text-black/65 leading-relaxed">{model.secondary.summary}</p>
+                  </section>
+                ) : (
+                  <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6" />
+                )}
+              </section>
+
+              <section className="grid md:grid-cols-2 gap-4">
+                <section className="rounded-[1.6rem] border border-brand bg-brand text-white p-5 md:p-6">
+                  <h3 className="text-xl md:text-2xl font-black tracking-tight">Čo ma poháňa</h3>
+                  <div className="mt-4">
+                    <BulletList items={model.drivers} variant="brand" />
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
+                <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6">
+                  <h3 className="text-xl md:text-2xl font-black tracking-tight">Čo ma môže brzdiť</h3>
+                  <div className="mt-4">
+                    <BulletList items={model.blockers} />
+                  </div>
+                </section>
+              </section>
+            </main>
+          </section>
 
-            <footer className="rounded-[1.6rem] bg-black text-white p-5 md:p-7 print:break-inside-avoid">
-              <div className="flex items-start gap-4">
-                <FileText className="w-6 h-6 shrink-0 text-brand" />
-                <div>
-                  <p className="text-sm md:text-base font-black">
-                    Ako čítať tento profil
-                  </p>
-                  <p className="mt-2 text-sm md:text-base font-semibold text-white/65 leading-relaxed">
-                    Profil nie je nálepka ani hodnotenie osobnosti. Popisuje
-                    preferovaný štýl správania, ktorý sa môže meniť podľa
-                    situácie, roly, skúseností a aktuálneho tlaku.
-                  </p>
+          <section data-pdf-page="true" className="typology-pdf-page p-5 md:p-8">
+            <main className="space-y-5">
+              <section className="grid md:grid-cols-2 gap-4">
+                <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">Spolupráca</p>
+                  <h3 className="mt-2 text-xl md:text-2xl font-black tracking-tight">Ako so mnou efektívne komunikovať</h3>
+                  <div className="mt-4">
+                    <BulletList items={model.communication} />
+                  </div>
+                </section>
+
+                <section className="rounded-[1.6rem] border border-black/8 bg-white p-5 md:p-6">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-brand">Líderská prax</p>
+                  <h3 className="mt-2 text-xl md:text-2xl font-black tracking-tight">Na čo si potrebujem dať pozor</h3>
+                  <div className="mt-4">
+                    <BulletList items={model.leadershipFocus} />
+                  </div>
+                </section>
+              </section>
+
+              <section className="rounded-[1.8rem] border border-black/8 bg-white p-5 md:p-6">
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">Rozvoj</p>
+                <h3 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">Odporúčané kroky do praxe</h3>
+                <div className="mt-4 rounded-2xl bg-[#f8f6f3] border border-black/5 p-4 md:p-5">
+                  <BulletList items={model.developmentActions} />
                 </div>
-              </div>
-            </footer>
-          </main>
+              </section>
+
+              <section className="rounded-[1.8rem] border border-brand/20 bg-white p-5 md:p-6">
+                <p className="text-[10px] uppercase tracking-widest font-black text-brand">Sebareflexia</p>
+                <h3 className="mt-2 text-2xl md:text-3xl font-black tracking-tight">Otázky na sebareflexiu</h3>
+                <div className="mt-5 grid md:grid-cols-2 gap-4">
+                  {model.reflectionQuestions.map((question) => (
+                    <div
+                      key={question}
+                      className="rounded-2xl bg-[#f8f6f3] border border-black/5 p-4 min-h-[118px]"
+                    >
+                      <p className="text-sm font-black leading-snug">{question}</p>
+                      <div className="mt-5 border-t border-black/10" />
+                      <div className="mt-5 border-t border-black/10" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <footer className="rounded-[1.6rem] bg-black text-white p-5 md:p-6">
+                <div className="flex items-start gap-4">
+                  <FileText className="w-6 h-6 shrink-0 text-brand" />
+                  <div>
+                    <p className="text-sm md:text-base font-black">Ako čítať tento profil</p>
+                    <p className="mt-2 text-sm md:text-base font-semibold text-white/65 leading-relaxed">
+                      {model.profileReadingNote}
+                    </p>
+                  </div>
+                </div>
+              </footer>
+            </main>
+          </section>
         </article>
       </div>
     </div>

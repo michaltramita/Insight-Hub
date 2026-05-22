@@ -1,5 +1,5 @@
--- Admin RPCs for organization create/delete.
--- Run after admin_access_management.sql.
+-- Auto-provision a typology test for every newly created organization.
+-- Run in Supabase SQL Editor after admin_organizations_rpcs.sql dependencies exist.
 
 create or replace function public.admin_create_organization(p_name text)
 returns table (
@@ -133,6 +133,10 @@ begin
 end;
 $$;
 
+revoke all on function public.admin_create_organization(text) from public;
+revoke all on function public.admin_create_organization(text) from anon;
+grant execute on function public.admin_create_organization(text) to authenticated;
+
 create or replace function public.admin_delete_organization(p_organization_id uuid)
 returns void
 language plpgsql
@@ -199,10 +203,6 @@ begin
   );
 end;
 $$;
-
-revoke all on function public.admin_create_organization(text) from public;
-revoke all on function public.admin_create_organization(text) from anon;
-grant execute on function public.admin_create_organization(text) to authenticated;
 
 revoke all on function public.admin_delete_organization(uuid) from public;
 revoke all on function public.admin_delete_organization(uuid) from anon;

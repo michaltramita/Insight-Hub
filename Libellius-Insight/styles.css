@@ -49,6 +49,10 @@ body {
   color: white;
 }
 
+.typology-pdf-page {
+  min-height: 1122px;
+}
+
 @media print {
   @page {
     size: A4;
@@ -118,5 +122,16 @@ body {
   .print\:break-inside-avoid {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .typology-pdf-page {
+    min-height: auto !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .typology-pdf-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }

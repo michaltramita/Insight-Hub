@@ -95,8 +95,19 @@ type ProjectReleaseRow = {
     | null;
 };
 
+export type TypologyAdminProjectStatus = "active" | "completed" | "archived";
+
+export type TypologyAdminProject = {
+  id: string;
+  name: string;
+  companyName: string;
+  status: TypologyAdminProjectStatus;
+  resultAccessDate: string | null;
+};
+
 export type TypologyAdminResult = {
   sessionId: string;
+  userId: string;
   userEmail: string;
   fullName: string | null;
   companyName: string | null;
@@ -106,10 +117,12 @@ export type TypologyAdminResult = {
   scores: Record<TypologyStyleCode, number> | null;
   dominantStyle: TypologyStyleCode | null;
   calculatedAt: string | null;
+  projects: TypologyAdminProject[];
 };
 
 type TypologyAdminSessionRow = {
   id: string;
+  user_id: string;
   status: "in_progress" | "completed";
   started_at: string;
   completed_at: string | null;
@@ -131,6 +144,26 @@ type TypologyAdminSessionRow = {
         dominant_style: TypologyStyleCode | null;
         calculated_at: string | null;
       }
+    | null;
+};
+
+type TypologyAdminProjectParticipantRow = {
+  user_id: string;
+  company_projects:
+    | {
+        id: string;
+        name: string;
+        company_name: string;
+        status: TypologyAdminProjectStatus;
+        result_access_date: string | null;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        company_name: string;
+        status: TypologyAdminProjectStatus;
+        result_access_date: string | null;
+      }>
     | null;
 };
 
@@ -178,6 +211,67 @@ const isMissingProjectReleaseSourceError = (error: SupabaseSelectError) => {
     combined.includes("does not exist") ||
     combined.includes("schema cache")
   );
+};
+
+const sortAdminProjects = (projects: TypologyAdminProject[]) =>
+  [...projects].sort((left, right) => {
+    const companyCompare = left.companyName.localeCompare(right.companyName, "sk");
+    if (companyCompare !== 0) return companyCompare;
+    return left.name.localeCompare(right.name, "sk");
+  });
+
+const loadTypologyAdminProjectAssignments = async (
+  userIds: string[]
+): Promise<Map<string, TypologyAdminProject[]>> => {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+  const { data, error } = await db
+    .from("company_project_participants")
+    .select(
+      "user_id, company_projects(id, name, company_name, status, result_access_date)"
+    )
+    .in("user_id", userIds);
+
+  if (error) {
+    if (isMissingProjectReleaseSourceError(error)) {
+      return new Map();
+    }
+    throw new Error(error.message);
+  }
+
+  const projectsByUserId = new Map<string, TypologyAdminProject[]>();
+  const seenByUserId = new Map<string, Set<string>>();
+
+  for (const row of (data || []) as TypologyAdminProjectParticipantRow[]) {
+    const relation = row.company_projects;
+    const project = Array.isArray(relation) ? relation[0] : relation;
+    if (!project) continue;
+
+    const seen = seenByUserId.get(row.user_id) || new Set<string>();
+    if (seen.has(project.id)) continue;
+    seen.add(project.id);
+    seenByUserId.set(row.user_id, seen);
+
+    const current = projectsByUserId.get(row.user_id) || [];
+    current.push({
+      id: project.id,
+      name: project.name,
+      companyName: project.company_name,
+      status: project.status,
+      resultAccessDate: project.result_access_date,
+    });
+    projectsByUserId.set(row.user_id, current);
+  }
+
+  for (const [userId, projects] of projectsByUserId.entries()) {
+    projectsByUserId.set(userId, sortAdminProjects(projects));
+  }
+
+  return projectsByUserId;
 };
 
 const pickProjectReleaseDate = (
@@ -495,7 +589,7 @@ export const loadTypologyAdminResults = async (): Promise<TypologyAdminResult[]>
   const { data, error } = await supabase
     .from("typology_sessions")
     .select(
-      "id, status, started_at, completed_at, profiles(email, full_name, company_name), typology_results(scores, dominant_style, calculated_at)"
+      "id, user_id, status, started_at, completed_at, profiles(email, full_name, company_name), typology_results(scores, dominant_style, calculated_at)"
     )
     .order("completed_at", { ascending: false, nullsFirst: false });
 
@@ -503,13 +597,18 @@ export const loadTypologyAdminResults = async (): Promise<TypologyAdminResult[]>
     throw new Error(error.message);
   }
 
-  return ((data || []) as TypologyAdminSessionRow[]).map((row) => {
+  const rows = (data || []) as TypologyAdminSessionRow[];
+  const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean)));
+  const projectsByUserId = await loadTypologyAdminProjectAssignments(userIds);
+
+  return rows.map((row) => {
     const result = Array.isArray(row.typology_results)
       ? row.typology_results[0] || null
       : row.typology_results;
 
     return {
       sessionId: row.id,
+      userId: row.user_id,
       userEmail: row.profiles?.email || "Neznámy používateľ",
       fullName: row.profiles?.full_name || null,
       companyName: row.profiles?.company_name || null,
@@ -519,6 +618,7 @@ export const loadTypologyAdminResults = async (): Promise<TypologyAdminResult[]>
       scores: result?.scores || null,
       dominantStyle: result?.dominant_style || null,
       calculatedAt: result?.calculated_at || null,
+      projects: projectsByUserId.get(row.user_id) || [],
     };
   });
 };
