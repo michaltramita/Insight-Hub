@@ -17,7 +17,6 @@ import {
 } from "../../services/typologyTest";
 import { TYPOLOGY_PROFILE_CONTENT } from "../../services/typologyProfile";
 import StyledSelect from "../ui/StyledSelect";
-import TypologyReportInteractive from "./TypologyReportInteractive";
 import TypologyProfilePreview from "./TypologyProfilePreview";
 
 type TypologyAdminResultsViewProps = {
@@ -46,7 +45,6 @@ type TypologyResultsTableProps = {
   results: TypologyAdminResult[];
   onOpenGraph: (result: TypologyAdminResult) => void;
   onOpenReport: (result: TypologyAdminResult) => void;
-  onOpenPrint: (result: TypologyAdminResult) => void;
 };
 
 const ALL_PROJECTS_FILTER = "all";
@@ -310,7 +308,6 @@ const TypologyResultsTable: React.FC<TypologyResultsTableProps> = ({
   results,
   onOpenGraph,
   onOpenReport,
-  onOpenPrint,
 }) => (
   <div className="overflow-x-auto">
     <table className="w-full min-w-[780px] text-left">
@@ -374,16 +371,7 @@ const TypologyResultsTable: React.FC<TypologyResultsTableProps> = ({
                   className="inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-full bg-brand text-white font-black text-[8px] uppercase tracking-[0.14em] leading-none hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <FileText className="w-3 h-3" />
-                  Otvoriť report
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenPrint(result)}
-                  disabled={!result.scores}
-                  className="inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-full border border-black/10 bg-white text-black font-black text-[8px] uppercase tracking-[0.14em] leading-none hover:bg-black hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <FileText className="w-3 h-3" />
-                  Stiahnuť PDF
+                  Vytvoriť profil
                 </button>
               </div>
             </td>
@@ -403,8 +391,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
     () => new Set()
   );
   const [selectedResult, setSelectedResult] = useState<TypologyAdminResult | null>(null);
-  const [interactiveReportResult, setInteractiveReportResult] = useState<TypologyAdminResult | null>(null);
-  const [printProfileResult, setPrintProfileResult] = useState<TypologyAdminResult | null>(null);
+  const [profileResult, setProfileResult] = useState<TypologyAdminResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -685,8 +672,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                       <TypologyResultsTable
                         results={group.results}
                         onOpenGraph={setSelectedResult}
-                        onOpenReport={setInteractiveReportResult}
-                        onOpenPrint={setPrintProfileResult}
+                        onOpenReport={setProfileResult}
                       />
                     </div>
                   )}
@@ -703,24 +689,16 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
           chartData={chartData}
           onClose={() => setSelectedResult(null)}
           onOpenReport={() => {
-            setInteractiveReportResult(selectedResult);
+            setProfileResult(selectedResult);
             setSelectedResult(null);
           }}
         />
       )}
 
-      {interactiveReportResult && (
-        <TypologyReportInteractive
-          result={interactiveReportResult}
-          onClose={() => setInteractiveReportResult(null)}
-          onOpenPrint={() => setPrintProfileResult(interactiveReportResult)}
-        />
-      )}
-
-      {printProfileResult && (
+      {profileResult && (
         <TypologyProfilePreview
-          result={printProfileResult}
-          onClose={() => setPrintProfileResult(null)}
+          result={profileResult}
+          onClose={() => setProfileResult(null)}
         />
       )}
     </div>
