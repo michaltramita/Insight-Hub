@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   canParticipantViewTypologyResult,
   loadTypologyAdminResults,
+  loadTypologyAdminResultsOverview,
   loadTypologyTest,
 } from "./typologyTest";
 
@@ -370,5 +371,60 @@ describe("loadTypologyAdminResults", () => {
         projects: [],
       },
     ]);
+  });
+});
+
+describe("loadTypologyAdminResultsOverview", () => {
+  it("loads projects even when nobody has started a typology session", async () => {
+    supabaseMocks.from
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "project-1",
+              name: "Leadership 2026",
+              company_name: "PREFA",
+              status: "active",
+              result_access_date: "2026-05-20T10:00:00.000Z",
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            { project_id: "project-1", user_id: "user-1" },
+            { project_id: "project-1", user_id: "user-2" },
+          ],
+          error: null,
+        })
+      );
+
+    const overview = await loadTypologyAdminResultsOverview();
+
+    expect(overview.results).toEqual([]);
+    expect(overview.projects).toMatchObject([
+      {
+        id: "project-1",
+        name: "Leadership 2026",
+        companyName: "PREFA",
+        status: "active",
+        resultAccessDate: "2026-05-20T10:00:00.000Z",
+        participantIds: ["user-1", "user-2"],
+      },
+    ]);
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(1, "typology_sessions");
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(2, "company_projects");
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(
+      3,
+      "company_project_participants"
+    );
   });
 });

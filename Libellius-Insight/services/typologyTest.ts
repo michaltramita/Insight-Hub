@@ -105,6 +105,10 @@ export type TypologyAdminProject = {
   resultAccessDate: string | null;
 };
 
+export type TypologyAdminProjectOverview = TypologyAdminProject & {
+  participantIds: string[];
+};
+
 export type TypologyAdminResult = {
   sessionId: string;
   userId: string;
@@ -118,6 +122,11 @@ export type TypologyAdminResult = {
   dominantStyle: TypologyStyleCode | null;
   calculatedAt: string | null;
   projects: TypologyAdminProject[];
+};
+
+export type TypologyAdminResultsOverview = {
+  results: TypologyAdminResult[];
+  projects: TypologyAdminProjectOverview[];
 };
 
 type TypologyAdminSessionRow = {
@@ -147,7 +156,16 @@ type TypologyAdminSessionRow = {
     | null;
 };
 
+type TypologyAdminProjectRow = {
+  id: string;
+  name: string;
+  company_name: string;
+  status: TypologyAdminProjectStatus;
+  result_access_date: string | null;
+};
+
 type TypologyAdminProjectParticipantRow = {
+  project_id?: string;
   user_id: string;
   company_projects:
     | {
@@ -165,6 +183,11 @@ type TypologyAdminProjectParticipantRow = {
         result_access_date: string | null;
       }>
     | null;
+};
+
+type TypologyAdminProjectParticipantIdRow = {
+  project_id: string;
+  user_id: string;
 };
 
 type SupabaseSelectError = {
@@ -214,6 +237,13 @@ const isMissingProjectReleaseSourceError = (error: SupabaseSelectError) => {
 };
 
 const sortAdminProjects = (projects: TypologyAdminProject[]) =>
+  [...projects].sort((left, right) => {
+    const companyCompare = left.companyName.localeCompare(right.companyName, "sk");
+    if (companyCompare !== 0) return companyCompare;
+    return left.name.localeCompare(right.name, "sk");
+  });
+
+const sortAdminProjectOverviews = (projects: TypologyAdminProjectOverview[]) =>
   [...projects].sort((left, right) => {
     const companyCompare = left.companyName.localeCompare(right.companyName, "sk");
     if (companyCompare !== 0) return companyCompare;
@@ -272,6 +302,47 @@ const loadTypologyAdminProjectAssignments = async (
   }
 
   return projectsByUserId;
+};
+
+const loadTypologyAdminProjects = async (): Promise<TypologyAdminProjectOverview[]> => {
+  const supabase = getSupabaseBrowserClient();
+  const db = supabase as any;
+
+  const [projectsResult, participantsResult] = await Promise.all([
+    db
+      .from("company_projects")
+      .select("id, name, company_name, status, result_access_date")
+      .order("created_at", { ascending: false }),
+    db
+      .from("company_project_participants")
+      .select("project_id, user_id"),
+  ]);
+
+  if (projectsResult.error || participantsResult.error) {
+    const error = projectsResult.error || participantsResult.error;
+    if (isMissingProjectReleaseSourceError(error)) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+
+  const participantIdsByProjectId = new Map<string, string[]>();
+  for (const row of (participantsResult.data || []) as TypologyAdminProjectParticipantIdRow[]) {
+    const current = participantIdsByProjectId.get(row.project_id) || [];
+    current.push(row.user_id);
+    participantIdsByProjectId.set(row.project_id, current);
+  }
+
+  return sortAdminProjectOverviews(
+    ((projectsResult.data || []) as TypologyAdminProjectRow[]).map((row) => ({
+      id: row.id,
+      name: row.name,
+      companyName: row.company_name,
+      status: row.status,
+      resultAccessDate: row.result_access_date,
+      participantIds: participantIdsByProjectId.get(row.id) || [],
+    }))
+  );
 };
 
 const pickProjectReleaseDate = (
@@ -622,3 +693,13 @@ export const loadTypologyAdminResults = async (): Promise<TypologyAdminResult[]>
     };
   });
 };
+
+export const loadTypologyAdminResultsOverview =
+  async (): Promise<TypologyAdminResultsOverview> => {
+    const [results, projects] = await Promise.all([
+      loadTypologyAdminResults(),
+      loadTypologyAdminProjects(),
+    ]);
+
+    return { results, projects };
+  };

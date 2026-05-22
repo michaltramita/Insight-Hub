@@ -10,10 +10,11 @@ import {
   X,
 } from "lucide-react";
 import {
-  loadTypologyAdminResults,
   TypologyAdminProject,
+  TypologyAdminProjectOverview,
   TypologyAdminResult,
   TypologyStyleCode,
+  loadTypologyAdminResultsOverview,
 } from "../../services/typologyTest";
 import { TYPOLOGY_PROFILE_CONTENT } from "../../services/typologyProfile";
 import StyledSelect from "../ui/StyledSelect";
@@ -38,6 +39,7 @@ type ProjectResultGroup = {
   status: TypologyAdminProject["status"] | "unassigned";
   resultAccessDate: string | null;
   results: TypologyAdminResult[];
+  participantIds: string[];
   isUnassigned: boolean;
 };
 
@@ -77,6 +79,12 @@ const formatDate = (value: string | null) => {
 const getGroupCompletedCount = (group: ProjectResultGroup) =>
   group.results.filter((result) => result.status === "completed").length;
 
+const getGroupParticipantCount = (group: ProjectResultGroup) =>
+  Math.max(
+    group.participantIds.length,
+    new Set(group.results.map((result) => result.userId)).size
+  );
+
 const sortProjectGroups = (groups: ProjectResultGroup[]) =>
   [...groups].sort((left, right) => {
     if (left.isUnassigned) return 1;
@@ -91,10 +99,25 @@ const sortProjectGroups = (groups: ProjectResultGroup[]) =>
   });
 
 const buildProjectResultGroups = (
-  results: TypologyAdminResult[]
+  results: TypologyAdminResult[],
+  projects: TypologyAdminProjectOverview[]
 ): ProjectResultGroup[] => {
   const groupsByProjectId = new Map<string, ProjectResultGroup>();
   const unassignedResults: TypologyAdminResult[] = [];
+
+  for (const project of projects) {
+    groupsByProjectId.set(project.id, {
+      id: project.id,
+      filterValue: project.id,
+      name: project.name,
+      companyName: project.companyName,
+      status: project.status,
+      resultAccessDate: project.resultAccessDate,
+      results: [],
+      participantIds: project.participantIds,
+      isUnassigned: false,
+    });
+  }
 
   for (const result of results) {
     if (result.projects.length === 0) {
@@ -117,6 +140,7 @@ const buildProjectResultGroups = (
         status: project.status,
         resultAccessDate: project.resultAccessDate,
         results: [result],
+        participantIds: [result.userId],
         isUnassigned: false,
       });
     }
@@ -133,6 +157,9 @@ const buildProjectResultGroups = (
       status: "unassigned",
       resultAccessDate: null,
       results: unassignedResults,
+      participantIds: Array.from(
+        new Set(unassignedResults.map((result) => result.userId))
+      ),
       isUnassigned: true,
     });
   }
@@ -386,6 +413,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
   onBack,
 }) => {
   const [results, setResults] = useState<TypologyAdminResult[]>([]);
+  const [projects, setProjects] = useState<TypologyAdminProjectOverview[]>([]);
   const [projectFilter, setProjectFilter] = useState(ALL_PROJECTS_FILTER);
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(
     () => new Set()
@@ -400,11 +428,27 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
     [results]
   );
 
-  const projectGroups = useMemo(() => buildProjectResultGroups(results), [results]);
+  const projectGroups = useMemo(
+    () => buildProjectResultGroups(results, projects),
+    [results, projects]
+  );
   const projectCount = useMemo(
     () => projectGroups.filter((group) => !group.isUnassigned).length,
     [projectGroups]
   );
+  const trackedParticipantCount = useMemo(() => {
+    const participantIds = new Set<string>();
+    for (const project of projects) {
+      project.participantIds.forEach((userId) => participantIds.add(userId));
+    }
+    for (const result of results) {
+      if (result.projects.length === 0) {
+        participantIds.add(result.userId);
+      }
+    }
+
+    return Math.max(participantIds.size, results.length);
+  }, [projects, results]);
   const projectFilterOptions = useMemo(
     () => [
       { value: ALL_PROJECTS_FILTER, label: "Všetky projekty" },
@@ -444,9 +488,10 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
     setIsLoading(true);
     setError(null);
 
-    void loadTypologyAdminResults()
-      .then((nextResults) => {
+    void loadTypologyAdminResultsOverview()
+      .then(({ results: nextResults, projects: nextProjects }) => {
         setResults(nextResults);
+        setProjects(nextProjects);
         setSelectedResult((current) => {
           if (!current) return null;
           return (
@@ -462,6 +507,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
             : "Výsledky sa nepodarilo načítať."
         );
         setResults([]);
+        setProjects([]);
       })
       .finally(() => setIsLoading(false));
   };
@@ -527,7 +573,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
             Dokončené
           </p>
           <p className="text-2xl font-black mt-1">
-            {completedCount}/{results.length}
+            {completedCount}/{trackedParticipantCount}
           </p>
           <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-black/35">
             Projekty: {projectCount}
@@ -576,11 +622,11 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
           <div className="rounded-[2rem] border border-black/5 bg-[#f9f9f9] px-6 py-12 text-center shadow-xl shadow-black/5">
             <p className="text-brand font-black">{error}</p>
           </div>
-        ) : results.length === 0 ? (
+        ) : projectGroups.length === 0 ? (
           <div className="rounded-[2rem] border border-black/5 bg-[#f9f9f9] px-6 py-14 text-center shadow-xl shadow-black/5">
-            <p className="text-xl font-black">Zatiaľ nie sú odoslané žiadne analýzy.</p>
+            <p className="text-xl font-black">Zatiaľ nie sú vytvorené žiadne projekty ani výsledky.</p>
             <p className="mt-3 text-black/50 font-semibold">
-              Výsledky sa tu zobrazia po odoslaní prvej účastníckej analýzy.
+              Po vytvorení projektu sa tu zobrazí aj vtedy, keď ešte nikto nedokončil analýzu.
             </p>
           </div>
         ) : visibleProjectGroups.length === 0 ? (
@@ -594,6 +640,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
           <div className="space-y-5">
             {visibleProjectGroups.map((group) => {
               const completedInGroup = getGroupCompletedCount(group);
+              const participantCount = getGroupParticipantCount(group);
               const isExpanded = expandedProjectIds.has(group.id);
               const tableId = `typology-project-results-${group.id}`;
 
@@ -645,7 +692,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                             Účastníci
                           </span>
                           <span className="mt-1 block text-2xl font-black">
-                            {group.results.length}
+                            {participantCount}
                           </span>
                         </span>
                         <span className="rounded-2xl border border-black/5 bg-white/55 px-4 py-3">
@@ -653,7 +700,7 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
                             Dokončené
                           </span>
                           <span className="mt-1 block text-2xl font-black">
-                            {completedInGroup}/{group.results.length}
+                            {completedInGroup}/{participantCount}
                           </span>
                         </span>
                         <span className="inline-flex h-full min-w-11 items-center justify-center rounded-2xl border border-black/5 bg-white/55 text-black/45 transition-all group-hover:bg-black group-hover:text-white">
@@ -669,11 +716,24 @@ const TypologyAdminResultsView: React.FC<TypologyAdminResultsViewProps> = ({
 
                   {isExpanded && (
                     <div id={tableId} className="border-t border-black/5">
-                      <TypologyResultsTable
-                        results={group.results}
-                        onOpenGraph={setSelectedResult}
-                        onOpenReport={setProfileResult}
-                      />
+                      {group.results.length > 0 ? (
+                        <TypologyResultsTable
+                          results={group.results}
+                          onOpenGraph={setSelectedResult}
+                          onOpenReport={setProfileResult}
+                        />
+                      ) : (
+                        <div className="px-5 py-8 md:px-7">
+                          <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-white/60 px-5 py-7 text-center">
+                            <p className="text-sm font-black text-black">
+                              Projekt je načítaný, zatiaľ bez dokončených výsledkov.
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-black/45">
+                              Po dokončení typologického testu sa účastník zobrazí v tejto sekcii.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </section>
