@@ -329,6 +329,9 @@ const loadTypologyAdminProjects = async (): Promise<TypologyAdminProjectOverview
   const participantIdsByProjectId = new Map<string, string[]>();
   for (const row of (participantsResult.data || []) as TypologyAdminProjectParticipantIdRow[]) {
     const current = participantIdsByProjectId.get(row.project_id) || [];
+    if (current.includes(row.user_id)) {
+      continue;
+    }
     current.push(row.user_id);
     participantIdsByProjectId.set(row.project_id, current);
   }
