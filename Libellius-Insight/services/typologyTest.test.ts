@@ -427,4 +427,47 @@ describe("loadTypologyAdminResultsOverview", () => {
       "company_project_participants"
     );
   });
+
+  it("deduplicates project participant ids while preserving first seen order", async () => {
+    supabaseMocks.from
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "project-1",
+              name: "Leadership 2026",
+              company_name: "PREFA",
+              status: "active",
+              result_access_date: "2026-05-20T10:00:00.000Z",
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            { project_id: "project-1", user_id: "user-1" },
+            { project_id: "project-1", user_id: "user-2" },
+            { project_id: "project-1", user_id: "user-1" },
+          ],
+          error: null,
+        })
+      );
+
+    const overview = await loadTypologyAdminResultsOverview();
+
+    expect(overview.projects).toMatchObject([
+      {
+        id: "project-1",
+        participantIds: ["user-1", "user-2"],
+      },
+    ]);
+  });
 });
