@@ -401,6 +401,7 @@ describe("loadTypologyAdminResultsOverview", () => {
         createSelectBuilder({
           data: [
             { project_id: "project-1", user_id: "user-1" },
+            { project_id: "project-1", user_id: "user-1" },
             { project_id: "project-1", user_id: "user-2" },
           ],
           error: null,
