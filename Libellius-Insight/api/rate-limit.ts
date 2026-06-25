@@ -38,19 +38,35 @@ const cleanupExpiredEntries = (now: number) => {
   }
 };
 
+const readHeaderValue = (header: string | string[] | undefined) =>
+  Array.isArray(header) ? header[0] : header;
+
+const normalizeHeaderIp = (value: string | undefined) => {
+  const normalized = String(value || "").trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
 export const getClientIp = (req: VercelRequest) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  if (forwardedValue) {
-    const first = String(forwardedValue).split(',')[0]?.trim();
-    if (first) return first;
+  const realIp = normalizeHeaderIp(readHeaderValue(req.headers["x-real-ip"]));
+  if (realIp) {
+    return realIp;
   }
 
-  const realIp = req.headers['x-real-ip'];
-  const realIpValue = Array.isArray(realIp) ? realIp[0] : realIp;
-  if (realIpValue) return String(realIpValue).trim();
+  const forwardedChain = normalizeHeaderIp(
+    readHeaderValue(req.headers["x-forwarded-for"])
+  );
+  if (forwardedChain) {
+    const hops = forwardedChain
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const trustedHop = hops[hops.length - 1];
+    if (trustedHop) {
+      return trustedHop;
+    }
+  }
 
-  return 'unknown';
+  return "unknown";
 };
 
 const consumeInMemoryRateLimit = ({

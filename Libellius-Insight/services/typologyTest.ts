@@ -88,9 +88,11 @@ type ProjectReleaseRow = {
   company_projects:
     | {
         result_access_date: string | null;
+        module_codes: string[] | null;
       }
     | Array<{
         result_access_date: string | null;
+        module_codes: string[] | null;
       }>
     | null;
 };
@@ -198,6 +200,7 @@ type SupabaseSelectError = {
 };
 
 const TYPOLOGY_ANALYSIS_TITLE = "Analýza osobnostnej typológie";
+const TYPOLOGY_MODULE_CODE = "TYPOLOGY_LEADERSHIP";
 const LEGACY_TYPOLOGY_TITLES = new Set([
   "Test typológie pri vedení ľudí",
   "Test typológie pri vedení ludí",
@@ -249,6 +252,10 @@ const sortAdminProjectOverviews = (projects: TypologyAdminProjectOverview[]) =>
     if (companyCompare !== 0) return companyCompare;
     return left.name.localeCompare(right.name, "sk");
   });
+
+const projectIncludesTypologyModule = (moduleCodes: string[] | null | undefined) =>
+  Array.isArray(moduleCodes) &&
+  moduleCodes.some((code) => code === TYPOLOGY_MODULE_CODE);
 
 const loadTypologyAdminProjectAssignments = async (
   userIds: string[]
@@ -346,43 +353,45 @@ const loadTypologyAdminProjects = async (): Promise<TypologyAdminProjectOverview
 };
 
 const pickProjectReleaseDate = (
-  rows: ProjectReleaseRow[],
-  now: Date
+  rows: ProjectReleaseRow[]
 ): { releaseAt: string | null } => {
-  if (!rows.length) {
-    return { releaseAt: null };
-  }
-
-  const releaseDates = rows
+  const typologyProjectReleaseDates = rows
     .map((row) => {
       const relation = row.company_projects;
       if (!relation) return null;
-      if (Array.isArray(relation)) {
-        return relation[0]?.result_access_date || null;
+      const project = Array.isArray(relation) ? relation[0] || null : relation;
+      if (!project || !projectIncludesTypologyModule(project.module_codes)) {
+        return undefined;
       }
-      return relation.result_access_date || null;
+      return project.result_access_date || null;
     })
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
+    .filter((value): value is string | null => value !== undefined)
+    .map((value) => (typeof value === "string" ? value.trim() : value));
 
-  if (!releaseDates.length) {
+  if (!typologyProjectReleaseDates.length) {
     return { releaseAt: null };
   }
 
-  const releasedDates = releaseDates
-    .filter((value) => hasReleasedAt(value, now))
-    .sort();
-
-  if (releasedDates.length > 0) {
-    return { releaseAt: releasedDates[0] };
+  if (typologyProjectReleaseDates.some((value) => !value)) {
+    return { releaseAt: null };
   }
 
-  const futureDates = releaseDates
-    .filter((value) => !hasReleasedAt(value, now))
-    .sort();
+  const parsedReleaseDates = typologyProjectReleaseDates.map((value) => ({
+    value,
+    ts: Date.parse(value as string),
+  }));
 
-  return { releaseAt: futureDates[0] || null };
+  if (parsedReleaseDates.some((entry) => !Number.isFinite(entry.ts))) {
+    return { releaseAt: null };
+  }
+
+  const latestRelease = parsedReleaseDates.reduce((latest, current) =>
+    current.ts > latest.ts ? current : latest
+  );
+
+  return {
+    releaseAt: latestRelease.value || null,
+  };
 };
 
 export const canParticipantViewTypologyResult = (
@@ -557,7 +566,7 @@ export const loadTypologyTest = async (
 
   const { data: projectReleaseRows, error: projectReleaseError } = await supabase
     .from("company_project_participants")
-    .select("company_projects(result_access_date)")
+    .select("company_projects(result_access_date, module_codes)")
     .eq("user_id", user.id);
 
   if (projectReleaseError) {
@@ -566,8 +575,7 @@ export const loadTypologyTest = async (
     }
   } else {
     const projectReleaseState = pickProjectReleaseDate(
-      (projectReleaseRows || []) as ProjectReleaseRow[],
-      now
+      (projectReleaseRows || []) as ProjectReleaseRow[]
     );
     participantResultsAvailableAt = projectReleaseState.releaseAt;
   }

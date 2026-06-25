@@ -226,6 +226,7 @@ describe("loadTypologyTest", () => {
             {
               company_projects: {
                 result_access_date: "2026-05-05T10:00:00.000Z",
+                module_codes: ["TYPOLOGY_LEADERSHIP"],
               },
             },
           ],
@@ -253,6 +254,84 @@ describe("loadTypologyTest", () => {
         sessionId: "session-1",
         dominantStyle: "b",
       },
+    });
+  });
+
+  it("does not unlock results from unrelated released projects", async () => {
+    supabaseMocks.from
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "test-1",
+              title: "Analýza osobnostnej typológie",
+              description: "Aktívny test",
+              participant_results_available_at: "2099-01-01T00:00:00.000Z",
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: questionRows,
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              id: "session-1",
+              status: "completed",
+              completed_at: "2026-05-06T10:00:00.000Z",
+              profiles: {
+                email: "participant@example.com",
+                full_name: "Participant User",
+                company_name: "PREFA",
+              },
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: [
+            {
+              company_projects: {
+                result_access_date: "2026-05-05T10:00:00.000Z",
+                module_codes: ["360_FEEDBACK"],
+              },
+            },
+            {
+              company_projects: {
+                result_access_date: "2099-01-01T10:00:00.000Z",
+                module_codes: ["TYPOLOGY_LEADERSHIP"],
+              },
+            },
+          ],
+          error: null,
+        })
+      )
+      .mockReturnValueOnce(
+        createSelectBuilder({
+          data: {
+            session_id: "session-1",
+            scores: { a: 60, b: 65, c: 55, d: 52 },
+            dominant_style: "b",
+            calculated_at: "2026-05-06T10:00:01.000Z",
+          },
+          error: null,
+        })
+      );
+
+    const result = await loadTypologyTest(user);
+
+    expect(result).toMatchObject({
+      participantResultsAvailableAt: "2099-01-01T10:00:00.000Z",
+      resultAccessScope: "project",
+      participantResult: null,
     });
   });
 });

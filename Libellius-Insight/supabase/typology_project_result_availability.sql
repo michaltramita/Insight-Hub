@@ -16,8 +16,18 @@ create policy typology_results_select_released_own
           from public.company_project_participants cpp
           join public.company_projects cp on cp.id = cpp.project_id
           where cpp.user_id = ts.user_id
-            and cp.result_access_date is not null
-            and cp.result_access_date <= now()
+            and coalesce(cp.module_codes, array[]::text[]) @> array['TYPOLOGY_LEADERSHIP']::text[]
+        )
+        and not exists (
+          select 1
+          from public.company_project_participants cpp
+          join public.company_projects cp on cp.id = cpp.project_id
+          where cpp.user_id = ts.user_id
+            and coalesce(cp.module_codes, array[]::text[]) @> array['TYPOLOGY_LEADERSHIP']::text[]
+            and (
+              cp.result_access_date is null
+              or cp.result_access_date > now()
+            )
         )
     )
   );

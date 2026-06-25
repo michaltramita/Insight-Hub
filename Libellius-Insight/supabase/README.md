@@ -42,6 +42,20 @@ add column if not exists company_name text;
 
 Nová inštalácia tento stĺpec už obsahuje v `schema.sql`.
 
+## 1.3. Projektové výsledky typológie
+
+Ak používate projekty a chcete uvoľňovať výsledky typológie podľa projektu,
+spustite po `schema.sql` aj tieto migrácie:
+
+```text
+supabase/company_projects_admin.sql
+supabase/company_projects_admin_rpcs.sql
+supabase/typology_project_result_availability.sql
+```
+
+Táto kombinácia zabezpečí, že sa výsledok účastníkovi odomkne až podľa
+projektov, ktoré majú modul `TYPOLOGY_LEADERSHIP`.
+
 ## 2. Vytváranie používateľov
 
 Účty vytvára administrátor ručne v Supabase v časti `Authentication -> Users`.
