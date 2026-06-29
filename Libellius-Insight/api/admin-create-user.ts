@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import type { VercelRequest, VercelResponse } from './_vercel-types.js';
 import {
   enforceAdminIpRateLimit,
   enforceAdminUserRateLimit,
-} from './admin-rate-limit.js';
+} from './_admin-rate-limit.js';
 
 const MODULE_CODES = [
   '360_FEEDBACK',

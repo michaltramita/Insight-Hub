@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest } from './vercel-types.js';
+import type { VercelRequest } from './_vercel-types.js';
 
 const readSupabaseApiConfig = () => ({
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',

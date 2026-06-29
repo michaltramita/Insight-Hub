@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from './vercel-types.js';
-import { consumeRateLimit, getClientIp } from './rate-limit.js';
+import type { VercelRequest, VercelResponse } from './_vercel-types.js';
+import { consumeRateLimit, getClientIp } from './_rate-limit.js';
 
 const ADMIN_RATE_LIMIT_MESSAGE =
   'Príliš veľa administrátorských požiadaviek. Skúste to znova o chvíľu.';

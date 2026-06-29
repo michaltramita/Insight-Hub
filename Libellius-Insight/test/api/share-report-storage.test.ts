@@ -4,7 +4,7 @@ import {
   isShareExpired,
   isValidShareId,
   sanitizePublicMeta,
-} from "./share-report-storage";
+} from "../../api/_share-report-storage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const FIXED_NOW = Date.UTC(2026, 0, 1, 0, 0, 0);

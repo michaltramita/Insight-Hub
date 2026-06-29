@@ -59,7 +59,7 @@ describe("createSharedReport", () => {
     });
 
     expect(result).toEqual({ shareId: "abc123XYZ_" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/share-report-create", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/share-report", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -178,7 +178,7 @@ describe("resolveSharedReport", () => {
       },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/share-report-get?id=my%20share%2Fid",
+      "/api/share-report?id=my%20share%2Fid",
       {
         method: "GET",
         cache: "no-store",
@@ -253,13 +253,13 @@ describe("revokeSharedReport", () => {
 
     await revokeSharedReport("abc123XYZ_");
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/share-report-delete", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/share-report", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer test-access-token",
       },
-      body: JSON.stringify({ shareId: "abc123XYZ_" }),
+      body: JSON.stringify({ action: "delete", shareId: "abc123XYZ_" }),
     });
   });
 

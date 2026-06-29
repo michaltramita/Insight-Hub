@@ -58,7 +58,7 @@ export const createSharedReport = async (
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch('/api/share-report-create', {
+  const response = await fetch('/api/share-report', {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -87,7 +87,7 @@ export const createSharedReport = async (
 
 export const resolveSharedReport = async (shareId: string) => {
   const response = await fetch(
-    `/api/share-report-get?id=${encodeURIComponent(shareId)}`,
+    `/api/share-report?id=${encodeURIComponent(shareId)}`,
     {
       method: 'GET',
       cache: 'no-store',
@@ -132,10 +132,10 @@ export const revokeSharedReport = async (shareId: string) => {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch('/api/share-report-delete', {
+  const response = await fetch('/api/share-report', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ shareId }),
+    body: JSON.stringify({ action: 'delete', shareId }),
   });
 
   if (!response.ok) {

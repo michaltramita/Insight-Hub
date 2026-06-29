@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import handler from "./admin-create-user";
+import handler from "../../api/admin-create-user";
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock("./admin-rate-limit.js", () => ({
+vi.mock("../../api/_admin-rate-limit.js", () => ({
   enforceAdminIpRateLimit: vi.fn().mockResolvedValue(true),
   enforceAdminUserRateLimit: vi.fn().mockResolvedValue(true),
 }));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getClientIp } from "./rate-limit";
+import { getClientIp } from "../../api/_rate-limit";
 
 type MockReq = {
   headers: Record<string, string | string[] | undefined>;

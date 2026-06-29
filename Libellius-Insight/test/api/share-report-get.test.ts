@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { get } from "@vercel/blob";
-import { consumeRateLimit, getClientIp } from "./rate-limit.js";
-import handler from "./share-report-get";
+import { consumeRateLimit, getClientIp } from "../../api/_rate-limit.js";
+import handler from "../../api/share-report";
 
 vi.mock("@vercel/blob", () => ({
   get: vi.fn(),
 }));
 
-vi.mock("./rate-limit.js", () => ({
+vi.mock("../../api/_rate-limit.js", () => ({
   consumeRateLimit: vi.fn(),
   getClientIp: vi.fn(),
 }));

@@ -1,13 +1,13 @@
 import { get } from '@vercel/blob';
-import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import type { VercelRequest, VercelResponse } from './_vercel-types.js';
 import {
   buildShareBlobPath,
   isValidShareId,
   isShareExpired,
   sanitizePublicMeta,
   type StoredSharedReport,
-} from './share-report-storage.js';
-import { consumeRateLimit, getClientIp } from './rate-limit.js';
+} from './_share-report-storage.js';
+import { consumeRateLimit, getClientIp } from './_rate-limit.js';
 
 const MAX_RESPONSE_BODY_BYTES = 350000;
 const MAX_ENCRYPTED_PAYLOAD_LENGTH = 300000;

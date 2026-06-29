@@ -1,11 +1,11 @@
 import { del, get } from '@vercel/blob';
-import type { VercelRequest, VercelResponse } from './vercel-types.js';
+import type { VercelRequest, VercelResponse } from './_vercel-types.js';
 import {
   buildShareBlobPath,
   isValidShareId,
   type StoredSharedReport,
-} from './share-report-storage.js';
-import { consumeRateLimit, getClientIp } from './rate-limit.js';
+} from './_share-report-storage.js';
+import { consumeRateLimit, getClientIp } from './_rate-limit.js';
 import { isGlobalAdminRequest, requireAuthenticatedUser } from './_authHelpers.js';
 
 const MAX_STORED_REPORT_BYTES = 350000;

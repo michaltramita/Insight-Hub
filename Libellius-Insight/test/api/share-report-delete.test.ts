@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { del, get } from "@vercel/blob";
 import { createClient } from "@supabase/supabase-js";
-import { consumeRateLimit, getClientIp } from "./rate-limit.js";
-import deleteHandler from "./share-report-delete";
-import getHandler from "./share-report-get";
+import { consumeRateLimit, getClientIp } from "../../api/_rate-limit.js";
+import deleteHandler from "../../api/share-report";
+import getHandler from "../../api/share-report";
 
 const blobMocks = vi.hoisted(() => ({
   store: new Map<string, string>(),
@@ -27,7 +27,7 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock("./rate-limit.js", () => ({
+vi.mock("../../api/_rate-limit.js", () => ({
   consumeRateLimit: vi.fn(),
   getClientIp: vi.fn(),
 }));

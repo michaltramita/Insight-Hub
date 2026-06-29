@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import createUserHandler from "./admin-create-user";
-import deleteUserHandler from "./admin-delete-user";
-import resetUserPasswordHandler from "./admin-reset-user-password";
-import createOrganizationHandler from "./admin-create-organization";
-import deleteOrganizationHandler from "./admin-delete-organization";
-import deleteProjectHandler from "./admin-delete-project";
+import createUserHandler from "../../api/admin-create-user";
+import deleteUserHandler from "../../api/admin-delete-user";
+import resetUserPasswordHandler from "../../api/admin-reset-user-password";
+import createOrganizationHandler from "../../api/admin-create-organization";
+import deleteOrganizationHandler from "../../api/admin-delete-organization";
+import deleteProjectHandler from "../../api/admin-delete-project";
 
 type MockReq = {
   method?: string;
