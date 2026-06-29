@@ -13,7 +13,13 @@ export type AppModuleAssignment = {
   sortOrder: number;
 };
 
-export type AppUserRole = "participant" | "manager" | "consultant" | "admin";
+export type StoredAppUserRole =
+  | "participant"
+  | "manager"
+  | "consultant"
+  | "admin";
+
+export type AppUserRole = "participant" | "admin";
 
 export type AppUserProfile = {
   id: string;
@@ -36,6 +42,10 @@ type ModuleAssignmentRow = {
       }
     | null;
 };
+
+export const normalizeAppUserRole = (
+  role: StoredAppUserRole | string | null | undefined
+): AppUserRole => (role === "admin" ? "admin" : "participant");
 
 const isActiveInWindow = (startsAt?: string | null, endsAt?: string | null) => {
   const now = Date.now();
@@ -103,7 +113,7 @@ export const loadCurrentUserProfile = async (
     email: string;
     full_name: string | null;
     company_name: string | null;
-    role: AppUserRole;
+    role: StoredAppUserRole | null;
     organization_id: string | null;
   };
 
@@ -112,7 +122,7 @@ export const loadCurrentUserProfile = async (
     email: row.email,
     fullName: row.full_name,
     companyName: row.company_name,
-    role: row.role,
+    role: normalizeAppUserRole(row.role),
     organizationId: row.organization_id,
   };
 };

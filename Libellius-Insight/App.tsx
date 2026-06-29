@@ -26,9 +26,7 @@ const WelcomeGuide = lazy(() => import('./components/WelcomeGuide'));
 
 const PASSWORD_CONTEXT_LABEL_BY_ROLE = {
   admin: 'Admin účet',
-  consultant: 'Konzultantský účet',
-  manager: 'Manažérsky účet',
-  participant: 'Účastnícky účet',
+  participant: 'Používateľský účet',
 } as const;
 
 const App: React.FC = () => {

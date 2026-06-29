@@ -128,13 +128,62 @@ const KEY_ALIASES = {
   survey: ['survey', 'surveyname', 'prieskum', 'nazovprieskumu', 'nazov_prieskumu'],
   date: ['date', 'datum', 'reportdate'],
   scaleMax: ['scalemax', 'maxscale', 'max_skala', 'maxskala'],
-  frequencyNA: ['na', 'n/a', 'neviem', 'freqna', 'countna'],
-  frequencyOne: ['1', 'one', 'freq1', 'count1', 'na1', 'value1'],
-  frequencyTwo: ['2', 'two', 'freq2', 'count2', 'na2', 'value2'],
-  frequencyThree: ['3', 'three', 'freq3', 'count3', 'na3', 'value3'],
-  frequencyFour: ['4', 'four', 'freq4', 'count4', 'na4', 'value4'],
-  frequencyFive: ['5', 'five', 'freq5', 'count5', 'na5', 'value5'],
-  frequencySix: ['6', 'six', 'freq6', 'count6', 'na6', 'value6'],
+  frequencyNA: ['na', 'n/a', 'neviem', 'freqna', 'countna', 'frequencyna', 'pocetnostna'],
+  frequencyOne: ['1', 'one', 'freq1', 'count1', 'na1', 'value1', 'frequencyone', 'pocetnost1'],
+  frequencyTwo: ['2', 'two', 'freq2', 'count2', 'na2', 'value2', 'frequencytwo', 'pocetnost2'],
+  frequencyThree: ['3', 'three', 'freq3', 'count3', 'na3', 'value3', 'frequencythree', 'pocetnost3'],
+  frequencyFour: ['4', 'four', 'freq4', 'count4', 'na4', 'value4', 'frequencyfour', 'pocetnost4'],
+  frequencyFive: ['5', 'five', 'freq5', 'count5', 'na5', 'value5', 'frequencyfive', 'pocetnost5'],
+  frequencySix: ['6', 'six', 'freq6', 'count6', 'na6', 'value6', 'frequencysix', 'pocetnost6'],
+  frequencySeven: ['7', 'seven', 'freq7', 'count7', 'na7', 'value7', 'frequencyseven', 'pocetnost7'],
+  participantTotalCount: [
+    'participanttotalcount',
+    'participantcount',
+    'totalparticipants',
+    'celkovypocetucastnikov',
+    'pocetucastnikov',
+    'assignedtotal',
+    'sentcount',
+    'sent',
+    'rozposlane',
+  ],
+  participantCompletedCount: [
+    'participantcompletedcount',
+    'completedcount',
+    'completed',
+    'korektnevyplnene',
+    'vyplnene',
+  ],
+  participantSuccessRate: [
+    'participantsuccessrate',
+    'successrate',
+    'uspesnost',
+    'celkovauspesnost',
+  ],
+  participantSubordinateCount: [
+    'participantsubordinatecount',
+    'assignedsubordinatecount',
+    'ucastnicipodriadeny',
+    'ucastnicipodriadeni',
+  ],
+  participantManagerCount: [
+    'participantmanagercount',
+    'assignedmanagercount',
+    'ucastnicinadriadeny',
+    'ucastnicinadriadeni',
+  ],
+  participantPeerCount: [
+    'participantpeercount',
+    'assignedpeercount',
+    'ucastnicipeer',
+    'ucastnicikolegovia',
+  ],
+  participantSelfCount: [
+    'participantselfcount',
+    'assignedselfcount',
+    'ucastniciseba',
+    'ucastnicisebahodnotenie',
+  ],
 } as const;
 
 const createNumericAggregation = (): NumericAggregation => ({
@@ -243,6 +292,10 @@ const readFrequencyDistribution = (
     five: Number(readNumber(row, KEY_ALIASES.frequencyFive) || 0),
     six: Number(readNumber(row, KEY_ALIASES.frequencySix) || 0),
   };
+  const seven = Number(readNumber(row, KEY_ALIASES.frequencySeven) || 0);
+  if (seven > 0) {
+    distribution.seven = seven;
+  }
 
   const hasAnyValue = Object.values(distribution).some((value) => value > 0);
   return hasAnyValue ? distribution : undefined;
@@ -425,6 +478,7 @@ const detectScaleMax = (
     }
   }
 
+  if (maxValue > 6.2) return 7;
   if (maxValue > 5.2) return 6;
   if (maxValue > 0) return 5;
   return 6;
@@ -461,6 +515,13 @@ const buildPayloadFromRows = (
   let managerCount = 0;
   let peerCount = 0;
   let selfCount = 0;
+  let participantTotalCount = 0;
+  let participantCompletedCount = 0;
+  let participantSuccessRate = 0;
+  let participantSubordinateCount = 0;
+  let participantManagerCount = 0;
+  let participantPeerCount = 0;
+  let participantSelfCount = 0;
 
   const participantMap = new Map<string, ParticipantAggregation>();
 
@@ -475,6 +536,34 @@ const buildPayloadFromRows = (
     );
     peerCount = Math.max(peerCount, Number(readNumber(row, KEY_ALIASES.peerCount) || 0));
     selfCount = Math.max(selfCount, Number(readNumber(row, KEY_ALIASES.selfCount) || 0));
+    participantTotalCount = Math.max(
+      participantTotalCount,
+      Number(readNumber(row, KEY_ALIASES.participantTotalCount) || 0)
+    );
+    participantCompletedCount = Math.max(
+      participantCompletedCount,
+      Number(readNumber(row, KEY_ALIASES.participantCompletedCount) || 0)
+    );
+    participantSuccessRate = Math.max(
+      participantSuccessRate,
+      Number(readNumber(row, KEY_ALIASES.participantSuccessRate) || 0)
+    );
+    participantSubordinateCount = Math.max(
+      participantSubordinateCount,
+      Number(readNumber(row, KEY_ALIASES.participantSubordinateCount) || 0)
+    );
+    participantManagerCount = Math.max(
+      participantManagerCount,
+      Number(readNumber(row, KEY_ALIASES.participantManagerCount) || 0)
+    );
+    participantPeerCount = Math.max(
+      participantPeerCount,
+      Number(readNumber(row, KEY_ALIASES.participantPeerCount) || 0)
+    );
+    participantSelfCount = Math.max(
+      participantSelfCount,
+      Number(readNumber(row, KEY_ALIASES.participantSelfCount) || 0)
+    );
 
     const participantName = readText(row, KEY_ALIASES.participant);
     const competencyLabel = readText(row, KEY_ALIASES.competency);
@@ -517,6 +606,10 @@ const buildPayloadFromRows = (
         statement.frequencyDistribution.four += distribution.four;
         statement.frequencyDistribution.five += distribution.five;
         statement.frequencyDistribution.six += distribution.six;
+        if (distribution.seven) {
+          statement.frequencyDistribution.seven =
+            (statement.frequencyDistribution.seven || 0) + distribution.seven;
+        }
       }
       continue;
     }
@@ -637,6 +730,15 @@ const buildPayloadFromRows = (
         manager: managerCount,
         peer: peerCount,
         self: selfCount,
+      },
+      participantDistribution: {
+        total: participantTotalCount,
+        completed: participantCompletedCount,
+        successRate: participantSuccessRate,
+        subordinate: participantSubordinateCount,
+        manager: participantManagerCount,
+        peer: participantPeerCount,
+        self: participantSelfCount,
       },
     },
     individuals,

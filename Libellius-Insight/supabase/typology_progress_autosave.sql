@@ -52,15 +52,6 @@ begin
 
   if not (
     (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.profiles p
-        where p.id = v_user_id
-          and p.organization_id = v_test_organization_id
-      )
-    )
     or exists (
       select 1
       from public.module_assignments ma

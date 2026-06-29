@@ -1,0 +1,19 @@
+participant,competency,statement,subordinate,manager,peer,average,self,subordinatecount,managercount,peercount,selfcount,company,survey,date,scalemax,na,1,2,3,4,5,6
+Jana Novakova,Komunikacia,Jasne komunikuje priority timu,4.8,4.5,4.7,4.7,5.1,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,0,1,3,6,4
+Jana Novakova,Komunikacia,Aktivne pocuva pri diskusii,4.6,4.4,4.5,4.5,5.0,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,2,4,5,2
+Jana Novakova,Spolupraca,Zdiela informacie nacas,4.3,4.2,4.4,4.3,4.6,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,3,4,4,2
+Jana Novakova,Spolupraca,Podporuje spolupracu medzi timami,4.7,4.6,4.8,4.7,4.9,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,0,2,4,5,3
+Jana Novakova,Liderstvo,Deleguje zodpovednost primerane,4.1,4.0,4.2,4.1,4.3,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,2,3,4,4,1
+Jana Novakova,Liderstvo,Riesi problemy bez odkladov,4.5,4.3,4.4,4.4,4.6,6,2,5,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,2,5,4,2
+Peter Hruby,Komunikacia,Jasne komunikuje priority timu,3.9,3.7,3.8,3.8,4.4,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,2,3,3,2,0
+Peter Hruby,Komunikacia,Aktivne pocuva pri diskusii,4.0,3.8,3.9,3.9,4.1,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,4,3,2,0
+Peter Hruby,Spolupraca,Zdiela informacie nacas,4.2,4.0,4.1,4.1,4.2,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,3,4,2,0
+Peter Hruby,Spolupraca,Podporuje spolupracu medzi timami,3.8,3.9,4.0,3.9,4.1,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,2,3,3,2,0
+Peter Hruby,Liderstvo,Deleguje zodpovednost primerane,3.4,3.2,3.5,3.4,4.6,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,1,2,4,2,1,0
+Peter Hruby,Liderstvo,Riesi problemy bez odkladov,4.3,4.1,4.2,4.2,4.5,4,1,4,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,3,4,2,0
+Lucia Benesova,Komunikacia,Jasne komunikuje priority timu,4.1,4.3,4.4,4.3,4.0,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,3,5,4,1
+Lucia Benesova,Komunikacia,Aktivne pocuva pri diskusii,4.8,4.7,4.9,4.8,4.5,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,0,1,3,6,4
+Lucia Benesova,Spolupraca,Zdiela informacie nacas,4.6,4.8,4.9,4.8,4.4,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,0,2,3,5,4
+Lucia Benesova,Spolupraca,Podporuje spolupracu medzi timami,4.9,4.8,5.0,4.9,4.6,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,0,1,2,6,5
+Lucia Benesova,Liderstvo,Deleguje zodpovednost primerane,4.0,4.2,4.1,4.1,3.7,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,2,3,4,4,1
+Lucia Benesova,Liderstvo,Riesi problemy bez odkladov,4.4,4.5,4.6,4.5,4.1,5,2,6,1,DemoCompany,360 Pilot Q2 2026,2026-06-25,6,0,0,1,2,4,5,2

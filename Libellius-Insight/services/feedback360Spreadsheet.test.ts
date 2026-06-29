@@ -88,6 +88,63 @@ describe('parseFeedback360Spreadsheet', () => {
     expect(individual?.competencies[0].statements).toHaveLength(2);
   });
 
+  it('keeps statement frequency distributions from csv rows', async () => {
+    const csv = [
+      [
+        'participant',
+        'competency',
+        'statement',
+        'subordinate',
+        'manager',
+        'peer',
+        'average',
+        'self',
+        'frequencyNA',
+        'frequencyOne',
+        'frequencyTwo',
+        'frequencyThree',
+        'frequencyFour',
+        'frequencyFive',
+        'frequencySix',
+        'frequencySeven',
+      ].join(','),
+      [
+        'Jana Nova',
+        'Komunikacia',
+        'Aktivne pocuva tim',
+        '4.5',
+        '4.4',
+        '4.6',
+        '4.5',
+        '4.8',
+        '1',
+        '0',
+        '0',
+        '0',
+        '2',
+        '1',
+        '3',
+        '1',
+      ].join(','),
+    ].join('\n');
+
+    const file = createTextFile('feedback360-frequency.csv', csv);
+    const parsed = await parseFeedback360Spreadsheet(file);
+    const statement =
+      parsed.feedback360?.individuals[0]?.competencies[0]?.statements[0];
+
+    expect(statement?.frequencyDistribution).toEqual({
+      na: 1,
+      one: 0,
+      two: 0,
+      three: 0,
+      four: 2,
+      five: 1,
+      six: 3,
+      seven: 1,
+    });
+  });
+
   it('throws when csv does not contain participant and competency data', async () => {
     const csv = ['foo,bar', 'a,b'].join('\n');
     const file = createTextFile('invalid.csv', csv);

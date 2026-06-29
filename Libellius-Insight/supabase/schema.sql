@@ -7,7 +7,7 @@ create extension if not exists citext;
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'app_role') then
-    create type public.app_role as enum ('participant', 'manager', 'consultant', 'admin');
+    create type public.app_role as enum ('participant', 'admin');
   end if;
 
   if not exists (select 1 from pg_type where typname = 'assignment_status') then
@@ -41,6 +41,20 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now(),
   unique (email)
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'profiles_role_supported'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_role_supported
+      check (role in ('participant', 'admin'));
+  end if;
+end $$;
 
 create table if not exists public.modules (
   code text primary key,
@@ -207,7 +221,7 @@ security definer
 set search_path = public
 stable
 as $$
-  select coalesce(public.current_profile_role() in ('admin', 'consultant'), false)
+  select coalesce(public.current_profile_role() = 'admin', false)
 $$;
 
 create or replace function public.is_global_admin()
@@ -273,15 +287,6 @@ begin
 
   if not (
     (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.profiles p
-        where p.id = v_user_id
-          and p.organization_id = v_test_organization_id
-      )
-    )
     or exists (
       select 1
       from public.module_assignments ma
@@ -490,15 +495,6 @@ begin
 
   if not (
     (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.profiles p
-        where p.id = v_user_id
-          and p.organization_id = v_test_organization_id
-      )
-    )
     or exists (
       select 1
       from public.module_assignments ma
@@ -705,6 +701,10 @@ begin
 
   if p_user_id = v_actor_id and p_role <> 'admin' then
     raise exception 'admin_cannot_demote_self' using errcode = '42501';
+  end if;
+
+  if p_role is null or p_role not in ('participant', 'admin') then
+    raise exception 'admin_invalid_role' using errcode = '22023';
   end if;
 
   if p_organization_id is not null and not exists (
@@ -1062,10 +1062,6 @@ create policy profiles_select_self_or_org_admin
   using (
     id = (select auth.uid())
     or (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
   );
 
 drop policy if exists profiles_update_self on public.profiles;
@@ -1090,29 +1086,13 @@ create policy module_assignments_select_own_or_org_admin
   using (
     user_id = (select auth.uid())
     or (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
   );
 
 drop policy if exists module_assignments_write_org_admin on public.module_assignments;
 create policy module_assignments_write_org_admin
   on public.module_assignments for all to authenticated
-  using (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
-  )
-  with check (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
-  );
+  using ((select public.is_global_admin()))
+  with check ((select public.is_global_admin()));
 
 drop policy if exists typology_tests_select_assigned_or_org_admin on public.typology_tests;
 create policy typology_tests_select_assigned_or_org_admin
@@ -1129,29 +1109,13 @@ create policy typology_tests_select_assigned_or_org_admin
         and ma.organization_id = typology_tests.organization_id
     )
     or (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
   );
 
 drop policy if exists typology_tests_write_org_admin on public.typology_tests;
 create policy typology_tests_write_org_admin
   on public.typology_tests for all to authenticated
-  using (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
-  )
-  with check (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
-  );
+  using ((select public.is_global_admin()))
+  with check ((select public.is_global_admin()));
 
 drop policy if exists typology_questions_select_assigned_or_org_admin on public.typology_questions;
 create policy typology_questions_select_assigned_or_org_admin
@@ -1174,10 +1138,6 @@ create policy typology_questions_select_assigned_or_org_admin
               and (ma.ends_at is null or ma.ends_at >= now())
               and ma.organization_id = tt.organization_id
           )
-          or (
-            (select public.current_profile_role()) = 'consultant'
-            and tt.organization_id = (select public.current_profile_organization_id())
-          )
         )
     )
   );
@@ -1190,13 +1150,7 @@ create policy typology_questions_write_org_admin
       select 1
       from public.typology_tests tt
       where tt.id = typology_questions.test_id
-        and (
-          (select public.is_global_admin())
-          or (
-            (select public.current_profile_role()) = 'consultant'
-            and tt.organization_id = (select public.current_profile_organization_id())
-          )
-        )
+        and (select public.is_global_admin())
     )
   )
   with check (
@@ -1204,13 +1158,7 @@ create policy typology_questions_write_org_admin
       select 1
       from public.typology_tests tt
       where tt.id = typology_questions.test_id
-        and (
-          (select public.is_global_admin())
-          or (
-            (select public.current_profile_role()) = 'consultant'
-            and tt.organization_id = (select public.current_profile_organization_id())
-          )
-        )
+        and (select public.is_global_admin())
     )
   );
 
@@ -1220,15 +1168,6 @@ create policy typology_sessions_select_own_or_org_admin
   using (
     user_id = (select auth.uid())
     or (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.profiles p
-        where p.id = typology_sessions.user_id
-          and p.organization_id = (select public.current_profile_organization_id())
-      )
-    )
   );
 
 drop policy if exists typology_sessions_insert_own on public.typology_sessions;
@@ -1249,15 +1188,10 @@ create policy typology_answers_select_own_or_org_admin
     exists (
       select 1
       from public.typology_sessions ts
-      left join public.profiles p on p.id = ts.user_id
       where ts.id = typology_answers.session_id
         and (
           ts.user_id = (select auth.uid())
           or (select public.is_global_admin())
-          or (
-            (select public.current_profile_role()) = 'consultant'
-            and p.organization_id = (select public.current_profile_organization_id())
-          )
         )
     )
   );
@@ -1302,19 +1236,7 @@ drop policy if exists typology_results_select_org_admin on public.typology_resul
 drop policy if exists typology_results_select_released_own on public.typology_results;
 create policy typology_results_select_org_admin
   on public.typology_results for select to authenticated
-  using (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.typology_sessions ts
-        left join public.profiles p on p.id = ts.user_id
-        where ts.id = typology_results.session_id
-          and p.organization_id = (select public.current_profile_organization_id())
-      )
-    )
-  );
+  using ((select public.is_global_admin()));
 
 create policy typology_results_select_released_own
   on public.typology_results for select to authenticated

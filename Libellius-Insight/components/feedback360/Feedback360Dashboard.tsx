@@ -1,7 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FeedbackAnalysisResult } from '../../types';
-import { AlertCircle, Building2, Calendar, RefreshCw, Users } from 'lucide-react';
-import CompanyIntroBentoBlock from './CompanyIntroBentoBlock';
+import {
+  AlertCircle,
+  ArrowUpDown,
+  BarChart4,
+  Building2,
+  ListChecks,
+  Table,
+  Target,
+  UserCheck,
+  Users,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import CompanyParticipantsBentoBlock from './CompanyParticipantsBentoBlock';
 import CompanyOverviewBlock from './CompanyOverviewBlock';
 import CompanyDetailBlock from './CompanyDetailBlock';
 import CompanyStrengthWeaknessBlock from './CompanyStrengthWeaknessBlock';
@@ -9,21 +20,47 @@ import ParticipantsMatrixBlock from './ParticipantsMatrixBlock';
 import IndividualOverviewBlock from './IndividualOverviewBlock';
 import IndividualDetailBlock from './IndividualDetailBlock';
 import IndividualPotentialBlock from './IndividualPotentialBlock';
-import IndividualImplementationPlanBlock from './IndividualImplementationPlanBlock';
-import TeamShowcase from '../ui/team-showcase';
 
 interface Props {
   result: FeedbackAnalysisResult;
   onReset: () => void;
 }
 
-type PrimaryTab = 'INTRO' | 'COMPANY' | 'MANAGERS';
+type PrimaryTab =
+  | 'INTRO'
+  | 'COMPANY_OVERVIEW'
+  | 'COMPANY_DETAIL'
+  | 'STRENGTHS'
+  | 'PARTICIPANTS'
+  | 'INDIVIDUALS';
 
-const score = (value: unknown) => Number(Number(value) || 0).toFixed(2);
+interface ReportTab {
+  id: PrimaryTab;
+  label: string;
+  icon: LucideIcon;
+  tone: 'dark' | 'brand';
+}
+
+const PARTICIPANTS_COMPARISON_TAB_ID = 'comparison';
+
+const reportTabs: ReportTab[] = [
+  { id: 'INTRO', label: 'Účastníci', icon: Users, tone: 'dark' },
+  { id: 'COMPANY_OVERVIEW', label: 'Celá firma', icon: BarChart4, tone: 'brand' },
+  { id: 'COMPANY_DETAIL', label: 'Detail kompetencií', icon: ListChecks, tone: 'brand' },
+  { id: 'STRENGTHS', label: 'Silné a slabé stránky', icon: Target, tone: 'dark' },
+  { id: 'PARTICIPANTS', label: 'Výsledky jednotlivcov', icon: Table, tone: 'brand' },
+  { id: 'INDIVIDUALS', label: 'Individuálny detail', icon: UserCheck, tone: 'dark' },
+];
 
 const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
   const [activeTab, setActiveTab] = useState<PrimaryTab>('INTRO');
   const [selectedIndividualId, setSelectedIndividualId] = useState<string>('');
+  const [activeParticipantsMatrixTab, setActiveParticipantsMatrixTab] = useState(
+    PARTICIPANTS_COMPARISON_TAB_ID
+  );
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
 
   const data = result.feedback360;
   const individuals = data?.individuals || [];
@@ -41,29 +78,9 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
     [individuals, selectedIndividualId]
   );
 
-  const selectedIndividualOverall = useMemo(() => {
-    if (!selectedIndividual || !selectedIndividual.competencies.length) {
-      return { average: 0, self: 0, gap: 0 };
-    }
-
-    const total = selectedIndividual.competencies.length;
-    const average =
-      selectedIndividual.competencies.reduce(
-        (sum, competency) => sum + (Number(competency.averages.average) || 0),
-        0
-      ) / total;
-    const self =
-      selectedIndividual.competencies.reduce(
-        (sum, competency) => sum + (Number(competency.averages.self) || 0),
-        0
-      ) / total;
-
-    return {
-      average: Number(average.toFixed(2)),
-      self: Number(self.toFixed(2)),
-      gap: Number((self - average).toFixed(2)),
-    };
-  }, [selectedIndividual]);
+  const handleParticipantsMatrixTabChange = useCallback((tabId: string) => {
+    setActiveParticipantsMatrixTab(tabId);
+  }, []);
 
   const competencyColumns = useMemo(() => {
     if (competencies.length > 0) {
@@ -84,200 +101,298 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
     return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
   }, [competencies, companyReport?.participants]);
 
-  const managerShowcaseMembers = useMemo(
-    () =>
-      individuals.map((individual) => {
-        const topCompetency = [...(individual.competencies || [])].sort(
-          (a, b) => Number(b.averages.average || 0) - Number(a.averages.average || 0)
-        )[0];
-        return {
-          id: individual.id,
-          name: individual.name,
-          role: topCompetency
-            ? `Top: ${topCompetency.label}`
-            : `${individual.competencies.length} kompetencií`,
-        };
-      }),
-    [individuals]
-  );
+  const updateTabsScrollState = useCallback(() => {
+    const container = tabsScrollRef.current;
+    if (!container) {
+      setCanScrollTabsLeft(false);
+      setCanScrollTabsRight(false);
+      return;
+    }
+
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const hasOverflow = maxScrollLeft > 2;
+
+    setCanScrollTabsLeft(container.scrollLeft > 1);
+    setCanScrollTabsRight(hasOverflow && container.scrollLeft < maxScrollLeft - 1);
+  }, []);
+
+  useEffect(() => {
+    const container = tabsScrollRef.current;
+    if (!container) return;
+
+    updateTabsScrollState();
+    container.addEventListener('scroll', updateTabsScrollState, { passive: true });
+    window.addEventListener('resize', updateTabsScrollState);
+
+    const timer = window.setTimeout(updateTabsScrollState, 0);
+
+    return () => {
+      container.removeEventListener('scroll', updateTabsScrollState);
+      window.removeEventListener('resize', updateTabsScrollState);
+      window.clearTimeout(timer);
+    };
+  }, [updateTabsScrollState]);
 
   if (!data || !companyReport) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-20 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand/5 text-brand font-black text-xs uppercase tracking-widest mb-6">
-          360 modul
+      <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+        <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex items-center justify-center py-20">
+          <div className="w-full max-w-4xl bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-8 sm:p-10 shadow-2xl text-center">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit mb-6">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand">
+                360 modul
+              </span>
+            </div>
+            <h2 className="text-3xl font-black tracking-tight mb-3">Chýbajú 360 dáta</h2>
+            <p className="text-black/50 font-semibold max-w-2xl mx-auto">
+              V nahranom reporte sa nenašli dáta pre nový 360 dashboard.
+            </p>
+          </div>
         </div>
-        <h2 className="text-3xl font-black tracking-tight mb-3">Chýbajú 360 dáta</h2>
-        <p className="text-black/50 font-semibold max-w-2xl mx-auto">
-          V nahranom reporte sa nenašli dáta pre nový 360 dashboard.
-        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-24 animate-fade-in">
-      <div className="bg-white rounded-[2.5rem] border border-black/5 p-8 md:p-10 shadow-2xl shadow-black/5">
-        <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
-              360° spätná väzba
-            </h1>
-            <div className="flex flex-wrap items-center gap-5 mt-4 text-[11px] sm:text-xs font-black uppercase tracking-widest text-black/45">
-              <span className="inline-flex items-center gap-2">
-                <Building2 className="w-4 h-4" /> {data.companyName}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Calendar className="w-4 h-4" /> {result.reportMetadata.date}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Users className="w-4 h-4" /> {individuals.length} manažérov
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={onReset}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-black/5 hover:bg-black hover:text-white rounded-2xl border border-black/5 font-black uppercase tracking-widest text-xs transition-all"
-          >
-            <RefreshCw className="w-4 h-4" /> Nový report
-          </button>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setActiveTab('INTRO')}
-            className={`w-full rounded-2xl border px-5 py-4 text-left font-black uppercase tracking-widest text-xs sm:text-sm transition-all ${
-              activeTab === 'INTRO'
-                ? 'bg-black text-white border-black'
-                : 'bg-black/5 border-black/10 text-black hover:bg-black/10'
-            }`}
-          >
-            Úvod
-          </button>
-          <button
-            onClick={() => setActiveTab('COMPANY')}
-            className={`w-full rounded-2xl border px-5 py-4 text-left font-black uppercase tracking-widest text-xs sm:text-sm transition-all ${
-              activeTab === 'COMPANY'
-                ? 'bg-brand text-white border-brand'
-                : 'bg-brand/5 border-brand/20 text-black hover:bg-brand/10'
-            }`}
-          >
-            Celá firma
-          </button>
-          <button
-            onClick={() => setActiveTab('MANAGERS')}
-            className={`w-full rounded-2xl border px-5 py-4 text-left font-black uppercase tracking-widest text-xs sm:text-sm transition-all ${
-              activeTab === 'MANAGERS'
-                ? 'bg-black text-white border-black'
-                : 'bg-black/5 border-black/10 text-black hover:bg-black/10'
-            }`}
-          >
-            Jednotliví manažéri
-          </button>
-        </div>
-      </div>
-
-      {activeTab === 'INTRO' && (
-        <CompanyIntroBentoBlock
-          companyName={data.companyName}
-          surveyName={data.surveyName}
-          reportDate={result.reportMetadata.date}
-          companyReport={companyReport}
-          individuals={individuals}
-        />
-      )}
-
-      {activeTab === 'COMPANY' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-[2rem] border border-black/5 p-6 md:p-8 shadow-2xl shadow-black/5">
-            <h3 className="text-xl md:text-2xl font-black tracking-tight uppercase">Výsledky za celú firmu</h3>
-            <p className="text-black/60 font-semibold mt-3 max-w-4xl">
-              Kompletné grafy a tabuľky pre firemný pohľad: kompetencie, detail tvrdení, silné/slabé stránky a porovnanie manažérov.
-            </p>
-          </div>
-
-          <CompanyOverviewBlock
-            competencies={companyReport.competencies}
-            respondentCounts={companyReport.respondentCounts}
-            participantsCount={companyReport.participants.length}
-            scaleMax={data.scaleMax}
-          />
-          <CompanyDetailBlock competencies={companyReport.competencies} />
-          <CompanyStrengthWeaknessBlock
-            strengths={companyReport.strengths}
-            developmentNeeds={companyReport.developmentNeeds}
-          />
-          <ParticipantsMatrixBlock
-            participants={companyReport.participants}
-            competencyColumns={competencyColumns}
-          />
-        </div>
-      )}
-
-      {activeTab === 'MANAGERS' && (
-        <div className="space-y-6">
-          <TeamShowcase
-            members={managerShowcaseMembers}
-            selectedId={selectedIndividualId}
-            onSelect={setSelectedIndividualId}
-          />
-
-          {!selectedIndividual ? (
-            <div className="bg-white rounded-[2rem] border border-black/5 p-10 shadow-2xl shadow-black/5 text-center">
-              <AlertCircle className="w-10 h-10 mx-auto text-brand mb-4" />
-              <p className="font-black text-lg">Manažér nebol nájdený.</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="bg-white rounded-[1.8rem] border border-black/5 p-5 shadow-xl shadow-black/5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-black/40 mb-2">
-                    Manažér
-                  </p>
-                  <p className="text-xl font-black">{selectedIndividual.name}</p>
+    <div className="min-h-screen flex flex-col px-4 sm:px-6 lg:px-8">
+      <div className="flex-1 w-full max-w-[1600px] 2xl:max-w-[1800px] mx-auto flex flex-col">
+        <div className="space-y-8 sm:space-y-10 lg:space-y-12 animate-fade-in pb-14 sm:pb-16 lg:pb-20">
+          <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-6 sm:p-9 md:p-12 lg:p-14 xl:p-16 shadow-2xl flex flex-col xl:flex-row justify-between items-start gap-8 sm:gap-10 lg:gap-12 relative overflow-hidden print:hidden">
+            <div className="flex flex-col gap-5 sm:gap-7 lg:gap-8 relative z-10 w-full xl:w-auto min-w-0">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-brand/5 rounded-full border border-brand/10 w-fit">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-brand">
+                    Next-gen Analytics
+                  </span>
                 </div>
-                <div className="bg-white rounded-[1.8rem] border border-black/5 p-5 shadow-xl shadow-black/5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-black/40 mb-2">
-                    Kompetencie
-                  </p>
-                  <p className="text-3xl font-black">{selectedIndividual.competencies.length}</p>
-                </div>
-                <div className="bg-white rounded-[1.8rem] border border-black/5 p-5 shadow-xl shadow-black/5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-black/40 mb-2">
-                    Priemer (okolie)
-                  </p>
-                  <p className="text-3xl font-black">{score(selectedIndividualOverall.average)}</p>
-                </div>
-                <div className="bg-white rounded-[1.8rem] border border-black/5 p-5 shadow-xl shadow-black/5">
-                  <p className="text-[10px] uppercase tracking-widest font-black text-black/40 mb-2">
-                    Gap seba vs okolie
-                  </p>
-                  <p
-                    className={`text-3xl font-black ${
-                      selectedIndividualOverall.gap > 0
-                        ? 'text-brand'
-                        : selectedIndividualOverall.gap < 0
-                        ? 'text-black/70'
-                        : 'text-black'
-                    }`}
-                  >
-                    {selectedIndividualOverall.gap > 0 ? '+' : ''}
-                    {score(selectedIndividualOverall.gap)}
-                  </p>
+
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter uppercase">
+                    Libellius <span className="text-brand">InsightHub</span>
+                  </h2>
                 </div>
               </div>
 
-              <IndividualOverviewBlock individual={selectedIndividual} scaleMax={data.scaleMax} />
-              <IndividualPotentialBlock
-                overestimatedPotential={selectedIndividual.overestimatedPotential}
-                hiddenPotential={selectedIndividual.hiddenPotential}
-              />
-              <IndividualDetailBlock individual={selectedIndividual} />
-              <IndividualImplementationPlanBlock individual={selectedIndividual} />
-            </>
+              <div className="w-20 h-1 bg-black/5 rounded-full"></div>
+
+              <div className="space-y-3 sm:space-y-4 min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl xl:text-5xl font-black tracking-tighter uppercase leading-none text-black break-words max-w-4xl">
+                  {data.surveyName || '360° spätná väzba'}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 lg:gap-5 mt-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5 min-w-0">
+                    <Building2 className="w-4 h-4 text-black/40 shrink-0" />
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/60 truncate">
+                      {data.companyName || result.reportMetadata.company || 'Názov firmy'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-lg border border-black/5 min-w-0">
+                    <Users className="w-4 h-4 text-black/40 shrink-0" />
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-black/60 truncate">
+                      {individuals.length} hodnotených osôb
+                    </span>
+                  </div>
+
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-black/30">
+                    Vydané: {result.reportMetadata?.date || new Date().getFullYear().toString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-stretch gap-3 sm:gap-4 relative z-10 w-full xl:w-auto xl:min-w-[220px] xl:items-end shrink-0 pt-2 sm:pt-3 md:pt-5 xl:pt-0">
+              <button
+                onClick={onReset}
+                className="w-full xl:w-[220px] flex items-center justify-center gap-2 px-4 sm:px-6 py-3.5 sm:py-4 bg-black/5 hover:bg-black hover:text-white rounded-xl sm:rounded-2xl font-black transition-all text-[10px] sm:text-[11px] uppercase tracking-widest border border-black/5 group mt-auto"
+              >
+                <ArrowUpDown className="w-4 h-4 text-black/40 group-hover:text-white" />
+                Zavrieť
+              </button>
+            </div>
+
+            <div className="absolute top-[-20%] right-[-10%] w-72 sm:w-96 h-72 sm:h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-0"></div>
+          </div>
+
+          <div className="relative w-full mx-auto print:hidden">
+            <div
+              ref={tabsScrollRef}
+              className="flex gap-2.5 bg-white p-2.5 rounded-[1.4rem] sm:rounded-[1.7rem] w-full overflow-x-auto no-scrollbar border border-black/5 whitespace-nowrap shadow-[0_18px_42px_-30px_rgba(0,0,0,0.65)]"
+            >
+              {reportTabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const activeClasses =
+                  tab.tone === 'brand'
+                    ? 'bg-brand text-white border-brand shadow-[0_12px_26px_-14px_rgba(184,21,71,0.8)]'
+                    : 'bg-black text-white border-black shadow-[0_12px_26px_-14px_rgba(0,0,0,0.85)]';
+                const Icon = tab.icon;
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`group shrink-0 min-w-max inline-flex items-center justify-center gap-2.5 py-3 sm:py-4 lg:py-4.5 px-5 sm:px-6 lg:px-7 rounded-2xl border font-black text-[11px] sm:text-sm uppercase tracking-[0.1em] transition-all duration-300 whitespace-nowrap ${
+                      isActive
+                        ? activeClasses
+                        : 'border-transparent text-black/45 hover:text-black/80 hover:bg-black/[0.04]'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-[18px] h-[18px] shrink-0 transition-opacity ${
+                        isActive ? 'opacity-95' : 'opacity-40 group-hover:opacity-65'
+                      }`}
+                    />
+                    <span className="leading-none">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              aria-hidden="true"
+              className={`hidden sm:block absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none transition-opacity ${
+                canScrollTabsLeft ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+            <div
+              aria-hidden="true"
+              className={`hidden sm:block absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none transition-opacity ${
+                canScrollTabsRight ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          </div>
+
+          {activeTab === 'PARTICIPANTS' && (
+            <div className="relative w-full mx-auto print:hidden">
+              <div className="flex gap-2.5 bg-white p-2.5 rounded-[1.4rem] sm:rounded-[1.7rem] w-full overflow-x-auto no-scrollbar border border-black/5 whitespace-nowrap shadow-[0_18px_42px_-30px_rgba(0,0,0,0.65)]">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveParticipantsMatrixTab(PARTICIPANTS_COMPARISON_TAB_ID)
+                  }
+                  className={`group shrink-0 min-w-max inline-flex items-center justify-center gap-2.5 py-3 sm:py-4 lg:py-4.5 px-5 sm:px-6 lg:px-7 rounded-2xl border font-black text-[11px] sm:text-sm uppercase tracking-[0.1em] transition-all duration-300 whitespace-nowrap ${
+                    activeParticipantsMatrixTab === PARTICIPANTS_COMPARISON_TAB_ID
+                      ? 'bg-brand text-white border-brand shadow-[0_12px_26px_-14px_rgba(184,21,71,0.8)]'
+                      : 'border-transparent text-black/45 hover:text-black/80 hover:bg-black/[0.04]'
+                  }`}
+                >
+                  <Table
+                    className={`w-[18px] h-[18px] shrink-0 transition-opacity ${
+                      activeParticipantsMatrixTab === PARTICIPANTS_COMPARISON_TAB_ID
+                        ? 'opacity-95'
+                        : 'opacity-40 group-hover:opacity-65'
+                    }`}
+                  />
+                  <span className="leading-none">Porovnanie</span>
+                </button>
+
+                {companyReport.participants.map((participant) => {
+                  const isActive = activeParticipantsMatrixTab === participant.id;
+
+                  return (
+                    <button
+                      key={participant.id}
+                      type="button"
+                      onClick={() => setActiveParticipantsMatrixTab(participant.id)}
+                      className={`group shrink-0 min-w-max inline-flex items-center justify-center gap-2.5 py-3 sm:py-4 lg:py-4.5 px-5 sm:px-6 lg:px-7 rounded-2xl border font-black text-[11px] sm:text-sm uppercase tracking-[0.1em] transition-all duration-300 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-brand text-white border-brand shadow-[0_12px_26px_-14px_rgba(184,21,71,0.8)]'
+                          : 'border-transparent text-black/45 hover:text-black/80 hover:bg-black/[0.04]'
+                      }`}
+                    >
+                      <UserCheck
+                        className={`w-[18px] h-[18px] shrink-0 transition-opacity ${
+                          isActive ? 'opacity-95' : 'opacity-40 group-hover:opacity-65'
+                        }`}
+                      />
+                      <span className="leading-none">{participant.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
+
+          {activeTab === 'INTRO' && (
+            <CompanyParticipantsBentoBlock
+              companyReport={companyReport}
+              scaleMax={data.scaleMax}
+            />
+          )}
+
+          {activeTab === 'COMPANY_OVERVIEW' && (
+            <CompanyOverviewBlock
+              competencies={companyReport.competencies}
+              respondentCounts={companyReport.respondentCounts}
+              scaleMax={data.scaleMax}
+            />
+          )}
+
+          {activeTab === 'COMPANY_DETAIL' && (
+            <CompanyDetailBlock
+              competencies={companyReport.competencies}
+              respondentCounts={companyReport.respondentCounts}
+            />
+          )}
+
+          {activeTab === 'STRENGTHS' && (
+            <CompanyStrengthWeaknessBlock
+              strengths={companyReport.strengths}
+              developmentNeeds={companyReport.developmentNeeds}
+            />
+          )}
+
+          {activeTab === 'PARTICIPANTS' && (
+            <ParticipantsMatrixBlock
+              participants={companyReport.participants}
+              competencyColumns={competencyColumns}
+              activeParticipantTab={activeParticipantsMatrixTab}
+              onParticipantTabChange={handleParticipantsMatrixTabChange}
+            />
+          )}
+
+          {activeTab === 'INDIVIDUALS' && (
+            <div className="space-y-6 sm:space-y-8">
+              {!selectedIndividual ? (
+                <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 p-10 shadow-2xl text-center">
+                  <AlertCircle className="w-10 h-10 mx-auto text-brand mb-4" />
+                  <p className="font-black text-lg">Účastník nebol nájdený.</p>
+                </div>
+              ) : (
+                <>
+                  <IndividualOverviewBlock
+                    individual={selectedIndividual}
+                    individuals={individuals}
+                    onIndividualChange={setSelectedIndividualId}
+                    scaleMax={data.scaleMax}
+                  />
+                  <IndividualDetailBlock individual={selectedIndividual} />
+                  <IndividualPotentialBlock
+                    overestimatedPotential={selectedIndividual.overestimatedPotential}
+                    hiddenPotential={selectedIndividual.hiddenPotential}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6 text-black/40 pb-4 sm:pb-6 print:hidden">
+            <div className="flex items-center gap-4">
+              <img
+                src="/logo.png"
+                alt="Libellius"
+                className="h-14 sm:h-20 lg:h-24 w-auto object-contain"
+              />
+            </div>
+
+            <div className="text-center md:text-right">
+              <p className="text-xs font-bold text-black/60">
+                © {new Date().getFullYear()} Libellius. Všetky práva vyhradené.
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

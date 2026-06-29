@@ -6,6 +6,7 @@ import type {
   Feedback360FrequencyDistribution,
   Feedback360IndividualReport,
   Feedback360ImplementationPlan,
+  Feedback360ParticipantDistribution,
   Feedback360PotentialItem,
   Feedback360RaterAverages,
   Feedback360RespondentCounts,
@@ -24,7 +25,7 @@ import {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-const clampNumber = (value: unknown, fallback = 0, min = 0, max = 6) => {
+const clampNumber = (value: unknown, fallback = 0, min = 0, max = 7) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   if (numeric < min) return min;
@@ -75,7 +76,7 @@ const normalizeFrequencyDistribution = (
   value: unknown
 ): Feedback360FrequencyDistribution | undefined => {
   if (!isRecord(value)) return undefined;
-  return {
+  const distribution: Feedback360FrequencyDistribution = {
     na: clampNumber(readNumber(value, ['na', 'n/a'], 0), 0, 0, Number.MAX_SAFE_INTEGER),
     one: clampNumber(readNumber(value, ['one', '1'], 0), 0, 0, Number.MAX_SAFE_INTEGER),
     two: clampNumber(readNumber(value, ['two', '2'], 0), 0, 0, Number.MAX_SAFE_INTEGER),
@@ -99,6 +100,16 @@ const normalizeFrequencyDistribution = (
     ),
     six: clampNumber(readNumber(value, ['six', '6'], 0), 0, 0, Number.MAX_SAFE_INTEGER),
   };
+  const seven = clampNumber(
+    readNumber(value, ['seven', '7'], 0),
+    0,
+    0,
+    Number.MAX_SAFE_INTEGER
+  );
+  if (seven > 0) {
+    distribution.seven = seven;
+  }
+  return distribution;
 };
 
 const normalizeRespondentCounts = (value: unknown): Feedback360RespondentCounts => {
@@ -124,6 +135,59 @@ const normalizeRespondentCounts = (value: unknown): Feedback360RespondentCounts 
     ),
     self: clampNumber(readNumber(raw, ['self', 'seba'], 0), 0, 0, Number.MAX_SAFE_INTEGER),
   };
+};
+
+const normalizeParticipantDistribution = (
+  value: unknown
+): Feedback360ParticipantDistribution | undefined => {
+  const raw = isRecord(value) ? value : {};
+  const distribution: Feedback360ParticipantDistribution = {
+    total: clampNumber(
+      readNumber(raw, ['total', 'participantTotalCount', 'participanttotalcount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+    completed: clampNumber(
+      readNumber(raw, ['completed', 'participantCompletedCount', 'completedcount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+    successRate: clampNumber(
+      readNumber(raw, ['successRate', 'successrate', 'participantSuccessRate'], 0),
+      0,
+      0,
+      100
+    ),
+    subordinate: clampNumber(
+      readNumber(raw, ['subordinate', 'participantSubordinateCount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+    manager: clampNumber(
+      readNumber(raw, ['manager', 'participantManagerCount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+    peer: clampNumber(
+      readNumber(raw, ['peer', 'participantPeerCount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+    self: clampNumber(
+      readNumber(raw, ['self', 'participantSelfCount'], 0),
+      0,
+      0,
+      Number.MAX_SAFE_INTEGER
+    ),
+  };
+
+  const hasAnyValue = Object.values(distribution).some((item) => Number(item || 0) > 0);
+  return hasAnyValue ? distribution : undefined;
 };
 
 const normalizeStatement = (
@@ -453,6 +517,7 @@ const normalizeCompanyReport = (
 
   return {
     respondentCounts: normalizeRespondentCounts(raw.respondentCounts),
+    participantDistribution: normalizeParticipantDistribution(raw.participantDistribution),
     competencies,
     strengths,
     developmentNeeds,

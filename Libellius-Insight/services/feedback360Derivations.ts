@@ -8,7 +8,7 @@ import type {
   GapData,
 } from '../types';
 
-const clampNumber = (value: unknown, fallback = 0, min = 0, max = 6) => {
+const clampNumber = (value: unknown, fallback = 0, min = 0, max = 7) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   if (numeric < min) return min;
@@ -57,6 +57,7 @@ const mergeDistribution = (
     four: target.four + source.four,
     five: target.five + source.five,
     six: target.six + source.six,
+    seven: (target.seven || 0) + (source.seven || 0) || undefined,
   };
 };
 

@@ -42,10 +42,6 @@ create policy typology_tests_select_assigned_or_org_admin
         and ma.organization_id = typology_tests.organization_id
     )
     or (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and organization_id = (select public.current_profile_organization_id())
-    )
   );
 
 drop policy if exists typology_questions_select_assigned_or_org_admin on public.typology_questions;
@@ -68,10 +64,6 @@ create policy typology_questions_select_assigned_or_org_admin
               and (ma.starts_at is null or ma.starts_at <= now())
               and (ma.ends_at is null or ma.ends_at >= now())
               and ma.organization_id = tt.organization_id
-          )
-          or (
-            (select public.current_profile_role()) = 'consultant'
-            and tt.organization_id = (select public.current_profile_organization_id())
           )
         )
     )

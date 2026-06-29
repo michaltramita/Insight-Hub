@@ -80,11 +80,12 @@ type CreateOrganizationForm = {
 type TypologyAnalysisStatus = "completed" | "in_progress" | "not_started";
 
 const ROLE_OPTIONS: Array<{ value: AppUserRole; label: string }> = [
-  { value: "participant", label: "Účastník" },
-  { value: "manager", label: "Manažér" },
-  { value: "consultant", label: "Konzultant" },
+  { value: "participant", label: "Používateľ" },
   { value: "admin", label: "Admin" },
 ];
+
+const getUserRoleLabel = (role: AppUserRole) =>
+  ROLE_OPTIONS.find((option) => option.value === role)?.label || role;
 
 const PROJECT_STATUS_OPTIONS: Array<{
   value: CompanyProjectStatus;
@@ -1793,7 +1794,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                           </div>
                           <div className="shrink-0 rounded-full bg-black text-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
                             <ShieldCheck className="w-3 h-3" />
-                            {user.role}
+                            {getUserRoleLabel(user.role)}
                           </div>
                         </div>
 

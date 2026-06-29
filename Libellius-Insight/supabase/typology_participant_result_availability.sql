@@ -10,19 +10,7 @@ drop policy if exists typology_results_select_released_own on public.typology_re
 
 create policy typology_results_select_org_admin
   on public.typology_results for select to authenticated
-  using (
-    (select public.is_global_admin())
-    or (
-      (select public.current_profile_role()) = 'consultant'
-      and exists (
-        select 1
-        from public.typology_sessions ts
-        left join public.profiles p on p.id = ts.user_id
-        where ts.id = typology_results.session_id
-          and p.organization_id = (select public.current_profile_organization_id())
-      )
-    )
-  );
+  using ((select public.is_global_admin()));
 
 create policy typology_results_select_released_own
   on public.typology_results for select to authenticated

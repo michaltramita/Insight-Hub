@@ -42,12 +42,23 @@ export interface Feedback360FrequencyDistribution {
   four: number;
   five: number;
   six: number;
+  seven?: number;
 }
 
 export interface Feedback360RespondentCounts {
   subordinate: number;
   manager: number;
   peer: number;
+  self?: number;
+}
+
+export interface Feedback360ParticipantDistribution {
+  total?: number;
+  completed?: number;
+  successRate?: number;
+  subordinate?: number;
+  manager?: number;
+  peer?: number;
   self?: number;
 }
 
@@ -102,6 +113,7 @@ export interface Feedback360ParticipantSummary {
 
 export interface Feedback360CompanyReport {
   respondentCounts: Feedback360RespondentCounts;
+  participantDistribution?: Feedback360ParticipantDistribution;
   competencies: Feedback360CompetencyResult[];
   strengths: Feedback360StrengthWeaknessItem[];
   developmentNeeds: Feedback360StrengthWeaknessItem[];

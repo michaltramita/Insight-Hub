@@ -108,6 +108,10 @@ begin
     raise exception 'admin_cannot_demote_self' using errcode = '42501';
   end if;
 
+  if p_role is null or p_role not in ('participant', 'admin') then
+    raise exception 'admin_invalid_role' using errcode = '22023';
+  end if;
+
   if p_organization_id is not null and not exists (
     select 1 from public.organizations o where o.id = p_organization_id
   ) then

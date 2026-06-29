@@ -79,6 +79,6 @@ export const useCurrentProfile = (user: User | null): CurrentProfileState => {
     profile,
     isLoading,
     error,
-    isAdminLike: profile?.role === "admin" || profile?.role === "consultant",
+    isAdminLike: profile?.role === "admin",
   };
 };

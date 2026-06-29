@@ -17,6 +17,32 @@ type UseSupabaseAuthResult = {
   signOut: () => Promise<void>;
 };
 
+const normalizeAuthRedirectUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+};
+
+const resolveEmailRedirectTo = () => {
+  const configuredRedirect = normalizeAuthRedirectUrl(
+    import.meta.env.VITE_AUTH_REDIRECT_URL ?? ""
+  );
+  if (configuredRedirect) {
+    return configuredRedirect;
+  }
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.location.origin;
+};
+
 export const useSupabaseAuth = (): UseSupabaseAuthResult => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -85,11 +111,10 @@ export const useSupabaseAuth = (): UseSupabaseAuthResult => {
     }
 
     const supabase = getSupabaseBrowserClient();
+    const emailRedirectTo = resolveEmailRedirectTo();
     const { error } = await supabase.auth.signInWithOtp({
       email: trimmedEmail,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
     });
 
     if (error) {

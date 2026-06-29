@@ -113,6 +113,7 @@ Pre pripravovanú login/databázovú vrstvu vo fronte:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_AUTH_REDIRECT_URL` (odporúčané v produkcii, napr. `https://app.vasadomena.sk`)
 
 Browser klient je pripravený v:
 

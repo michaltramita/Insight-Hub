@@ -1,5 +1,10 @@
 import { getSupabaseBrowserClient } from "../lib/supabase";
-import type { AppModuleCode, AppUserRole } from "./accessControl";
+import {
+  normalizeAppUserRole,
+  type AppModuleCode,
+  type AppUserRole,
+  type StoredAppUserRole,
+} from "./accessControl";
 
 export type AdminOrganization = {
   id: string;
@@ -120,7 +125,7 @@ type AdminManagedUserRow = {
   email: string;
   full_name: string | null;
   company_name: string | null;
-  role: AppUserRole;
+  role: StoredAppUserRole | null;
   organization_id: string | null;
   organization_name: string | null;
   organization_slug: string | null;
@@ -300,7 +305,7 @@ export const loadAdminAccessOverview = async (): Promise<AdminAccessOverview> =>
       email: row.email,
       fullName: row.full_name,
       companyName: row.company_name,
-      role: row.role,
+      role: normalizeAppUserRole(row.role),
       organizationId: row.organization_id,
       organizationName: row.organization_name,
       organizationSlug: row.organization_slug,
@@ -477,6 +482,9 @@ export const updateAdminUserAccess = async (input: AdminUserAccessUpdate) => {
 
   if (error) {
     const message = String(error.message || "");
+    if (message.includes("admin_invalid_role")) {
+      throw new Error("Používateľ môže mať iba rolu Používateľ alebo Admin.");
+    }
     if (message.includes("admin_organization_required_for_modules")) {
       throw new Error("Pre priradenie modulov vyberte organizáciu používateľa.");
     }
