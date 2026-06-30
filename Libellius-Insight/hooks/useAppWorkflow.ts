@@ -226,6 +226,18 @@ export const useAppWorkflow = () => {
     setStatus(AppStatus.READY_TO_UPLOAD);
   };
 
+  const openStoredReport = (storedResult: FeedbackAnalysisResult) => {
+    sessionStorage.removeItem("libellius_show_goodbye");
+    setShowSharedGoodbye(false);
+    setPendingEncryptedPayload(null);
+    setSharePassword("");
+    setShareDecryptError(null);
+    setPublicMeta(null);
+    setSelectedMode(storedResult.mode);
+    setResult(storedResult);
+    setStatus(AppStatus.SUCCESS);
+  };
+
   const handleFileSelect = async (file: File) => {
     if (!selectedMode) return;
     const fileName = file.name.toLowerCase();
@@ -424,6 +436,7 @@ export const useAppWorkflow = () => {
     handleOpenKeyDialog,
     handleDecryptSharedReport,
     selectMode,
+    openStoredReport,
     handleFileSelect,
     handleReset,
     handleBackToMode,

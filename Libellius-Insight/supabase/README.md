@@ -56,6 +56,19 @@ supabase/typology_project_result_availability.sql
 Táto kombinácia zabezpečí, že sa výsledok účastníkovi odomkne až podľa
 projektov, ktoré majú modul `TYPOLOGY_LEADERSHIP`.
 
+## 1.4. Uložené reporty 360 SV
+
+Ak chcete, aby admin po importe CSV publikoval 360 reporty používateľom,
+spustite po projektových migráciách aj:
+
+```text
+supabase/feedback360_reports.sql
+```
+
+Migrácia vytvorí uložené reporty, prístupy k reportom a RLS pravidlá. Bežný
+používateľ potom uvidí iba publikované reporty, ku ktorým má priamy prístup
+alebo je členom projektu s modulom `360_FEEDBACK`.
+
 ## 2. Vytváranie používateľov
 
 Účty vytvára administrátor ručne v Supabase v časti `Authentication -> Users`.

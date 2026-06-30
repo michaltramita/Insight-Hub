@@ -77,6 +77,7 @@ export interface Feedback360CompetencyResult {
   averages: Feedback360RaterAverages;
   statements: Feedback360StatementResult[];
   respondentCounts?: Feedback360RespondentCounts;
+  averagesSource?: 'imported' | 'derived';
 }
 
 export interface Feedback360StrengthWeaknessItem {
@@ -109,6 +110,7 @@ export interface Feedback360ParticipantSummary {
   competencies: Feedback360CompetencyResult[];
   overallAverage: number;
   overallSelf: number;
+  overallScoresSource?: 'imported' | 'derived';
 }
 
 export interface Feedback360CompanyReport {

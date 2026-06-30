@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type {
-  Feedback360FrequencyDistribution,
-  Feedback360IndividualReport,
-  Feedback360CompetencyResult,
-} from '../../types';
+import type { Feedback360IndividualReport } from '../../types';
 import StyledSelect from '../ui/StyledSelect';
 import { exportBlockToPDF, exportBlockToPNG, exportDataToExcel } from '../../utils/exportUtils';
 import {
@@ -14,16 +10,11 @@ import {
   Filter,
   Image as ImageIcon,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import Feedback360FrequencyChart, {
+  buildFeedback360FrequencyChartRows,
+  FEEDBACK360_FREQUENCY_BUCKETS,
+  FrequencyBucketKey,
+} from './Feedback360FrequencyChart';
 
 interface Props {
   individual: Feedback360IndividualReport;
@@ -31,25 +22,6 @@ interface Props {
 
 type RespondentGroupKey = 'subordinate' | 'manager' | 'peer' | 'self';
 type SelectableRespondentGroupKey = Exclude<RespondentGroupKey, 'self'>;
-type FrequencyBucketKey = keyof Feedback360FrequencyDistribution;
-type FrequencyPctKey =
-  | 'naPct'
-  | 'onePct'
-  | 'twoPct'
-  | 'threePct'
-  | 'fourPct'
-  | 'fivePct'
-  | 'sixPct'
-  | 'sevenPct';
-type FrequencyCountKey =
-  | 'naCount'
-  | 'oneCount'
-  | 'twoCount'
-  | 'threeCount'
-  | 'fourCount'
-  | 'fiveCount'
-  | 'sixCount'
-  | 'sevenCount';
 
 interface RespondentGroupOption {
   value: RespondentGroupKey;
@@ -58,122 +30,15 @@ interface RespondentGroupOption {
   count: number;
 }
 
-interface FrequencyChartRow {
-  category: string;
-  totalCount: number;
-  naCount: number;
-  oneCount: number;
-  twoCount: number;
-  threeCount: number;
-  fourCount: number;
-  fiveCount: number;
-  sixCount: number;
-  sevenCount: number;
-  naPct?: number;
-  onePct?: number;
-  twoPct?: number;
-  threePct?: number;
-  fourPct?: number;
-  fivePct?: number;
-  sixPct?: number;
-  sevenPct?: number;
-}
-
-interface TooltipPayloadItem {
-  payload?: FrequencyChartRow;
-}
-
-interface FrequencyDistributionTooltipProps {
-  active?: boolean;
-  payload?: TooltipPayloadItem[];
-  label?: string;
-}
-
-interface DistributionLabelProps {
-  value?: number;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  payload?: FrequencyChartRow;
-}
-
 const score = (value: unknown) => Number(Number(value) || 0).toFixed(2);
-
-const truncate = (value: string, max = 76) =>
-  value.length > max ? `${value.slice(0, max - 1).trim()}...` : value;
+const scoreOrDash = (value: number | null) => (value === null ? '—' : score(value));
+const positiveScoreOrNull = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+};
 
 const fileSafe = (value: string) => value.replace(/\s+/g, '_').replace(/[^\w.-]+/g, '_');
-
-const FREQUENCY_BUCKETS: Array<{
-  key: FrequencyBucketKey;
-  label: string;
-  pctKey: FrequencyPctKey;
-  countKey: FrequencyCountKey;
-  color: string;
-  textColor: string;
-}> = [
-  { key: 'na', label: 'N/A', pctKey: 'naPct', countKey: 'naCount', color: '#111111', textColor: '#FFFFFF' },
-  { key: 'one', label: '1', pctKey: 'onePct', countKey: 'oneCount', color: '#4A081C', textColor: '#FFFFFF' },
-  { key: 'two', label: '2', pctKey: 'twoPct', countKey: 'twoCount', color: '#7D0E30', textColor: '#FFFFFF' },
-  { key: 'three', label: '3', pctKey: 'threePct', countKey: 'threeCount', color: '#B81547', textColor: '#FFFFFF' },
-  { key: 'four', label: '4', pctKey: 'fourPct', countKey: 'fourCount', color: '#CB446D', textColor: '#FFFFFF' },
-  { key: 'five', label: '5', pctKey: 'fivePct', countKey: 'fiveCount', color: '#E88AA6', textColor: '#111111' },
-  { key: 'six', label: '6', pctKey: 'sixPct', countKey: 'sixCount', color: '#F5B9CB', textColor: '#111111' },
-  { key: 'seven', label: '7', pctKey: 'sevenPct', countKey: 'sevenCount', color: '#FCE8EE', textColor: '#111111' },
-];
 const FREQUENCY_ALL_VALUE = '__ALL__';
-
-const groupValueKeyMap: Record<RespondentGroupKey, keyof Pick<
-  Feedback360CompetencyResult['averages'],
-  'subordinate' | 'manager' | 'peer' | 'self'
->> = {
-  subordinate: 'subordinate',
-  manager: 'manager',
-  peer: 'peer',
-  self: 'self',
-};
-
-const FrequencyDistributionTooltip = ({
-  active,
-  payload,
-  label,
-}: FrequencyDistributionTooltipProps) => {
-  if (!(active && payload && payload.length)) return null;
-  const row = payload.find((item) => item?.payload)?.payload;
-  if (!row) return null;
-
-  return (
-    <div className="max-w-sm rounded-2xl border border-white/10 bg-black p-4 text-white shadow-2xl">
-      <p className="mb-3 text-sm font-black leading-snug">{label}</p>
-      <div className="space-y-2">
-        {FREQUENCY_BUCKETS.map((bucket) => {
-          const count = Number(row[bucket.countKey] || 0);
-          const pct = Number(row[bucket.pctKey] || 0);
-          if (count <= 0) return null;
-
-          return (
-            <div key={bucket.key} className="flex items-center justify-between gap-4 text-xs font-black">
-              <span className="inline-flex items-center gap-2">
-                <span
-                  className="h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: bucket.color }}
-                />
-                Hodnota {bucket.label}
-              </span>
-              <span>
-                {count} ({pct.toFixed(1)}%)
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-white/45">
-        Spolu {row.totalCount} odpovedí
-      </p>
-    </div>
-  );
-};
 
 const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
   const [activeCompetencyId, setActiveCompetencyId] = useState<string>('');
@@ -340,70 +205,31 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
   }, [selectedGroupOptions]);
 
   const frequencyChartData = useMemo(
-    () =>
-      tableRows
-        .map<FrequencyChartRow | null>((row) => {
-          const freq = row.frequencyDistribution;
-          if (!freq) return null;
-
-          const naCount = Number(freq.na ?? 0) || 0;
-          const oneCount = Number(freq.one ?? 0) || 0;
-          const twoCount = Number(freq.two ?? 0) || 0;
-          const threeCount = Number(freq.three ?? 0) || 0;
-          const fourCount = Number(freq.four ?? 0) || 0;
-          const fiveCount = Number(freq.five ?? 0) || 0;
-          const sixCount = Number(freq.six ?? 0) || 0;
-          const sevenCount = Number(freq.seven ?? 0) || 0;
-          const totalCount =
-            naCount + oneCount + twoCount + threeCount + fourCount + fiveCount + sixCount + sevenCount;
-
-          return {
-            category: row.statement,
-            totalCount,
-            naCount,
-            oneCount,
-            twoCount,
-            threeCount,
-            fourCount,
-            fiveCount,
-            sixCount,
-            sevenCount,
-            naPct: totalCount > 0 && naCount > 0 ? (naCount / totalCount) * 100 : undefined,
-            onePct: totalCount > 0 && oneCount > 0 ? (oneCount / totalCount) * 100 : undefined,
-            twoPct: totalCount > 0 && twoCount > 0 ? (twoCount / totalCount) * 100 : undefined,
-            threePct: totalCount > 0 && threeCount > 0 ? (threeCount / totalCount) * 100 : undefined,
-            fourPct: totalCount > 0 && fourCount > 0 ? (fourCount / totalCount) * 100 : undefined,
-            fivePct: totalCount > 0 && fiveCount > 0 ? (fiveCount / totalCount) * 100 : undefined,
-            sixPct: totalCount > 0 && sixCount > 0 ? (sixCount / totalCount) * 100 : undefined,
-            sevenPct: totalCount > 0 && sevenCount > 0 ? (sevenCount / totalCount) * 100 : undefined,
-          };
-        })
-        .filter((row): row is FrequencyChartRow => row !== null && row.totalCount > 0),
+    () => buildFeedback360FrequencyChartRows(tableRows),
     [tableRows]
   );
 
   const activeSummary = useMemo(() => {
     if (!activeCompetency) return null;
-    const average = Number(activeCompetency.averages.average) || 0;
-    const self = Number(activeCompetency.averages.self) || 0;
-    const diff = Number((self - average).toFixed(2));
-    const selectedGroupAverage =
-      selectedGroupOptions.length > 0
-        ? selectedGroupOptions.reduce(
-            (sum, option) =>
-              sum + (Number(activeCompetency.averages[groupValueKeyMap[option.value]]) || 0),
-            0
-          ) / selectedGroupOptions.length
+    const hasImportedSummary = activeCompetency.averagesSource === 'imported';
+    const importedAverage = hasImportedSummary
+      ? positiveScoreOrNull(activeCompetency.averages.average)
+      : null;
+    const importedSelf = hasImportedSummary
+      ? positiveScoreOrNull(activeCompetency.averages.self)
+      : null;
+    const diff =
+      importedAverage !== null && importedSelf !== null
+        ? Number((importedSelf - importedAverage).toFixed(2))
         : null;
 
     return {
       statementsCount: activeCompetency.statements.length,
-      average,
-      self,
+      self: importedSelf,
       diff,
-      selectedGroupAverage,
+      selectedGroupAverage: importedAverage,
     };
-  }, [activeCompetency, selectedGroupOptions]);
+  }, [activeCompetency]);
 
   const exportBaseName = activeCompetency
     ? fileSafe(`360SV_Detail_${individual.name}_${activeCompetency.label}`)
@@ -448,45 +274,11 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
 
   const frequencyFilterOptions = [
     { value: FREQUENCY_ALL_VALUE, label: 'Všetky hodnoty' },
-    ...FREQUENCY_BUCKETS.map((bucket) => ({
+    ...FEEDBACK360_FREQUENCY_BUCKETS.map((bucket) => ({
       value: bucket.key,
       label: `Hodnota ${bucket.label}`,
     })),
   ];
-
-  const getFrequencyChartHeight = () => {
-    const rowHeight = 64;
-    const basePadding = 110;
-    return Math.max(260, Math.min(720, frequencyChartData.length * rowHeight + basePadding));
-  };
-
-  const renderDistributionCountLabel =
-    (countKey: FrequencyCountKey, textColor: string) =>
-    (props: unknown) => {
-      const safeProps = props as DistributionLabelProps;
-      const percentage = Number(safeProps?.value ?? 0);
-      const count = Number(safeProps?.payload?.[countKey] ?? 0);
-      if (!(percentage >= 7) || count <= 0) return null;
-
-      const x = Number(safeProps?.x ?? 0);
-      const y = Number(safeProps?.y ?? 0);
-      const width = Number(safeProps?.width ?? 0);
-      const height = Number(safeProps?.height ?? 0);
-
-      return (
-        <text
-          x={x + width / 2}
-          y={y + height / 2}
-          dy="0.35em"
-          textAnchor="middle"
-          fill={textColor}
-          fontSize={11}
-          fontWeight={900}
-        >
-          {count}
-        </text>
-      );
-    };
 
   return (
     <div className="space-y-8 sm:space-y-10 animate-fade-in">
@@ -665,9 +457,7 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
                   Skupiny
                 </p>
                 <p className="text-3xl sm:text-4xl font-black tracking-tighter mt-1">
-                  {activeSummary.selectedGroupAverage === null
-                    ? '—'
-                    : score(activeSummary.selectedGroupAverage)}
+                  {scoreOrDash(activeSummary.selectedGroupAverage)}
                 </p>
               </div>
               <div className="rounded-2xl sm:rounded-3xl bg-black/5 border border-black/5 p-4 sm:p-5">
@@ -675,7 +465,7 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
                   Sebahodnotenie
                 </p>
                 <p className="text-3xl sm:text-4xl font-black tracking-tighter mt-1">
-                  {score(activeSummary.self)}
+                  {scoreOrDash(activeSummary.self)}
                 </p>
               </div>
               <div className="rounded-2xl sm:rounded-3xl bg-black/5 border border-black/5 p-4 sm:p-5">
@@ -686,13 +476,13 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
                   className={`text-3xl sm:text-4xl font-black tracking-tighter mt-1 ${
                     activeSummary.diff > 0
                       ? 'text-brand'
-                      : activeSummary.diff < 0
+                      : activeSummary.diff !== null && activeSummary.diff < 0
                       ? 'text-black/55'
                       : 'text-black'
                   }`}
                 >
-                  {activeSummary.diff > 0 ? '+' : ''}
-                  {score(activeSummary.diff)}
+                  {activeSummary.diff !== null && activeSummary.diff > 0 ? '+' : ''}
+                  {scoreOrDash(activeSummary.diff)}
                 </p>
               </div>
             </div>
@@ -801,117 +591,10 @@ const IndividualDetailBlock: React.FC<Props> = ({ individual }) => {
                   </p>
                 </div>
               ) : (
-                <>
-              <div className="w-full" style={{ height: getFrequencyChartHeight() }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={frequencyChartData}
-                    layout="vertical"
-                    margin={{ left: 10, right: 28, top: 8, bottom: 16 }}
-                  >
-                    <CartesianGrid strokeDasharray="2 6" horizontal={false} stroke="#00000010" />
-                    <XAxis
-                      type="number"
-                      domain={[0, 100]}
-                      ticks={[0, 20, 40, 60, 80, 100]}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value: number) => `${value}%`}
-                      tick={{
-                        fill: '#00000066',
-                        fontSize: 11,
-                        fontWeight: 800,
-                      }}
-                    />
-                    <YAxis
-                      dataKey="category"
-                      type="category"
-                      width={430}
-                      interval={0}
-                      tick={({ x, y, payload }) => (
-                        <g transform={`translate(${Number(x || 0) - 8},${Number(y || 0)})`}>
-                          <text
-                            x={0}
-                            y={0}
-                            dy={4}
-                            textAnchor="end"
-                            fill="#111111"
-                            fontSize={12}
-                            fontWeight={900}
-                          >
-                            {truncate(String(payload?.value || ''), 52)}
-                          </text>
-                        </g>
-                      )}
-                    />
-                    <Tooltip
-                      cursor={{ fill: '#00000005' }}
-                      content={(tooltipProps: unknown) => (
-                        <FrequencyDistributionTooltip
-                          {...(tooltipProps as FrequencyDistributionTooltipProps)}
-                        />
-                      )}
-                      isAnimationActive={false}
-                      shared
-                    />
-
-                    {FREQUENCY_BUCKETS.map((bucket, index) => {
-                      const isFirst = index === 0;
-                      const isLast = index === FREQUENCY_BUCKETS.length - 1;
-                      const isHighlighted =
-                        !selectedFrequencyBucket || selectedFrequencyBucket === bucket.key;
-
-                      return (
-                        <Bar
-                          key={bucket.key}
-                          dataKey={bucket.pctKey}
-                          stackId="distribution"
-                          fill={isHighlighted ? bucket.color : '#D4D4D8'}
-                          isAnimationActive={false}
-                          radius={
-                            isFirst
-                              ? [10, 0, 0, 10]
-                              : isLast
-                                ? [0, 10, 10, 0]
-                                : [0, 0, 0, 0]
-                          }
-                        >
-                          <LabelList
-                            dataKey={bucket.pctKey}
-                            content={renderDistributionCountLabel(
-                              bucket.countKey,
-                              isHighlighted ? bucket.textColor : '#3F3F46'
-                            )}
-                          />
-                        </Bar>
-                      );
-                    })}
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-3 sm:mt-4 flex flex-wrap gap-2 sm:gap-3 justify-end">
-                {FREQUENCY_BUCKETS.map((bucket) => (
-                  <div
-                    key={`legend-${bucket.key}`}
-                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-black/10 bg-white"
-                  >
-                    <span
-                      className="w-3.5 h-3.5 rounded-sm"
-                      style={{
-                        backgroundColor:
-                          !selectedFrequencyBucket || selectedFrequencyBucket === bucket.key
-                            ? bucket.color
-                            : '#D4D4D8',
-                      }}
-                    />
-                    <span className="text-[11px] sm:text-xs font-black tracking-wide text-black/75">
-                      {bucket.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-                </>
+                <Feedback360FrequencyChart
+                  rows={frequencyChartData}
+                  selectedBucket={selectedFrequencyBucket}
+                />
               )}
             </div>
         </section>

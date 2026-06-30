@@ -241,6 +241,10 @@ const normalizeCompetency = (
     'averages' in raw
       ? normalizeRaterAverages(raw.averages)
       : normalizeRaterAverages(raw);
+  const rawAveragesSource =
+    raw.averagesSource === 'imported' || raw.averagesSource === 'derived'
+      ? raw.averagesSource
+      : undefined;
   const hasAverageData = averages.average > 0 || averages.self > 0;
 
   let resolvedAverages = averages;
@@ -264,6 +268,8 @@ const normalizeCompetency = (
     averages: resolvedAverages,
     statements,
     respondentCounts: normalizeRespondentCounts(raw.respondentCounts),
+    averagesSource:
+      rawAveragesSource || (hasAverageData ? 'imported' : statements.length > 0 ? 'derived' : 'imported'),
   };
 };
 
@@ -444,6 +450,7 @@ const normalizeParticipantsFromIndividuals = (
       competencies: individual.competencies,
       overallAverage,
       overallSelf,
+      overallScoresSource: 'derived',
     };
   });
 
@@ -502,14 +509,22 @@ const normalizeCompanyReport = (
               .filter(
                 (competency): competency is Feedback360CompetencyResult => competency !== null
               );
-            const overall = calculateOverallScores(participantCompetencies);
+            const hasExplicitOverallAverage = 'overallAverage' in participantRecord;
+            const hasExplicitOverallSelf = 'overallSelf' in participantRecord;
+            const hasExplicitOverallScores =
+              hasExplicitOverallAverage || hasExplicitOverallSelf;
 
             return {
               id: toText(participantRecord.id, `participant_${index + 1}`),
               name,
               competencies: participantCompetencies,
-              overallAverage: clampNumber(participantRecord.overallAverage, overall.overallAverage),
-              overallSelf: clampNumber(participantRecord.overallSelf, overall.overallSelf),
+              overallAverage: hasExplicitOverallAverage
+                ? clampNumber(participantRecord.overallAverage, 0)
+                : 0,
+              overallSelf: hasExplicitOverallSelf
+                ? clampNumber(participantRecord.overallSelf, 0)
+                : 0,
+              overallScoresSource: hasExplicitOverallScores ? 'imported' : 'derived',
             };
           })
           .filter((participant) => participant !== null)

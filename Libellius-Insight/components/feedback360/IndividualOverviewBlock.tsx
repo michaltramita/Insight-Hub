@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import type { Feedback360IndividualReport } from '../../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import type {
+  Feedback360IndividualReport,
+  Feedback360ParticipantSummary,
+} from '../../types';
 import CompetencyRadar from '../RadarChart';
+import StyledSelect from '../ui/StyledSelect';
 import { exportBlockToPDF, exportBlockToPNG, exportDataToExcel } from '../../utils/exportUtils';
 import {
   ChevronDown,
@@ -8,24 +12,51 @@ import {
   Gauge,
   Image as ImageIcon,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 interface Props {
   individual: Feedback360IndividualReport;
   individuals: Feedback360IndividualReport[];
+  participantSummary?: Feedback360ParticipantSummary;
   onIndividualChange: (individualId: string) => void;
   scaleMax: number;
 }
 
 const formatScore = (value: unknown) => Number(Number(value) || 0).toFixed(2);
+const formatScoreOrDash = (value: number | null) => (value === null ? '—' : formatScore(value));
+const positiveScoreOrNull = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+};
+
+const statementChartSeries = [
+  { key: 'manager', label: 'Nadriadená/ý', color: '#7B7B7B' },
+  { key: 'peer', label: 'Peer', color: '#111114' },
+  { key: 'subordinate', label: 'Podriadená/ý', color: '#A7A7A7' },
+  { key: 'self', label: 'Sebahodnotenie', color: '#B81547' },
+] as const;
+
+type StatementChartSeriesKey = (typeof statementChartSeries)[number]['key'];
 
 const IndividualOverviewBlock: React.FC<Props> = ({
   individual,
   individuals,
+  participantSummary,
   onIndividualChange,
   scaleMax,
 }) => {
   const [activeExportMenu, setActiveExportMenu] = useState<string | null>(null);
   const [isIndividualMenuOpen, setIsIndividualMenuOpen] = useState(false);
+  const [activeStatementChartCompetencyId, setActiveStatementChartCompetencyId] = useState('');
 
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
@@ -46,21 +77,61 @@ const IndividualOverviewBlock: React.FC<Props> = ({
     othersScore: Number(competency.averages.average) || 0,
   }));
 
-  const overallSelf = individual.competencies.length
-    ? individual.competencies.reduce(
-        (sum, competency) => sum + (Number(competency.averages.self) || 0),
-        0
-      ) / individual.competencies.length
-    : 0;
+  useEffect(() => {
+    if (!individual.competencies.length) {
+      if (activeStatementChartCompetencyId) setActiveStatementChartCompetencyId('');
+      return;
+    }
 
-  const overallPeer = individual.competencies.length
-    ? individual.competencies.reduce(
-        (sum, competency) => sum + (Number(competency.averages.peer) || 0),
-        0
-      ) / individual.competencies.length
-    : 0;
+    const exists = individual.competencies.some(
+      (competency) => competency.id === activeStatementChartCompetencyId
+    );
+    if (!exists) {
+      setActiveStatementChartCompetencyId(individual.competencies[0].id);
+    }
+  }, [activeStatementChartCompetencyId, individual.competencies]);
 
-  const overallDiff = Number((overallSelf - overallPeer).toFixed(2));
+  const statementChartCompetency =
+    individual.competencies.find((competency) => competency.id === activeStatementChartCompetencyId) ||
+    individual.competencies[0];
+  const statementChartCompetencyOptions = useMemo(
+    () =>
+      individual.competencies.map((competency) => ({
+        value: competency.id,
+        label: competency.label,
+      })),
+    [individual.competencies]
+  );
+  const statementChartRows = useMemo(
+    () =>
+      statementChartCompetency?.statements.map((statement, index) => ({
+        index: index + 1,
+        label: `${index + 1}.`,
+        statement: statement.statement,
+        subordinate: Number(statement.averages.subordinate) || 0,
+        peer: Number(statement.averages.peer) || 0,
+        manager: Number(statement.averages.manager) || 0,
+        self: Number(statement.averages.self) || 0,
+      })) || [],
+    [statementChartCompetency]
+  );
+  const xAxisTicks = useMemo(
+    () => Array.from({ length: Math.max(Math.round(scaleMax), 1) }, (_, index) => index + 1),
+    [scaleMax]
+  );
+  const statementChartHeight = Math.max(560, statementChartRows.length * 72);
+
+  const hasImportedOverallScores = participantSummary?.overallScoresSource === 'imported';
+  const overallSelf = hasImportedOverallScores
+    ? positiveScoreOrNull(participantSummary?.overallSelf)
+    : null;
+  const overallPeer = hasImportedOverallScores
+    ? positiveScoreOrNull(participantSummary?.overallAverage)
+    : null;
+  const overallDiff =
+    overallSelf !== null && overallPeer !== null
+      ? Number((overallSelf - overallPeer).toFixed(2))
+      : null;
 
   const handleExcelExport = () => {
     exportDataToExcel(
@@ -156,7 +227,7 @@ const IndividualOverviewBlock: React.FC<Props> = ({
             Celkové sebahodnotenie
           </span>
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none">
-            {formatScore(overallSelf)}
+            {formatScoreOrDash(overallSelf)}
           </span>
         </div>
         <div className="bg-white border border-black/5 p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
@@ -164,7 +235,7 @@ const IndividualOverviewBlock: React.FC<Props> = ({
             Celkové priemerné hodnotenie kolegami
           </span>
           <span className="text-5xl sm:text-6xl xl:text-7xl font-black text-black tracking-tighter leading-none">
-            {formatScore(overallPeer)}
+            {formatScoreOrDash(overallPeer)}
           </span>
         </div>
         <div className="bg-white border border-black/5 p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] shadow-2xl transition-transform hover:scale-[1.02]">
@@ -173,11 +244,15 @@ const IndividualOverviewBlock: React.FC<Props> = ({
           </span>
           <span
             className={`text-5xl sm:text-6xl xl:text-7xl font-black tracking-tighter leading-none ${
-              overallDiff > 0 ? 'text-brand' : overallDiff < 0 ? 'text-black/55' : 'text-black'
+              overallDiff !== null && overallDiff > 0
+                ? 'text-brand'
+                : overallDiff !== null && overallDiff < 0
+                ? 'text-black/55'
+                : 'text-black'
             }`}
           >
-            {overallDiff > 0 ? '+' : ''}
-            {formatScore(overallDiff)}
+            {overallDiff !== null && overallDiff > 0 ? '+' : ''}
+            {formatScoreOrDash(overallDiff)}
           </span>
         </div>
       </div>
@@ -261,7 +336,154 @@ const IndividualOverviewBlock: React.FC<Props> = ({
             <CompetencyRadar data={radarData} scaleMax={scaleMax} variant="full" />
           </div>
         </div>
+
       </section>
+
+      {statementChartCompetency && (
+        <section
+          id="block-360-individual-statement-chart"
+          className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl"
+        >
+            <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5 sm:gap-6 lg:gap-8 mb-8 sm:mb-10">
+              <div>
+                <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.25em] text-brand">
+                  Detail podľa tvrdení
+                </p>
+                <h4 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter leading-none">
+                  Porovnanie hodnotení v oblasti
+                </h4>
+              </div>
+
+              <div className="w-full xl:w-[420px]">
+                <div className="text-[10px] sm:text-xs font-black uppercase tracking-[0.25em] text-black/35 mb-2">
+                  Oblasť
+                </div>
+                <StyledSelect
+                  value={statementChartCompetency.id}
+                  onChange={setActiveStatementChartCompetencyId}
+                  options={statementChartCompetencyOptions}
+                  placeholder="Vyber oblasť"
+                  wrapperClassName="w-full"
+                  buttonClassName="min-h-[56px] rounded-2xl border border-black/5 bg-black/[0.03] px-4 sm:px-5 py-3 shadow-sm"
+                  labelClassName="text-sm sm:text-base font-black uppercase tracking-wide text-black pr-8"
+                  panelClassName="rounded-2xl"
+                  optionClassName="text-xs sm:text-sm font-black uppercase tracking-wide"
+                  selectedOptionClassName="bg-brand/12 text-brand"
+                  iconClassName="text-black/35"
+                  menuAlign="left"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-10">
+              {statementChartSeries.map((series) => (
+                <div
+                  key={series.key}
+                  className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.12em] text-black/65 shadow-sm"
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: series.color }}
+                  />
+                  <span>{series.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,0.95fr)_minmax(620px,1.45fr)] gap-8 lg:gap-12 overflow-x-auto">
+              <div
+                className="hidden xl:flex flex-col justify-between pr-2"
+                style={{ height: statementChartHeight }}
+              >
+                {statementChartRows.map((row) => (
+                  <div key={row.label} className="flex min-h-[54px] items-center rounded-2xl px-3 transition-colors hover:bg-black/[0.025]">
+                    <p className="text-sm 2xl:text-base font-bold leading-snug text-black/70">
+                      {row.index}. {row.statement}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="min-w-[720px] rounded-[1.5rem] border border-black/5 bg-black/[0.015] p-4 sm:p-6" style={{ height: statementChartHeight }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={statementChartRows}
+                    layout="vertical"
+                    margin={{ left: 12, right: 34, top: 18, bottom: 26 }}
+                  >
+                    <CartesianGrid stroke="#00000010" horizontal vertical />
+                    <XAxis
+                      type="number"
+                      domain={[0, scaleMax]}
+                      ticks={xAxisTicks}
+                      tickLine={false}
+                      axisLine={{ stroke: '#00000026' }}
+                      tick={{ fontSize: 12, fontWeight: 800, fill: '#00000088' }}
+                    />
+                    <YAxis
+                      dataKey="label"
+                      type="category"
+                      width={42}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12, fontWeight: 900, fill: '#00000055' }}
+                    />
+                    <ReferenceLine
+                      x={5}
+                      stroke="#B81547"
+                      strokeWidth={2}
+                      strokeDasharray="5 6"
+                      ifOverflow="visible"
+                    />
+                    <Tooltip
+                      cursor={{ stroke: '#00000018', strokeWidth: 1 }}
+                      formatter={(value: unknown, name: unknown) => {
+                        const series = statementChartSeries.find((item) => item.key === name);
+                        return [formatScore(value), series?.label || String(name)];
+                      }}
+                      labelFormatter={(label) => {
+                        const row = statementChartRows.find((item) => item.label === label);
+                        return row ? `${row.index}. ${row.statement}` : String(label);
+                      }}
+                      contentStyle={{
+                        borderRadius: '1rem',
+                        border: '1px solid #00000010',
+                        boxShadow: '0 18px 45px -24px rgba(0,0,0,0.45)',
+                        fontWeight: 800,
+                      }}
+                    />
+                    {statementChartSeries.map((series) => (
+                      <Line
+                        key={series.key}
+                        type="linear"
+                        dataKey={series.key as StatementChartSeriesKey}
+                        stroke={series.color}
+                        strokeWidth={series.key === 'self' ? 4 : 3.5}
+                        strokeDasharray={series.key === 'self' ? '7 5' : undefined}
+                        dot={{
+                          r: 5.5,
+                          strokeWidth: 2.5,
+                          fill: series.color,
+                          stroke: series.color,
+                        }}
+                        activeDot={{ r: 8, strokeWidth: 2.5 }}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="xl:hidden mt-6 space-y-3">
+              {statementChartRows.map((row) => (
+                <p key={row.label} className="text-sm font-bold leading-snug text-black/65">
+                  {row.index}. {row.statement}
+                </p>
+              ))}
+            </div>
+        </section>
+      )}
     </div>
   );
 };

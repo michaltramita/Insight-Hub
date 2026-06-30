@@ -44,13 +44,17 @@ interface ReportTab {
 const PARTICIPANTS_COMPARISON_TAB_ID = 'comparison';
 
 const reportTabs: ReportTab[] = [
-  { id: 'INTRO', label: 'Účastníci', icon: Users, tone: 'dark' },
-  { id: 'COMPANY_OVERVIEW', label: 'Celá firma', icon: BarChart4, tone: 'brand' },
-  { id: 'COMPANY_DETAIL', label: 'Detail kompetencií', icon: ListChecks, tone: 'brand' },
+  { id: 'INTRO', label: 'Základné informácie', icon: Users, tone: 'dark' },
+  { id: 'COMPANY_OVERVIEW', label: 'Výsledky organizácie', icon: BarChart4, tone: 'brand' },
+  { id: 'COMPANY_DETAIL', label: 'Detailné výsledky za celú organizáciu', icon: ListChecks, tone: 'brand' },
   { id: 'STRENGTHS', label: 'Silné a slabé stránky', icon: Target, tone: 'dark' },
   { id: 'PARTICIPANTS', label: 'Výsledky jednotlivcov', icon: Table, tone: 'brand' },
-  { id: 'INDIVIDUALS', label: 'Individuálny detail', icon: UserCheck, tone: 'dark' },
+  { id: 'INDIVIDUALS', label: 'Detailné výsledky jednotlivcov', icon: UserCheck, tone: 'dark' },
 ];
+
+const reportTabLabelMap = Object.fromEntries(
+  reportTabs.map((tab) => [tab.id, tab.label])
+) as Record<PrimaryTab, string>;
 
 const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
   const [activeTab, setActiveTab] = useState<PrimaryTab>('INTRO');
@@ -77,6 +81,14 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
     () => individuals.find((item) => item.id === selectedIndividualId),
     [individuals, selectedIndividualId]
   );
+  const selectedParticipantSummary = useMemo(() => {
+    if (!selectedIndividual) return undefined;
+
+    return companyReport.participants.find(
+      (participant) =>
+        participant.id === selectedIndividual.id || participant.name === selectedIndividual.name
+    );
+  }, [companyReport.participants, selectedIndividual]);
 
   const handleParticipantsMatrixTabChange = useCallback((tabId: string) => {
     setActiveParticipantsMatrixTab(tabId);
@@ -283,7 +295,7 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
                         : 'opacity-40 group-hover:opacity-65'
                     }`}
                   />
-                  <span className="leading-none">Porovnanie</span>
+                  <span className="leading-none">Porovnanie výsledkov jednotlivcov</span>
                 </button>
 
                 {companyReport.participants.map((participant) => {
@@ -325,6 +337,7 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
               competencies={companyReport.competencies}
               respondentCounts={companyReport.respondentCounts}
               scaleMax={data.scaleMax}
+              title={reportTabLabelMap.COMPANY_OVERVIEW}
             />
           )}
 
@@ -332,6 +345,7 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
             <CompanyDetailBlock
               competencies={companyReport.competencies}
               respondentCounts={companyReport.respondentCounts}
+              title={reportTabLabelMap.COMPANY_DETAIL}
             />
           )}
 
@@ -363,6 +377,7 @@ const Feedback360Dashboard: React.FC<Props> = ({ result, onReset }) => {
                   <IndividualOverviewBlock
                     individual={selectedIndividual}
                     individuals={individuals}
+                    participantSummary={selectedParticipantSummary}
                     onIndividualChange={setSelectedIndividualId}
                     scaleMax={data.scaleMax}
                   />

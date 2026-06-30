@@ -12,6 +12,12 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Feedback360Dashboard = lazy(
   () => import('./components/feedback360/Feedback360Dashboard')
 );
+const Feedback360ReportLibrary = lazy(
+  () => import('./components/feedback360/Feedback360ReportLibrary')
+);
+const Feedback360ReportPublisher = lazy(
+  () => import('./components/feedback360/Feedback360ReportPublisher')
+);
 const SatisfactionDashboard = lazy(
   () => import('./components/SatisfactionDashboard')
 );
@@ -41,6 +47,7 @@ const App: React.FC = () => {
   const [showAdminUsers, setShowAdminUsers] = useState(false);
   const [showAdminProjects, setShowAdminProjects] = useState(false);
   const [showAdminModules, setShowAdminModules] = useState(false);
+  const [showFeedback360Reports, setShowFeedback360Reports] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const previousUserIdRef = useRef<string | null>(null);
@@ -74,6 +81,7 @@ const App: React.FC = () => {
     handleOpenKeyDialog,
     handleDecryptSharedReport,
     selectMode,
+    openStoredReport,
     handleFileSelect,
     handleReset,
     handleBackToMode,
@@ -102,6 +110,18 @@ const App: React.FC = () => {
     ? PASSWORD_CONTEXT_LABEL_BY_ROLE[profile.role]
     : 'Používateľský účet';
 
+  const handleOpenFeedback360Module = () => {
+    if (!canSeeFeedback360) return;
+
+    setShowFeedback360Reports(false);
+    if (isGlobalAdmin) {
+      selectMode('360_FEEDBACK');
+      return;
+    }
+
+    setShowFeedback360Reports(true);
+  };
+
   useEffect(() => {
     const currentUserId = user?.id ?? null;
     const previousUserId = previousUserIdRef.current;
@@ -113,6 +133,7 @@ const App: React.FC = () => {
     setShowAdminUsers(false);
     setShowAdminProjects(false);
     setShowAdminModules(false);
+    setShowFeedback360Reports(false);
     setShowTypologyTest(false);
     setShowTypologyResults(false);
     handleBackToMode();
@@ -460,7 +481,7 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
-        {(showTypologyTest || showTypologyResults) && user && !showAdminUsers && !showAdminProjects && !showSharedGoodbye && (
+        {(showTypologyTest || showTypologyResults) && user && !showAdminUsers && !showAdminProjects && !showFeedback360Reports && !showSharedGoodbye && (
           <Suspense
             fallback={
               <div className="w-full py-20 text-center">
@@ -485,7 +506,27 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
-        {!showAdminUsers && !showAdminProjects && !showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
+        {showFeedback360Reports && user && !showAdminUsers && !showAdminProjects && !showTypologyTest && !showTypologyResults && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
+          <Suspense
+            fallback={
+              <div className="w-full py-20 text-center">
+                <p className="text-sm font-bold uppercase tracking-widest text-black/40">
+                  Načítavam 360 reporty...
+                </p>
+              </div>
+            }
+          >
+            <Feedback360ReportLibrary
+              onBack={() => setShowFeedback360Reports(false)}
+              onOpenReport={(storedResult) => {
+                setShowFeedback360Reports(false);
+                openStoredReport(storedResult);
+              }}
+            />
+          </Suspense>
+        )}
+
+        {!showAdminUsers && !showAdminProjects && !showTypologyTest && !showTypologyResults && !showFeedback360Reports && !shouldShowSharedLoading && !pendingEncryptedPayload && status === AppStatus.HOME && !showSharedGoodbye && (
           <div className="flex flex-col items-center justify-center flex-grow text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-brand/5 text-brand rounded-full mb-6 md:mb-8 text-[10px] md:text-sm font-black tracking-widest uppercase">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Next-gen Analytics
@@ -624,7 +665,7 @@ const App: React.FC = () => {
             {!isBootstrappingAccess && !accessLoadError && hasAnyAssignedModule && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full max-w-5xl px-0 sm:px-2">
               <button
-                onClick={() => selectMode('360_FEEDBACK')}
+                onClick={handleOpenFeedback360Module}
                 disabled={!canSeeFeedback360}
                 aria-disabled={!canSeeFeedback360}
                 className={`group p-6 sm:p-8 md:p-10 border-2 border-black/5 rounded-[2rem] md:rounded-[2.5rem] text-left flex flex-col items-start gap-5 md:gap-6 shadow-xl shadow-black/5 relative overflow-hidden bg-[#f9f9f9] transition-all ${
@@ -649,7 +690,11 @@ const App: React.FC = () => {
                     : 'bg-black/10 text-black'
                 }`}>
                   {!canSeeFeedback360 && <Lock className="w-4 h-4" />}
-                  {canSeeFeedback360 ? 'VYBRAŤ TENTO MÓD' : 'BEZ PRÍSTUPU'}
+                  {canSeeFeedback360
+                    ? isGlobalAdmin
+                      ? 'VYBRAŤ TENTO MÓD'
+                      : 'OTVORIŤ REPORTY'
+                    : 'BEZ PRÍSTUPU'}
                 </div>
               </button>
               <button
@@ -762,6 +807,10 @@ const App: React.FC = () => {
                   <Sparkles className="w-4 h-4 text-brand group-hover:text-white transition-colors" />
                   <span className="hidden sm:inline">Sprievodca reportom</span>
                 </button>
+              )}
+
+              {isGlobalAdmin && result.mode === '360_FEEDBACK' && result.feedback360 && (
+                <Feedback360ReportPublisher result={result} />
               )}
 
               {result.mode === '360_FEEDBACK' ? (

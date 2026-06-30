@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type {
   Feedback360CompetencyResult,
-  Feedback360FrequencyDistribution,
   Feedback360RespondentCounts,
 } from '../../types';
 import StyledSelect from '../ui/StyledSelect';
@@ -14,14 +13,21 @@ import {
   Filter,
   Image as ImageIcon,
 } from 'lucide-react';
+import Feedback360FrequencyChart, {
+  buildFeedback360FrequencyChartRows,
+  FEEDBACK360_FREQUENCY_BUCKETS,
+  FrequencyBucketKey,
+} from './Feedback360FrequencyChart';
 
 interface Props {
   competencies: Feedback360CompetencyResult[];
   respondentCounts: Feedback360RespondentCounts;
+  title: string;
 }
 
 type RespondentGroupKey = 'subordinate' | 'manager' | 'peer' | 'self';
 type SelectableRespondentGroupKey = Exclude<RespondentGroupKey, 'self'>;
+const FREQUENCY_ALL_VALUE = '__ALL__';
 
 interface RespondentGroupOption {
   value: RespondentGroupKey;
@@ -31,32 +37,20 @@ interface RespondentGroupOption {
 }
 
 const score = (value: unknown) => Number(Number(value) || 0).toFixed(2);
-
-const truncate = (value: string, max = 76) =>
-  value.length > max ? `${value.slice(0, max - 1).trim()}...` : value;
+const scoreOrDash = (value: number | null) => (value === null ? '—' : score(value));
+const positiveScoreOrNull = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+};
 
 const fileSafe = (value: string) => value.replace(/\s+/g, '_').replace(/[^\w.-]+/g, '_');
 
-const FREQUENCY_BUCKETS: Array<{
-  key: keyof Feedback360FrequencyDistribution;
-  label: string;
-  color: string;
-  textColor: string;
-}> = [
-  { key: 'na', label: 'N/A', color: '#111111', textColor: '#FFFFFF' },
-  { key: 'one', label: '1', color: '#4A081C', textColor: '#FFFFFF' },
-  { key: 'two', label: '2', color: '#7D0E30', textColor: '#FFFFFF' },
-  { key: 'three', label: '3', color: '#B81547', textColor: '#FFFFFF' },
-  { key: 'four', label: '4', color: '#CB446D', textColor: '#FFFFFF' },
-  { key: 'five', label: '5', color: '#E88AA6', textColor: '#111111' },
-  { key: 'six', label: '6', color: '#F5B9CB', textColor: '#111111' },
-  { key: 'seven', label: '7', color: '#FCE8EE', textColor: '#111111' },
-];
-
-const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts }) => {
+const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts, title }) => {
   const [activeCompetencyId, setActiveCompetencyId] = useState<string>('');
   const [activeExportMenu, setActiveExportMenu] = useState<string | null>(null);
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+  const [selectedFrequencyBucket, setSelectedFrequencyBucket] =
+    useState<FrequencyBucketKey | null>(null);
 
   useEffect(() => {
     if (!competencies.length) {
@@ -149,16 +143,6 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
     [selectableGroupOptions]
   );
   const [selectedGroups, setSelectedGroups] = useState<SelectableRespondentGroupKey[]>(availableGroupKeys);
-  const groupValueKeyMap: Record<RespondentGroupKey, keyof Pick<
-    Feedback360CompetencyResult['averages'],
-    'subordinate' | 'manager' | 'peer' | 'self'
-  >> = {
-    subordinate: 'subordinate',
-    manager: 'manager',
-    peer: 'peer',
-    self: 'self',
-  };
-
   useEffect(() => {
     setSelectedGroups((current) =>
       current.filter((value) => availableGroupKeys.includes(value))
@@ -214,55 +198,31 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
   }, [selectedGroupOptions]);
 
   const frequencyRows = useMemo(
-    () =>
-      tableRows
-        .map((row, index) => {
-          const total = FREQUENCY_BUCKETS.reduce(
-            (sum, bucket) => sum + (Number(row.frequencyDistribution?.[bucket.key]) || 0),
-            0
-          );
-
-          return {
-            id: row.id,
-            code: `${index + 1}.`,
-            statement: row.statement,
-            total,
-            buckets: FREQUENCY_BUCKETS.map((bucket) => {
-              const count = Number(row.frequencyDistribution?.[bucket.key]) || 0;
-              return {
-                ...bucket,
-                count,
-                pct: total > 0 ? (count / total) * 100 : 0,
-              };
-            }),
-          };
-        })
-        .filter((row) => row.total > 0),
+    () => buildFeedback360FrequencyChartRows(tableRows),
     [tableRows]
   );
 
   const activeSummary = useMemo(() => {
     if (!activeCompetency) return null;
-    const average = Number(activeCompetency.averages.average) || 0;
-    const self = Number(activeCompetency.averages.self) || 0;
-    const diff = Number((self - average).toFixed(2));
-    const selectedGroupAverage =
-      selectedGroupOptions.length > 0
-        ? selectedGroupOptions.reduce(
-            (sum, option) =>
-              sum + (Number(activeCompetency.averages[groupValueKeyMap[option.value]]) || 0),
-            0
-          ) / selectedGroupOptions.length
+    const hasImportedSummary = activeCompetency.averagesSource === 'imported';
+    const importedAverage = hasImportedSummary
+      ? positiveScoreOrNull(activeCompetency.averages.average)
+      : null;
+    const importedSelf = hasImportedSummary
+      ? positiveScoreOrNull(activeCompetency.averages.self)
+      : null;
+    const diff =
+      importedAverage !== null && importedSelf !== null
+        ? Number((importedSelf - importedAverage).toFixed(2))
         : null;
 
     return {
       statementsCount: activeCompetency.statements.length,
-      average,
-      self,
+      self: importedSelf,
       diff,
-      selectedGroupAverage,
+      selectedGroupAverage: importedAverage,
     };
-  }, [activeCompetency, groupValueKeyMap, selectedGroupOptions]);
+  }, [activeCompetency]);
 
   const exportBaseName = activeCompetency
     ? fileSafe(`360SV_Detail_${activeCompetency.label}`)
@@ -305,6 +265,14 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
     });
   };
 
+  const frequencyFilterOptions = [
+    { value: FREQUENCY_ALL_VALUE, label: 'Všetky hodnoty' },
+    ...FEEDBACK360_FREQUENCY_BUCKETS.map((bucket) => ({
+      value: bucket.key,
+      label: `Hodnota ${bucket.label}`,
+    })),
+  ];
+
   return (
     <div className="space-y-8 sm:space-y-10 animate-fade-in">
       {activeCompetency && (
@@ -319,7 +287,7 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
               </div>
               <div className="min-w-0">
                 <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none break-words">
-                  Výsledky za celú firmu
+                  {title}
                 </h3>
                 <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-black/30 mt-2">
                   Detail tvrdení podľa vybranej oblasti a skupiny
@@ -483,9 +451,7 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
                   Skupiny
                 </p>
                 <p className="text-3xl sm:text-4xl font-black tracking-tighter mt-1">
-                  {activeSummary.selectedGroupAverage === null
-                    ? '—'
-                    : score(activeSummary.selectedGroupAverage)}
+                  {scoreOrDash(activeSummary.selectedGroupAverage)}
                 </p>
               </div>
               <div className="rounded-2xl sm:rounded-3xl bg-black/5 border border-black/5 p-4 sm:p-5">
@@ -493,7 +459,7 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
                   Sebahodnotenie
                 </p>
                 <p className="text-3xl sm:text-4xl font-black tracking-tighter mt-1">
-                  {score(activeSummary.self)}
+                  {scoreOrDash(activeSummary.self)}
                 </p>
               </div>
               <div className="rounded-2xl sm:rounded-3xl bg-black/5 border border-black/5 p-4 sm:p-5">
@@ -504,13 +470,13 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
                   className={`text-3xl sm:text-4xl font-black tracking-tighter mt-1 ${
                     activeSummary.diff > 0
                       ? 'text-brand'
-                      : activeSummary.diff < 0
+                      : activeSummary.diff !== null && activeSummary.diff < 0
                       ? 'text-black/55'
                       : 'text-black'
                   }`}
                 >
-                  {activeSummary.diff > 0 ? '+' : ''}
-                  {score(activeSummary.diff)}
+                  {activeSummary.diff !== null && activeSummary.diff > 0 ? '+' : ''}
+                  {scoreOrDash(activeSummary.diff)}
                 </p>
               </div>
             </div>
@@ -590,63 +556,30 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts })
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 justify-start md:justify-end">
-                  {FREQUENCY_BUCKETS.map((bucket) => (
-                    <div
-                      key={`legend-${bucket.key}`}
-                      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-black/10 bg-white"
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded-sm"
-                        style={{ backgroundColor: bucket.color }}
-                      />
-                      <span className="text-[11px] sm:text-xs font-black tracking-wide text-black/75">
-                        {bucket.label}
-                      </span>
-                    </div>
-                  ))}
+                <div className="w-full md:w-[220px] print:hidden">
+                  <StyledSelect
+                    value={selectedFrequencyBucket || FREQUENCY_ALL_VALUE}
+                    onChange={(value) => {
+                      if (value === FREQUENCY_ALL_VALUE) {
+                        setSelectedFrequencyBucket(null);
+                        return;
+                      }
+                      setSelectedFrequencyBucket(value as FrequencyBucketKey);
+                    }}
+                    options={frequencyFilterOptions}
+                    buttonClassName="w-full px-3 py-2 sm:px-4 sm:py-3 bg-white rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest text-black/70 border border-black/10 hover:bg-black/5"
+                    panelClassName="bg-white border-black/10"
+                    optionClassName="text-black/70 hover:bg-black/5 hover:text-black"
+                    selectedOptionClassName="bg-brand text-white"
+                    iconClassName="text-black/40 w-4 h-4"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-5">
-                {frequencyRows.map((row) => (
-                  <div key={row.id} className="grid grid-cols-1 xl:grid-cols-[minmax(260px,430px)_1fr] gap-3 xl:gap-6 items-center">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black/25">
-                        Tvrdenie {row.code}
-                      </p>
-                      <p className="text-xs sm:text-sm font-black text-black leading-snug" title={row.statement}>
-                        {truncate(row.statement)}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="h-9 sm:h-10 w-full rounded-xl overflow-hidden bg-white border border-black/5 flex">
-                        {row.buckets.map((bucket) =>
-                          bucket.count > 0 ? (
-                            <div
-                              key={`${row.id}-${bucket.key}`}
-                              className="h-full flex items-center justify-center text-[10px] sm:text-xs font-black transition-opacity hover:opacity-85"
-                              style={{
-                                width: `${bucket.pct}%`,
-                                backgroundColor: bucket.color,
-                                color: bucket.textColor,
-                              }}
-                              title={`${bucket.label}: ${bucket.count} (${bucket.pct.toFixed(1)}%)`}
-                            >
-                              {bucket.pct >= 8 ? bucket.count : ''}
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-                      <div className="mt-1 flex justify-between text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/25">
-                        <span>0%</span>
-                        <span>{row.total} odpovedí</span>
-                        <span>100%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Feedback360FrequencyChart
+                rows={frequencyRows}
+                selectedBucket={selectedFrequencyBucket}
+              />
             </div>
           )}
         </section>

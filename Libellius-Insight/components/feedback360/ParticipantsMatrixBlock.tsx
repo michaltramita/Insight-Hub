@@ -24,7 +24,7 @@ const DETAIL_GROUP_OPTIONS: Array<{ key: DetailGroupKey; label: string }> = [
   { key: 'manager', label: 'Nadriadená/ý' },
 ];
 const score = (value: unknown) => Number(Number(value) || 0).toFixed(2);
-const scoreOrDash = (value: number | null) => (value === null ? '-' : score(value));
+const scoreOrDash = (value: number | null) => (value === null ? '—' : score(value));
 const averageNullable = (values: Array<number | null>) => {
   const finiteValues = values.filter(
     (value): value is number => typeof value === 'number' && Number.isFinite(value)
@@ -270,7 +270,9 @@ const ParticipantsMatrixBlock: React.FC<Props> = ({
             </div>
             <div className="min-w-0">
               <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
-                {isComparisonTab ? 'Porovnanie' : activeParticipant?.name || 'Výsledky jednotlivca'}
+                {isComparisonTab
+                  ? 'Porovnanie výsledkov jednotlivcov'
+                  : activeParticipant?.name || 'Výsledky jednotlivca'}
               </h3>
               <p className="text-xs sm:text-sm font-bold text-black/40 mt-3 max-w-4xl">
                 {isComparisonTab
@@ -590,7 +592,7 @@ const ParticipantsMatrixBlock: React.FC<Props> = ({
                       );
                       return (
                         <td key={column.id} className="p-4 sm:p-6 text-center">
-                          {competency ? score(competency.averages.average) : '-'}
+                          {competency ? score(competency.averages.average) : '—'}
                         </td>
                       );
                     })}

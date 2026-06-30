@@ -195,6 +195,7 @@ export const buildCompanyCompetenciesFromIndividuals = (
       return {
         id: bucket.id,
         label: bucket.label,
+        averagesSource: 'derived',
         averages: {
           subordinate: Number((bucket.sums.subordinate / divisor).toFixed(2)),
           manager: Number((bucket.sums.manager / divisor).toFixed(2)),

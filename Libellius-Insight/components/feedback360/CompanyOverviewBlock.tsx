@@ -30,6 +30,7 @@ interface Props {
   competencies: Feedback360CompetencyResult[];
   respondentCounts: Feedback360RespondentCounts;
   scaleMax: number;
+  title: string;
 }
 
 type RespondentGroupKey = 'subordinate' | 'manager' | 'peer' | 'self';
@@ -70,6 +71,7 @@ const CompanyOverviewBlock: React.FC<Props> = ({
   competencies,
   respondentCounts,
   scaleMax,
+  title,
 }) => {
   const [activeExportMenu, setActiveExportMenu] = useState<string | null>(null);
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
@@ -174,7 +176,7 @@ const CompanyOverviewBlock: React.FC<Props> = ({
     () => Array.from({ length: Math.max(Math.round(scaleMax), 1) }, (_, index) => index + 1),
     [scaleMax]
   );
-  const referenceValue = Math.ceil(scaleMax / 2);
+  const referenceValue = 5;
 
   const chartData = useMemo(
     () => {
@@ -328,10 +330,10 @@ const CompanyOverviewBlock: React.FC<Props> = ({
             <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
               <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
             </div>
-            <div>
-              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
-                Výsledky za celú firmu
-              </h3>
+              <div>
+                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
+                  {title}
+                </h3>
               <p className="mt-2 text-xs sm:text-sm font-black uppercase tracking-widest text-black/35">
                 Zvolená téma: <span className="text-brand">{activeCompetency?.label || 'Bez témy'}</span>
               </p>
@@ -552,7 +554,7 @@ const CompanyOverviewBlock: React.FC<Props> = ({
           </div>
           <div>
             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
-              Kompetenčný sumár firmy
+              Kompetenčný sumár
             </h3>
             <p className="mt-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-black/30">
               Výsledky pre {selectedGroupOptions.length} vybrané skupiny

@@ -9,6 +9,7 @@ import {
   toPlainCellValue,
 } from './gemini/shared';
 import type {
+  Feedback360CompetencyResult,
   Feedback360FrequencyDistribution,
   Feedback360RaterAverages,
   FeedbackAnalysisResult,
@@ -53,6 +54,8 @@ type ParticipantAggregation = {
   id: string;
   name: string;
   competencies: Map<string, CompetencyAggregation>;
+  overallAverage: NumericAggregation;
+  overallSelf: NumericAggregation;
 };
 
 const KEY_ALIASES = {
@@ -108,6 +111,19 @@ const KEY_ALIASES = {
   peer: ['peer', 'colleague', 'kolega', 'kolegovia', 'peeravg', 'kolegapriemer'],
   average: ['average', 'avg', 'priemer', 'overallaverage', 'mean'],
   self: ['self', 'selfscore', 'sebahodnotenie', 'selfevaluation', 'seba'],
+  participantOverallAverage: [
+    'participantoverallaverage',
+    'overallaverage',
+    'overallavg',
+    'celkovypriemer',
+    'priemerspolu',
+  ],
+  participantOverallSelf: [
+    'participantoverallself',
+    'overallself',
+    'celkovesebahodnotenie',
+    'sebahodnoteniespolu',
+  ],
   subordinateCount: [
     'subordinatecount',
     'subordinatescount',
@@ -272,8 +288,19 @@ const findValue = (row: NormalizedRow, aliases: readonly string[]) => {
   return undefined;
 };
 
+const findExactValue = (row: NormalizedRow, aliases: readonly string[]) => {
+  for (const alias of aliases) {
+    const exact = row[alias];
+    if (exact !== undefined && String(exact ?? '').trim() !== '') {
+      return exact;
+    }
+  }
+
+  return undefined;
+};
+
 const readText = (row: NormalizedRow, aliases: readonly string[], fallback = '') =>
-  String(findValue(row, aliases) ?? fallback).trim();
+  String(findExactValue(row, aliases) ?? fallback).trim();
 
 const readNumber = (row: NormalizedRow, aliases: readonly string[]): number | null => {
   const value = findValue(row, aliases);
@@ -484,6 +511,67 @@ const detectScaleMax = (
   return 6;
 };
 
+const competencyAggregationToResult = (
+  competency: CompetencyAggregation
+): Feedback360CompetencyResult => {
+  const statements = Array.from(competency.statements.values()).map((statement) => ({
+    id: statement.id,
+    statement: statement.statement,
+    competencyId: competency.id,
+    competencyLabel: competency.label,
+    averages: toRaterAverages(statement.averages),
+    frequencyDistribution: statement.frequencyDistribution,
+  }));
+
+  const hasExplicitAverages =
+    competency.averages.subordinate.count > 0 ||
+    competency.averages.manager.count > 0 ||
+    competency.averages.peer.count > 0 ||
+    competency.averages.average.count > 0 ||
+    competency.averages.self.count > 0;
+  const derivedAveragesFromStatements = statements.length
+    ? {
+        subordinate:
+          statements.reduce((sum, statement) => sum + statement.averages.subordinate, 0) /
+          statements.length,
+        manager:
+          statements.reduce((sum, statement) => sum + statement.averages.manager, 0) /
+          statements.length,
+        peer:
+          statements.reduce((sum, statement) => sum + statement.averages.peer, 0) /
+          statements.length,
+        average:
+          statements.reduce((sum, statement) => sum + statement.averages.average, 0) /
+          statements.length,
+        self:
+          statements.reduce((sum, statement) => sum + statement.averages.self, 0) /
+          statements.length,
+      }
+    : {
+        subordinate: 0,
+        manager: 0,
+        peer: 0,
+        average: 0,
+        self: 0,
+      };
+
+  return {
+    id: competency.id,
+    label: competency.label,
+    averagesSource: hasExplicitAverages ? 'imported' : 'derived',
+    averages: hasExplicitAverages
+      ? toRaterAverages(competency.averages)
+      : {
+          subordinate: Number(derivedAveragesFromStatements.subordinate.toFixed(2)),
+          manager: Number(derivedAveragesFromStatements.manager.toFixed(2)),
+          peer: Number(derivedAveragesFromStatements.peer.toFixed(2)),
+          average: Number(derivedAveragesFromStatements.average.toFixed(2)),
+          self: Number(derivedAveragesFromStatements.self.toFixed(2)),
+        },
+    statements,
+  };
+};
+
 const buildPayloadFromRows = (
   rows: SpreadsheetRow[],
   sourceFileName: string
@@ -524,6 +612,13 @@ const buildPayloadFromRows = (
   let participantSelfCount = 0;
 
   const participantMap = new Map<string, ParticipantAggregation>();
+  const companyAggregation: ParticipantAggregation = {
+    id: 'company_report',
+    name: '',
+    competencies: new Map(),
+    overallAverage: createNumericAggregation(),
+    overallSelf: createNumericAggregation(),
+  };
 
   for (const row of normalizedRows) {
     subordinateCount = Math.max(
@@ -565,20 +660,25 @@ const buildPayloadFromRows = (
       Number(readNumber(row, KEY_ALIASES.participantSelfCount) || 0)
     );
 
-    const participantName = readText(row, KEY_ALIASES.participant);
     const competencyLabel = readText(row, KEY_ALIASES.competency);
-    if (!participantName || !competencyLabel) continue;
+    if (!competencyLabel) continue;
 
+    const participantName = readText(row, KEY_ALIASES.participant);
     const participantId = toIdToken(participantName);
-    if (!participantMap.has(participantId)) {
+    const isCompanyRow =
+      !participantName || participantId === 'celaorganizacia' || participantId === 'company';
+
+    if (!isCompanyRow && !participantMap.has(participantId)) {
       participantMap.set(participantId, {
         id: participantId,
         name: participantName,
         competencies: new Map(),
+        overallAverage: createNumericAggregation(),
+        overallSelf: createNumericAggregation(),
       });
     }
 
-    const participant = participantMap.get(participantId)!;
+    const participant = isCompanyRow ? companyAggregation : participantMap.get(participantId)!;
     const competency = ensureCompetencyAggregation(participant, competencyLabel);
 
     const subordinate = readNumber(row, KEY_ALIASES.subordinate);
@@ -586,6 +686,11 @@ const buildPayloadFromRows = (
     const peer = readNumber(row, KEY_ALIASES.peer);
     const average = readNumber(row, KEY_ALIASES.average);
     const self = readNumber(row, KEY_ALIASES.self);
+
+    if (!isCompanyRow) {
+      addValue(participant.overallAverage, readNumber(row, KEY_ALIASES.participantOverallAverage));
+      addValue(participant.overallSelf, readNumber(row, KEY_ALIASES.participantOverallSelf));
+    }
 
     const statementText = readText(row, KEY_ALIASES.statement);
     const distribution = readFrequencyDistribution(row);
@@ -621,62 +726,11 @@ const buildPayloadFromRows = (
     addValue(competency.averages.self, self);
   }
 
-  const individuals = Array.from(participantMap.values())
+  const participantReports = Array.from(participantMap.values())
     .map((participant) => {
-      const competencies = Array.from(participant.competencies.values()).map((competency) => {
-        const statements = Array.from(competency.statements.values()).map((statement) => ({
-          id: statement.id,
-          statement: statement.statement,
-          competencyId: competency.id,
-          competencyLabel: competency.label,
-          averages: toRaterAverages(statement.averages),
-          frequencyDistribution: statement.frequencyDistribution,
-        }));
-
-        const hasExplicitAverages =
-          competency.averages.average.count > 0 || competency.averages.self.count > 0;
-        const derivedAveragesFromStatements = statements.length
-          ? {
-              subordinate: statements.reduce(
-                (sum, statement) => sum + statement.averages.subordinate,
-                0
-              ) / statements.length,
-              manager:
-                statements.reduce((sum, statement) => sum + statement.averages.manager, 0) /
-                statements.length,
-              peer:
-                statements.reduce((sum, statement) => sum + statement.averages.peer, 0) /
-                statements.length,
-              average:
-                statements.reduce((sum, statement) => sum + statement.averages.average, 0) /
-                statements.length,
-              self:
-                statements.reduce((sum, statement) => sum + statement.averages.self, 0) /
-                statements.length,
-            }
-          : {
-              subordinate: 0,
-              manager: 0,
-              peer: 0,
-              average: 0,
-              self: 0,
-            };
-
-        return {
-          id: competency.id,
-          label: competency.label,
-          averages: hasExplicitAverages
-            ? toRaterAverages(competency.averages)
-            : {
-                subordinate: Number(derivedAveragesFromStatements.subordinate.toFixed(2)),
-                manager: Number(derivedAveragesFromStatements.manager.toFixed(2)),
-                peer: Number(derivedAveragesFromStatements.peer.toFixed(2)),
-                average: Number(derivedAveragesFromStatements.average.toFixed(2)),
-                self: Number(derivedAveragesFromStatements.self.toFixed(2)),
-              },
-          statements,
-        };
-      });
+      const competencies = Array.from(participant.competencies.values()).map(
+        competencyAggregationToResult
+      );
 
       const gaps = competencies.flatMap((competency) =>
         competency.statements
@@ -695,18 +749,47 @@ const buildPayloadFromRows = (
       );
 
       return {
-        id: participant.id,
-        name: participant.name,
-        competencies,
-        gaps,
-        implementationPlan: {
-          participantName: participant.name,
-          date: '',
-          priorities: [],
+        individual: {
+          id: participant.id,
+          name: participant.name,
+          competencies,
+          gaps,
+          implementationPlan: {
+            participantName: participant.name,
+            date: '',
+            priorities: [],
+          },
         },
+        overallAverage: readAverage(participant.overallAverage),
+        overallSelf: readAverage(participant.overallSelf),
+        hasOverallAverage: participant.overallAverage.count > 0,
+        hasOverallSelf: participant.overallSelf.count > 0,
       };
     })
-    .filter((individual) => individual.competencies.length > 0);
+    .filter((report) => report.individual.competencies.length > 0);
+
+  const individuals = participantReports.map((report) => report.individual);
+  const participantSummaries = participantReports
+    .filter((report) => report.hasOverallAverage || report.hasOverallSelf)
+    .map((report) => {
+      const summary: Record<string, unknown> = {
+        id: report.individual.id,
+        name: report.individual.name,
+        competencies: report.individual.competencies,
+      };
+
+      if (report.hasOverallAverage) {
+        summary.overallAverage = report.overallAverage;
+      }
+      if (report.hasOverallSelf) {
+        summary.overallSelf = report.overallSelf;
+      }
+
+      return summary;
+    });
+  const companyCompetencies = Array.from(companyAggregation.competencies.values()).map(
+    competencyAggregationToResult
+  );
 
   if (individuals.length === 0) {
     throw new Error(
@@ -740,6 +823,8 @@ const buildPayloadFromRows = (
         peer: participantPeerCount,
         self: participantSelfCount,
       },
+      competencies: companyCompetencies,
+      participants: participantSummaries,
     },
     individuals,
   };
