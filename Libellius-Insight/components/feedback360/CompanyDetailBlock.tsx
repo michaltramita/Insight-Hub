@@ -539,11 +539,17 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts, t
             </table>
           </div>
 
-          {frequencyRows.length > 0 && (
-            <div className="mt-8 sm:mt-10 bg-black/[0.02] rounded-[1.25rem] sm:rounded-[1.75rem] border border-black/5 p-4 sm:p-6 lg:p-8">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
+	        </section>
+	      )}
+
+	      {activeCompetency && frequencyRows.length > 0 && (
+	        <section
+	          id="block-360-company-frequency"
+	          className="bg-white p-6 sm:p-8 lg:p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl"
+	        >
+	              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+	                <div className="flex items-start gap-4 min-w-0">
+	                  <div className="bg-brand/5 p-3 rounded-2xl flex-shrink-0">
                     <Filter className="w-5 h-5 sm:w-6 sm:h-6 text-brand" />
                   </div>
                   <div>
@@ -577,13 +583,11 @@ const CompanyDetailBlock: React.FC<Props> = ({ competencies, respondentCounts, t
               </div>
 
               <Feedback360FrequencyChart
-                rows={frequencyRows}
-                selectedBucket={selectedFrequencyBucket}
-              />
-            </div>
-          )}
-        </section>
-      )}
+	                rows={frequencyRows}
+	                selectedBucket={selectedFrequencyBucket}
+	              />
+	        </section>
+	      )}
 
       {competencies.length === 0 && (
         <div className="bg-white p-10 rounded-[1.5rem] sm:rounded-[2rem] lg:rounded-[2.5rem] border border-black/5 shadow-2xl text-center">

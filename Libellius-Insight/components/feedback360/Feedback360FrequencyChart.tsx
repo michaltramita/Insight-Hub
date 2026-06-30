@@ -85,25 +85,22 @@ const Feedback360FrequencyChart: React.FC<Props> = ({
 
   return (
     <>
-      <div className="space-y-5">
+      <div className="space-y-7">
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-1 xl:grid-cols-[minmax(260px,430px)_1fr] gap-3 xl:gap-6 items-center"
+            className="grid grid-cols-1 xl:grid-cols-[minmax(260px,430px)_1fr] gap-4 xl:gap-8 items-center"
           >
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-black/25">
-                Tvrdenie {row.code}
-              </p>
               <p
-                className="text-xs sm:text-sm font-black text-black leading-snug"
+                className="text-sm sm:text-base font-black text-black leading-snug"
                 title={row.statement}
               >
                 {truncate(row.statement)}
               </p>
             </div>
             <div>
-              <div className="h-9 sm:h-10 w-full rounded-xl overflow-hidden bg-white border border-black/5 flex">
+              <div className="h-10 sm:h-12 w-full rounded-2xl overflow-hidden bg-white border border-black/5 flex shadow-sm shadow-black/5">
                 {row.buckets.map((bucket) =>
                   bucket.count > 0 ? (
                     <div
@@ -127,17 +124,12 @@ const Feedback360FrequencyChart: React.FC<Props> = ({
                   ) : null
                 )}
               </div>
-              <div className="mt-1 flex justify-between text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-black/25">
-                <span>0%</span>
-                <span>{row.total} odpovedí</span>
-                <span>100%</span>
-              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 sm:mt-4 flex flex-wrap gap-2 sm:gap-3 justify-end">
+      <div className="mt-8 sm:mt-10 flex flex-wrap gap-2 sm:gap-3 justify-end">
         {FEEDBACK360_FREQUENCY_BUCKETS.map((bucket) => (
           <div
             key={`legend-${bucket.key}`}
