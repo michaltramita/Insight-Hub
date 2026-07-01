@@ -48,6 +48,10 @@ import {
   updateAdminTypologyResultRelease,
   updateAdminUserAccess,
 } from "../../services/adminAccess";
+import {
+  loadFeedback360Reports,
+  type Feedback360ReportListItem,
+} from "../../services/feedback360Reports";
 import StyledSelect from "../ui/StyledSelect";
 
 type AdminUsersViewProps = {
@@ -78,6 +82,34 @@ type CreateOrganizationForm = {
 };
 
 type TypologyAnalysisStatus = "completed" | "in_progress" | "not_started";
+type ProjectModuleProfile =
+  | "typology"
+  | "feedback360"
+  | "satisfaction"
+  | "mixed"
+  | "generic";
+
+type ProjectMetricCard = {
+  key: string;
+  label: string;
+  value: string | number;
+  description: string;
+  tone: "brand" | "dark" | "muted";
+};
+
+type Feedback360ProjectStats = {
+  total: number;
+  published: number;
+  drafts: number;
+  latestPublishedAt: string | null;
+};
+
+type ProjectParticipantMeta = {
+  label: string;
+  detail: string;
+  badgeClass: string;
+  dotClass: string;
+};
 
 const ROLE_OPTIONS: Array<{ value: AppUserRole; label: string }> = [
   { value: "participant", label: "Používateľ" },
@@ -186,6 +218,263 @@ const getTypologyAnalysisMeta = (
   };
 };
 
+const getProjectModuleProfile = (
+  moduleCodes: AppModuleCode[]
+): ProjectModuleProfile => {
+  const hasTypology = moduleCodes.includes("TYPOLOGY_LEADERSHIP");
+  const hasFeedback360 = moduleCodes.includes("360_FEEDBACK");
+  const hasSatisfaction = moduleCodes.includes("ZAMESTNANECKA_SPOKOJNOST");
+  const activeModuleCount = [hasTypology, hasFeedback360, hasSatisfaction].filter(
+    Boolean
+  ).length;
+
+  if (activeModuleCount > 1) return "mixed";
+  if (hasFeedback360) return "feedback360";
+  if (hasSatisfaction) return "satisfaction";
+  if (hasTypology) return "typology";
+  return "generic";
+};
+
+const getFeedback360ProjectStats = (
+  reports: Feedback360ReportListItem[]
+): Feedback360ProjectStats => {
+  const activeReports = reports.filter((report) => report.status !== "archived");
+  const publishedReports = activeReports.filter(
+    (report) => report.status === "published"
+  );
+  const latestPublishedAt =
+    publishedReports
+      .map((report) => report.publishedAt || report.reportDate || report.createdAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || null;
+
+  return {
+    total: activeReports.length,
+    published: publishedReports.length,
+    drafts: activeReports.filter((report) => report.status === "draft").length,
+    latestPublishedAt,
+  };
+};
+
+const getProjectMetricCards = ({
+  profile,
+  participantCount,
+  analysisCounts,
+  feedback360Stats,
+  feedback360ReportsError,
+  resultAccessDate,
+  moduleCount,
+}: {
+  profile: ProjectModuleProfile;
+  participantCount: number;
+  analysisCounts: Record<TypologyAnalysisStatus, number>;
+  feedback360Stats: Feedback360ProjectStats;
+  feedback360ReportsError: string | null;
+  resultAccessDate: string | null;
+  moduleCount: number;
+}): ProjectMetricCard[] => {
+  if (profile === "typology") {
+    return [
+      {
+        key: "completed",
+        label: "Ukončené",
+        value: analysisCounts.completed,
+        description: `z ${participantCount} účastníkov`,
+        tone: "brand",
+      },
+      {
+        key: "in-progress",
+        label: "V priebehu",
+        value: analysisCounts.in_progress,
+        description: "rozpracované analýzy",
+        tone: "muted",
+      },
+      {
+        key: "not-started",
+        label: "Nezačali",
+        value: analysisCounts.not_started,
+        description: "čakajú na vyplnenie",
+        tone: "dark",
+      },
+    ];
+  }
+
+  if (profile === "feedback360") {
+    const hasPublishedReport = feedback360Stats.published > 0;
+
+    return [
+      {
+        key: "reports",
+        label: "360 reporty",
+        value: feedback360ReportsError ? "-" : feedback360Stats.total,
+        description: feedback360ReportsError
+          ? "reportová databáza nie je dostupná"
+          : feedback360Stats.total > 0
+            ? feedback360Stats.drafts > 0
+              ? `${feedback360Stats.drafts} čaká na publikovanie`
+              : "všetky reporty sú publikované"
+            : "zatiaľ bez uloženého reportu",
+        tone: "dark",
+      },
+      {
+        key: "published",
+        label: "Publikované",
+        value: feedback360ReportsError ? "-" : feedback360Stats.published,
+        description:
+          !feedback360ReportsError && feedback360Stats.latestPublishedAt
+            ? `naposledy ${formatShortDate(feedback360Stats.latestPublishedAt)}`
+            : "čaká na publikovanie reportu",
+        tone: "brand",
+      },
+      {
+        key: "access",
+        label: "Prístup k reportu",
+        value: feedback360ReportsError ? "-" : hasPublishedReport ? participantCount : 0,
+        description: feedback360ReportsError
+          ? "stav prístupu sa nepodarilo načítať"
+          : hasPublishedReport
+            ? "účastníci s projektovým prístupom"
+            : "vznikne po publikovaní reportu",
+        tone: "muted",
+      },
+    ];
+  }
+
+  return [
+    {
+      key: "participants",
+      label: "Účastníci projektu",
+      value: participantCount,
+      description: "priradení používatelia",
+      tone: "dark",
+    },
+    {
+      key: "release",
+      label: "Sprístupnenie výstupu",
+      value: resultAccessDate ? formatShortDate(resultAccessDate) : "Bez dátumu",
+      description: "nastavenie zobrazenia výsledkov",
+      tone: "brand",
+    },
+    {
+      key: "modules",
+      label: "Moduly projektu",
+      value: moduleCount,
+      description:
+        profile === "mixed"
+          ? "projekt kombinuje viac modulov"
+          : "reportový alebo všeobecný projekt",
+      tone: "muted",
+    },
+  ];
+};
+
+const getMetricCardClasses = (tone: ProjectMetricCard["tone"]) => {
+  if (tone === "brand") {
+    return {
+      wrapper: "border-brand bg-brand text-white",
+      dot: "bg-white",
+      label: "text-white/80",
+      value: "text-white",
+      description: "text-white/65",
+    };
+  }
+
+  if (tone === "dark") {
+    return {
+      wrapper: "border-black bg-black text-white",
+      dot: "bg-white/65",
+      label: "text-white/75",
+      value: "text-white",
+      description: "text-white/55",
+    };
+  }
+
+  return {
+    wrapper: "border-black/10 bg-black/[0.04] text-black",
+    dot: "bg-black/55",
+    label: "text-black/65",
+    value: "text-black/70",
+    description: "text-black/45",
+  };
+};
+
+const getProjectParticipantMeta = ({
+  profile,
+  participant,
+  feedback360Stats,
+  feedback360ReportsError,
+}: {
+  profile: ProjectModuleProfile;
+  participant: AdminManagedUser;
+  feedback360Stats: Feedback360ProjectStats;
+  feedback360ReportsError: string | null;
+}): ProjectParticipantMeta => {
+  if (profile === "typology") {
+    return getTypologyAnalysisMeta(
+      getTypologyAnalysisStatus(participant),
+      participant.typologyCompletedAt
+    );
+  }
+
+  if (profile === "feedback360") {
+    if (feedback360ReportsError) {
+      return {
+        label: "Reporty nedostupné",
+        detail:
+          "Stav 360 reportu sa nepodarilo načítať, používateľ je však priradený k projektu.",
+        badgeClass: "border-black/10 bg-black/[0.03] text-black/50",
+        dotClass: "bg-black/25",
+      };
+    }
+
+    if (feedback360Stats.published > 0) {
+      return {
+        label: "Má prístup k reportu",
+        detail: "Používateľ uvidí publikovaný 360 report priradený k projektu.",
+        badgeClass: "border-brand/20 bg-brand/5 text-brand",
+        dotClass: "bg-brand",
+      };
+    }
+
+    if (feedback360Stats.total > 0) {
+      return {
+        label: "Čaká na publikovanie",
+        detail:
+          "360 report je uložený, ale používateľ ho uvidí až po publikovaní.",
+        badgeClass: "border-black/15 bg-black/[0.04] text-black/65",
+        dotClass: "bg-black/55",
+      };
+    }
+
+    return {
+      label: "Čaká na 360 report",
+      detail:
+        "Používateľ je pripravený v projekte, prístup vznikne po nahratí a publikovaní reportu.",
+      badgeClass: "border-black/10 bg-black/[0.03] text-black/50",
+      dotClass: "bg-black/25",
+    };
+  }
+
+  if (profile === "satisfaction") {
+    return {
+      label: "Priradený k výstupu",
+      detail:
+        "Používateľ patrí do reportového projektu; stav vypĺňania sa v aplikácii nesleduje.",
+      badgeClass: "border-brand/20 bg-brand/5 text-brand",
+      dotClass: "bg-brand",
+    };
+  }
+
+  return {
+    label: "Priradený k projektu",
+    detail:
+      "Používateľ je súčasťou projektu; konkrétny stav sa riadi vybranými modulmi.",
+    badgeClass: "border-black/15 bg-black/[0.04] text-black/65",
+    dotClass: "bg-black/55",
+  };
+};
+
 const toDateTimeLocalValue = (value: string | null) => {
   if (!value) return "";
 
@@ -282,6 +571,12 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [passwordResets, setPasswordResets] = useState<Record<string, string>>({});
   const [releaseDrafts, setReleaseDrafts] = useState<Record<string, string>>({});
+  const [feedback360Reports, setFeedback360Reports] = useState<
+    Feedback360ReportListItem[]
+  >([]);
+  const [feedback360ReportsError, setFeedback360ReportsError] = useState<
+    string | null
+  >(null);
   const [unassignedProjectDrafts, setUnassignedProjectDrafts] = useState<
     Record<string, string>
   >({});
@@ -327,8 +622,26 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       .finally(() => setIsLoading(false));
   };
 
+  const loadFeedback360ReportOverview = () => {
+    setFeedback360ReportsError(null);
+
+    void loadFeedback360Reports()
+      .then((reports) => {
+        setFeedback360Reports(reports);
+      })
+      .catch((loadError: unknown) => {
+        setFeedback360Reports([]);
+        setFeedback360ReportsError(
+          loadError instanceof Error
+            ? loadError.message
+            : "360 reporty sa nepodarilo načítať."
+        );
+      });
+  };
+
   useEffect(() => {
     loadOverview();
+    loadFeedback360ReportOverview();
   }, []);
 
   useEffect(() => {
@@ -354,6 +667,19 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     () => new Map(overview.users.map((user) => [user.id, user])),
     [overview.users]
   );
+
+  const feedback360ReportsByProjectId = useMemo(() => {
+    const reportsByProjectId = new Map<string, Feedback360ReportListItem[]>();
+
+    for (const report of feedback360Reports) {
+      if (!report.projectId) continue;
+      const currentReports = reportsByProjectId.get(report.projectId) || [];
+      currentReports.push(report);
+      reportsByProjectId.set(report.projectId, currentReports);
+    }
+
+    return reportsByProjectId;
+  }, [feedback360Reports]);
 
   const assignedUserIds = useMemo(
     () =>
@@ -419,19 +745,24 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     if (!query) return overview.projects;
 
     return overview.projects.filter((project) => {
+      const projectProfile = getProjectModuleProfile(project.moduleCodes);
       const participantText = project.participantIds
         .map((participantId) => {
           const participant = usersById.get(participantId);
           if (!participant) return "";
 
-          const typologyMeta = getTypologyAnalysisMeta(
-            getTypologyAnalysisStatus(participant),
-            participant.typologyCompletedAt
-          );
+          if (projectProfile === "typology") {
+            const typologyMeta = getTypologyAnalysisMeta(
+              getTypologyAnalysisStatus(participant),
+              participant.typologyCompletedAt
+            );
 
-          return `${participant.fullName || ""} ${participant.email} ${
-            typologyMeta.label
-          } ${typologyMeta.shortLabel}`;
+            return `${participant.fullName || ""} ${participant.email} ${
+              typologyMeta.label
+            } ${typologyMeta.shortLabel}`;
+          }
+
+          return `${participant.fullName || ""} ${participant.email} report prístup projekt`;
         })
         .join(" ");
 
@@ -1195,6 +1526,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                     (participant): participant is AdminManagedUser =>
                       Boolean(participant)
                   );
+                const projectProfile = getProjectModuleProfile(project.moduleCodes);
                 const analysisCounts = participantUsers.reduce(
                   (counts, participant) => {
                     const status = getTypologyAnalysisStatus(participant);
@@ -1209,6 +1541,36 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                     not_started: 0,
                   } satisfies Record<TypologyAnalysisStatus, number>
                 );
+                const feedback360Stats = getFeedback360ProjectStats(
+                  feedback360ReportsByProjectId.get(project.id) || []
+                );
+                const projectMetricCards = getProjectMetricCards({
+                  profile: projectProfile,
+                  participantCount: participantUsers.length,
+                  analysisCounts,
+                  feedback360Stats,
+                  feedback360ReportsError,
+                  resultAccessDate: project.resultAccessDate,
+                  moduleCount: project.moduleCodes.length,
+                });
+                const projectAccessLabel =
+                  projectProfile === "feedback360"
+                    ? "Sprístupnenie reportu"
+                    : projectProfile === "typology"
+                      ? "Zobrazenie výsledkov"
+                      : "Sprístupnenie výstupu";
+                const projectAccessValue =
+                  projectProfile === "feedback360"
+                    ? feedback360ReportsError
+                      ? "Nedostupné"
+                      : feedback360Stats.latestPublishedAt
+                        ? formatShortDate(feedback360Stats.latestPublishedAt)
+                        : project.resultAccessDate
+                          ? formatShortDate(project.resultAccessDate)
+                          : "Čaká na report"
+                    : project.resultAccessDate
+                      ? formatShortDate(project.resultAccessDate)
+                      : "Bez dátumu";
 
                 return (
                   <article
@@ -1375,12 +1737,10 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                         </div>
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
                           <p className="text-[10px] uppercase tracking-widest font-black text-black/30">
-                            Zobrazenie výsledkov
+                            {projectAccessLabel}
                           </p>
                           <p className="mt-1 text-sm font-black text-black">
-                            {project.resultAccessDate
-                              ? formatShortDate(project.resultAccessDate)
-                              : "Bez dátumu"}
+                            {projectAccessValue}
                           </p>
                         </div>
                         <div className="rounded-2xl border border-black/5 bg-[#f9f9f9] px-4 py-3">
@@ -1409,48 +1769,33 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       </div>
 
                       <div className="mt-3 grid gap-3 md:grid-cols-3">
-                        <div className="rounded-2xl border border-brand bg-brand px-4 py-4 text-white">
-                          <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full bg-white" />
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white/80">
-                              Ukončené
-                            </p>
-                          </div>
-                          <p className="mt-3 text-3xl font-black text-white">
-                            {analysisCounts.completed}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-white/65">
-                            z {participantUsers.length} účastníkov
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-black/10 bg-black/[0.04] px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full bg-black/55" />
-                            <p className="text-[10px] font-black uppercase tracking-widest text-black/65">
-                              V priebehu
-                            </p>
-                          </div>
-                          <p className="mt-3 text-3xl font-black text-black/70">
-                            {analysisCounts.in_progress}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-black/45">
-                            rozpracované analýzy
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-black bg-black px-4 py-4 text-white">
-                          <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full bg-white/65" />
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white/75">
-                              Nezačali
-                            </p>
-                          </div>
-                          <p className="mt-3 text-3xl font-black text-white">
-                            {analysisCounts.not_started}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-white/55">
-                            čakajú na vyplnenie
-                          </p>
-                        </div>
+                        {projectMetricCards.map((card) => {
+                          const classes = getMetricCardClasses(card.tone);
+
+                          return (
+                            <div
+                              key={card.key}
+                              className={`rounded-2xl border px-4 py-4 ${classes.wrapper}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${classes.dot}`}
+                                />
+                                <p
+                                  className={`text-[10px] font-black uppercase tracking-widest ${classes.label}`}
+                                >
+                                  {card.label}
+                                </p>
+                              </div>
+                              <p className={`mt-3 text-3xl font-black ${classes.value}`}>
+                                {card.value}
+                              </p>
+                              <p className={`mt-1 text-xs font-bold ${classes.description}`}>
+                                {card.description}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1475,12 +1820,12 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                             {participantUsers.length > 0 ? (
                               <div className="divide-y divide-black/5">
                                 {participantUsers.map((participant) => {
-                                  const analysisStatus =
-                                    getTypologyAnalysisStatus(participant);
-                                  const analysisMeta = getTypologyAnalysisMeta(
-                                    analysisStatus,
-                                    participant.typologyCompletedAt
-                                  );
+                                  const participantMeta = getProjectParticipantMeta({
+                                    profile: projectProfile,
+                                    participant,
+                                    feedback360Stats,
+                                    feedback360ReportsError,
+                                  });
 
                                   return (
                                     <div
@@ -1495,17 +1840,17 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                                           {participant.email}
                                         </p>
                                         <p className="mt-2 text-xs font-bold text-black/45">
-                                          {analysisMeta.detail}
+                                          {participantMeta.detail}
                                         </p>
                                       </div>
                                       <div className="lg:justify-self-start">
                                         <span
-                                          className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest sm:w-auto lg:w-[240px] ${analysisMeta.badgeClass}`}
+                                          className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest sm:w-auto lg:w-[240px] ${participantMeta.badgeClass}`}
                                         >
                                           <span
-                                            className={`h-2 w-2 rounded-full ${analysisMeta.dotClass}`}
+                                            className={`h-2 w-2 rounded-full ${participantMeta.dotClass}`}
                                           />
-                                          {analysisMeta.label}
+                                          {participantMeta.label}
                                         </span>
                                       </div>
                                       <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
